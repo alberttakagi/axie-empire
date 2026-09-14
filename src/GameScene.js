@@ -21,7 +21,20 @@ import { trySpendEnergy } from './Energy.js';
 import { getComboBonusValue } from './Combo.js';
 import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
-import { playDeploySfx, playCannonSfx, playBossShockwaveSfx, playVictorySfx, playDefeatSfx, startMusic, stopMusic } from './Audio.js';
+import {
+  playDeploySfx,
+  playCannonSfx,
+  playBossShockwaveSfx,
+  playVictorySfx,
+  playDefeatSfx,
+  startMusic,
+  stopMusic,
+  VOLUME_LEVEL_LABELS,
+  getSfxVolumeLevel,
+  cycleSfxVolumeLevel,
+  getBgmVolumeLevel,
+  cycleBgmVolumeLevel,
+} from './Audio.js';
 import { addUserRank } from './UserRank.js';
 import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
 import { getBattleItemCount, tryUseBattleItem, rollBattleItemDrop } from './BattleItems.js';
@@ -302,13 +315,12 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(1, 0.5);
 
-    // Top-left: a Quit button (this build's stand-in for the reference
-    // game's own pause icon in this exact corner — see the bible
-    // cross-check notes) so a battle can be abandoned mid-fight instead of
-    // only ever reachable from the post-battle Menu button, then the stage
-    // name alongside it (shifted right to make room).
-    this.createQuitButton();
-    this.add.text(92, 16, this.stage.displayName, {
+    // Top-left: a pause icon (screenshot-confirmed reference position/
+    // behavior — tapping it pauses the fight and opens an Options popup
+    // with SFX/BGM volume and a Retreat action), then the stage name
+    // alongside it.
+    this.createPauseButton();
+    this.add.text(46, 16, this.stage.displayName, {
       fontSize: '18px',
       color: '#ffdd33',
     });
@@ -494,16 +506,92 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  // Quit mid-battle (not just from the post-battle Menu button) — a plain
-  // scene.start away, same as the existing Menu button, is one accidental
-  // tap away from throwing away a live run (Energy already spent, non-
-  // refundable per STAGE_CONFIG.js; no stage-clear rewards, since
-  // winStage() never runs), so this is gated behind a Yes/No confirm
-  // overlay rather than firing immediately.
-  createQuitButton() {
-    const rect = this.add.rectangle(48, 16, 64, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(48, 16, 'Quit', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.showQuitConfirm());
+  // Pause/Options (reference-screenshot-confirmed: a small pause icon,
+  // top-left, opens an Options popup with SFX/BGM volume controls and a
+  // Retreat action) — replaces this build's earlier standalone "Quit"
+  // button with the real layout: Retreat now lives inside this popup
+  // instead of its own top-level button.
+  createPauseButton() {
+    const rect = this.add.circle(24, 16, 14, 0x444444).setInteractive({ useHandCursor: true });
+    this.add.text(24, 16, '⏸', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerdown', () => this.showSettingsPopup());
+  }
+
+  // Reference screenshot: a small modal card (title + close X, a Help
+  // button and BGM-note/SFX-speaker/vibration icons, a "出陣スロット" deploy-
+  // slot-layout toggle, and a big "戦闘離脱" Retreat button beneath). This
+  // build covers what's actually implementable here — SFX/BGM volume and
+  // Retreat — and skips Help (no help content exists yet), the deploy-slot
+  // toggle (already handled automatically by createSpawnButtons' own
+  // row-wrapping), and vibration (no haptics on web).
+  showSettingsPopup() {
+    if (this.settingsPopupObjects) return; // already showing
+    this.isPaused = true;
+
+    const { width, height } = this.scale;
+    const objects = [];
+    const panelY = height / 2 - 30;
+
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+    objects.push(this.add.rectangle(width / 2, panelY, 340, 200, 0x333333).setStrokeStyle(2, 0xffdd33));
+    objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontSize: '20px', color: '#ffffff' }).setOrigin(0.5));
+
+    const closeButton = this.add
+      .rectangle(width / 2 + 155, panelY - 85, 28, 28, 0xcc3333)
+      .setInteractive({ useHandCursor: true });
+    objects.push(
+      closeButton,
+      this.add.text(width / 2 + 155, panelY - 85, 'X', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
+    );
+    closeButton.on('pointerdown', () => this.hideSettingsPopup());
+
+    const sfxLabel = this.add
+      .text(width / 2 - 130, panelY - 35, 'SFX Volume', { fontSize: '14px', color: '#ffffff' })
+      .setOrigin(0, 0.5);
+    const sfxButton = this.add
+      .rectangle(width / 2 + 100, panelY - 35, 100, 32, 0x3388cc)
+      .setInteractive({ useHandCursor: true });
+    const sfxText = this.add
+      .text(width / 2 + 100, panelY - 35, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()], { fontSize: '13px', color: '#ffffff' })
+      .setOrigin(0.5);
+    sfxButton.on('pointerdown', () => sfxText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]));
+    objects.push(sfxLabel, sfxButton, sfxText);
+
+    const bgmLabel = this.add
+      .text(width / 2 - 130, panelY + 5, 'BGM Volume', { fontSize: '14px', color: '#ffffff' })
+      .setOrigin(0, 0.5);
+    const bgmButton = this.add
+      .rectangle(width / 2 + 100, panelY + 5, 100, 32, 0x33aa66)
+      .setInteractive({ useHandCursor: true });
+    const bgmText = this.add
+      .text(width / 2 + 100, panelY + 5, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()], { fontSize: '13px', color: '#ffffff' })
+      .setOrigin(0.5);
+    bgmButton.on('pointerdown', () => bgmText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]));
+    objects.push(bgmLabel, bgmButton, bgmText);
+
+    const retreatButton = this.add
+      .rectangle(width / 2, panelY + 65, 220, 40, 0xcc3333)
+      .setInteractive({ useHandCursor: true });
+    objects.push(
+      retreatButton,
+      this.add.text(width / 2, panelY + 65, 'Retreat', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5),
+    );
+    // Hands off to the existing Yes/No confirm rather than retreating
+    // immediately — same "don't throw away a live run on one accidental
+    // tap" reasoning as before, just reached from inside Options now.
+    retreatButton.on('pointerdown', () => {
+      this.hideSettingsPopup({ keepPaused: true });
+      this.showQuitConfirm();
+    });
+
+    this.settingsPopupObjects = objects;
+  }
+
+  hideSettingsPopup(opts = {}) {
+    if (!this.settingsPopupObjects) return;
+    this.settingsPopupObjects.forEach((obj) => obj.destroy());
+    this.settingsPopupObjects = null;
+    if (!opts.keepPaused) this.isPaused = false;
   }
 
   // Battle Items (bible §A.8) — a compact top-center row, one button per
