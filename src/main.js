@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import HomeScene from './HomeScene.js';
+import SagaSelectScene from './SagaSelectScene.js';
 import StageSelectScene from './StageSelectScene.js';
 import GameScene from './GameScene.js';
 import UpgradeScene from './UpgradeScene.js';
@@ -21,6 +22,7 @@ new Phaser.Game({
   // HomeScene is first in this list, so it's the scene Phaser boots into.
   scene: [
     HomeScene,
+    SagaSelectScene,
     StageSelectScene,
     GameScene,
     UpgradeScene,

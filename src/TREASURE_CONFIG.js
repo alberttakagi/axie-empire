@@ -33,6 +33,34 @@ export const TREASURE_SETS = [
     stageIds: ['stage6', 'stage7', 'stage8', 'stage9', 'stage10'],
     bonus: { type: 'unitHpPercent', valueAtMax: 20 },
   },
+  // Saga expansion (bible §A.6.1) — same 2-sets-of-5 pattern repeated for
+  // each new saga, with valueAtMax creeping up alongside the saga's own
+  // rising difficulty (later Treasure is worth more, same as later Base
+  // Upgrades cost more).
+  {
+    id: 'set3',
+    name: "Vanguard's Line",
+    stageIds: ['stage11', 'stage12', 'stage13', 'stage14', 'stage15'],
+    bonus: { type: 'moneyIncomePercent', valueAtMax: 35 },
+  },
+  {
+    id: 'set4',
+    name: 'Reinforced Bulwark',
+    stageIds: ['stage16', 'stage17', 'stage18', 'stage19', 'stage20'],
+    bonus: { type: 'unitHpPercent', valueAtMax: 25 },
+  },
+  {
+    id: 'set5',
+    name: "Titan's Wake",
+    stageIds: ['stage21', 'stage22', 'stage23', 'stage24', 'stage25'],
+    bonus: { type: 'moneyIncomePercent', valueAtMax: 40 },
+  },
+  {
+    id: 'set6',
+    name: 'Ascendant Legacy',
+    stageIds: ['stage26', 'stage27', 'stage28', 'stage29', 'stage30'],
+    bonus: { type: 'unitHpPercent', valueAtMax: 30 },
+  },
 ];
 
 // Which set (if any) a given stage belongs to — used by GameScene/

@@ -156,4 +156,108 @@ export const PROGRESSION_CONFIG = {
       },
     ],
   },
+
+  // --- Roster expansion (see UNIT_CONFIG.js's own matching section). Same
+  // 25x/100x xpCost-to-xpCostBase ratio and uniform evolution bonus block
+  // as the original five, just keyed off each new unit's own rarity tier.
+  swarm: {
+    rarity: 'Normal',
+    baseLevelCap: 10,
+    maxExtraCap: 10,
+    growthPercentPerLevel: 0.08,
+    xpCostBase: 50,
+    evolutions: [
+      { name: 'Evolved', unlockLevel: 5, xpCost: 1250, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
+      {
+        name: 'True',
+        unlockLevel: 10,
+        xpCost: 5000,
+        evoShardCost: 3,
+        hpMultiplier: 1.6,
+        damageMultiplier: 1.35,
+        critChanceBonus: 0.05,
+        rechargeMultiplier: 0.9,
+      },
+    ],
+  },
+  sniper: {
+    rarity: 'Rare',
+    baseLevelCap: 10,
+    maxExtraCap: 10,
+    growthPercentPerLevel: 0.06,
+    xpCostBase: 900,
+    evolutions: [
+      { name: 'Evolved', unlockLevel: 5, xpCost: 22500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
+      {
+        name: 'True',
+        unlockLevel: 10,
+        xpCost: 90000,
+        evoShardCost: 3,
+        hpMultiplier: 1.6,
+        damageMultiplier: 1.35,
+        critChanceBonus: 0.05,
+        rechargeMultiplier: 0.9,
+      },
+    ],
+  },
+  guardian: {
+    rarity: 'Normal',
+    baseLevelCap: 10,
+    maxExtraCap: 10,
+    growthPercentPerLevel: 0.08,
+    xpCostBase: 250,
+    evolutions: [
+      { name: 'Evolved', unlockLevel: 5, xpCost: 6250, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
+      {
+        name: 'True',
+        unlockLevel: 10,
+        xpCost: 25000,
+        evoShardCost: 3,
+        hpMultiplier: 1.6,
+        damageMultiplier: 1.35,
+        critChanceBonus: 0.05,
+        rechargeMultiplier: 0.9,
+      },
+    ],
+  },
+  support: {
+    rarity: 'Rare',
+    baseLevelCap: 10,
+    maxExtraCap: 10,
+    growthPercentPerLevel: 0.07,
+    xpCostBase: 600,
+    evolutions: [
+      { name: 'Evolved', unlockLevel: 5, xpCost: 15000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
+      {
+        name: 'True',
+        unlockLevel: 10,
+        xpCost: 60000,
+        evoShardCost: 3,
+        hpMultiplier: 1.6,
+        damageMultiplier: 1.35,
+        critChanceBonus: 0.05,
+        rechargeMultiplier: 0.9,
+      },
+    ],
+  },
+  titan: {
+    rarity: 'Super Rare',
+    baseLevelCap: 10,
+    maxExtraCap: 10,
+    growthPercentPerLevel: 0.05,
+    xpCostBase: 1500,
+    evolutions: [
+      { name: 'Evolved', unlockLevel: 5, xpCost: 37500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
+      {
+        name: 'True',
+        unlockLevel: 10,
+        xpCost: 150000,
+        evoShardCost: 3,
+        hpMultiplier: 1.6,
+        damageMultiplier: 1.35,
+        critChanceBonus: 0.05,
+        rechargeMultiplier: 0.9,
+      },
+    ],
+  },
 };

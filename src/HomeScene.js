@@ -78,7 +78,10 @@ export default class HomeScene extends Phaser.Scene {
     const startY = height / 2 - PRIMARY_BUTTON_HEIGHT - PRIMARY_BUTTON_GAP;
 
     const buttons = [
-      { label: 'Start Battle!!', color: 0xffcc33, scene: 'StageSelectScene' },
+      // Saga expansion (bible §A.6.1): Start Battle now opens the saga
+      // picker first — StageSelectScene itself moved one level deeper in
+      // the nav hierarchy (Home -> Sagas -> Stages -> Battle).
+      { label: 'Start Battle!!', color: 0xffcc33, scene: 'SagaSelectScene' },
       { label: 'Power Up', color: 0x9933cc, scene: 'UpgradeScene' },
       { label: 'Character Formation', color: 0x3366cc, scene: 'LoadoutScene' },
     ];

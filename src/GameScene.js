@@ -1403,7 +1403,12 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     // Dojo wasn't reached via Stage Select at all (HomeScene launches it
-    // directly), so "Menu" should return there instead.
-    menuButton.on('pointerdown', () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene'));
+    // directly), so "Menu" should return there instead. A normal stage
+    // battle returns to its OWN saga's stage list (bible §A.6.1), not
+    // always saga1's — this.stage.saga is read straight off the stage
+    // record STAGE_CONFIG already resolved in create().
+    menuButton.on('pointerdown', () =>
+      this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga }),
+    );
   }
 }

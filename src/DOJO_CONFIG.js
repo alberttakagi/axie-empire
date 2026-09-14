@@ -33,11 +33,18 @@ export const DOJO_CONFIG = {
   burstTierStep: 2,
 
   // Minimum tier at which each ENEMY_CONFIG role can be picked for a spawn.
+  // Roster expansion (bible §A.4.1): the 5 new enemy roles slot in above the
+  // original ceiling of 3, escalating roughly by how dangerous each one is.
   roleUnlockTier: {
     basic: 0,
     fast: 0,
+    swarm: 0,
     ranged: 1,
+    sniper: 2,
     tank: 2,
     aoe: 3,
+    support: 3,
+    guardian: 4,
+    titan: 5,
   },
 };

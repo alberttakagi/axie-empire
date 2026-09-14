@@ -37,4 +37,20 @@ export const COMBO_CONFIG = [
     requiredUnitTypes: ['ranged', 'aoe'],
     bonus: { type: 'critChanceBonus', value: 0.1 },
   },
+  // Roster expansion (bible §A.4.1) additions — same illustrative-not-
+  // exhaustive spirit as the original three, giving the 5 new units their
+  // own reason to be fielded together rather than only alongside the
+  // originals.
+  {
+    id: 'vanguard',
+    name: 'Vanguard',
+    requiredUnitTypes: ['swarm', 'guardian'],
+    bonus: { type: 'startingMoneyPercent', value: 8 },
+  },
+  {
+    id: 'debuffBattery',
+    name: 'Debuff Battery',
+    requiredUnitTypes: ['support', 'sniper'],
+    bonus: { type: 'critChanceBonus', value: 0.08 },
+  },
 ];

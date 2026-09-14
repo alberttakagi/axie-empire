@@ -292,4 +292,166 @@ export const UNIT_CONFIG = {
     toxicOnHit: { chance: 0.3, percent: 0.1 },
     sprite: null,
   },
+
+  // --- Roster expansion (bible §A.4.1 — "more Normal-tier units" per the
+  // reference game's own free/no-gacha basic roster). These five are
+  // original designs rather than the "matches a real reference unit's
+  // ratio" derivations above — there's no single real-game unit each one
+  // is patterned after, so their numbers are reasoned/placeholder like the
+  // bible's own "tune to your own economy" framing recommends, not
+  // cross-referenced against real data. Each fills a mechanical niche none
+  // of the original five covers, and pairs up with one of them under the
+  // same trait (2 units per trait, 10 units / 5 traits) for a clean roster.
+
+  swarm: {
+    id: 'swarm',
+    displayName: 'Swarm',
+    role: 'swarm',
+    trait: 'beast', // pairs with `basic`
+    // Identity: the cheapest, fastest-recharging unit in the roster — meant
+    // to be spammed in numbers rather than relied on individually. No
+    // special ability at all; being disposable IS its gimmick.
+    cost: 30,
+    hp: 8,
+    damage: 2,
+    attackSpeed: 1.5, // dps 3 — interval ~667ms, split 35/65 below
+    foreswingMs: 233,
+    backswingMs: 434,
+    moveSpeed: 60,
+    radius: 10,
+    range: 10,
+    rechargeMs: 1500,
+    knockbackCount: 2,
+    knockbackDistance: 10,
+    knockbackType: 'normal',
+    color: 0x99cc33,
+    label: 'Sw',
+    special: { type: 'none' },
+    critChance: 0.03,
+    statusOnHit: NO_STATUS,
+    sprite: null,
+  },
+  sniper: {
+    id: 'sniper',
+    displayName: 'Sniper',
+    role: 'sniper',
+    trait: 'bird', // pairs with `fast`
+    // Identity: the roster's glass cannon — huge single-hit damage, high
+    // crit chance, but low HP, slow recharge, and (via Long Distance) a
+    // genuine blind spot up close, on top of the longest reach in the game.
+    cost: 700,
+    hp: 30,
+    damage: 80,
+    attackSpeed: 0.25, // dps 20 — interval 4000ms, split 35/65 below
+    foreswingMs: 1400,
+    backswingMs: 2600,
+    moveSpeed: 50,
+    radius: 12,
+    range: 160,
+    rechargeMs: 8000,
+    knockbackCount: 1,
+    knockbackDistance: 16,
+    knockbackType: 'normal',
+    color: 0x3399ff,
+    label: 'Sn',
+    special: { type: 'none' },
+    critChance: 0.15,
+    statusOnHit: NO_STATUS,
+    // Long Distance (bible §A.3.8): can't hit anything within 80px, but
+    // reaches all the way out to 220px — the longest window in the roster.
+    longDistance: { min: 80, max: 220 },
+    sprite: null,
+  },
+  guardian: {
+    id: 'guardian',
+    displayName: 'Guardian',
+    role: 'guardian',
+    trait: 'mech', // pairs with `tank`
+    // Identity: the roster's other mech-trait defender — not knockback-
+    // immune like `tank`, but far tankier in raw HP, hits harder, and
+    // carries its own Barrier shield (bible §A.3.8) on top, at the cost of
+    // being slower and much more expensive to field.
+    cost: 250,
+    hp: 120,
+    damage: 3,
+    attackSpeed: 0.8, // dps 2.4 — interval 1250ms, split 35/65 below
+    foreswingMs: 438,
+    backswingMs: 812,
+    moveSpeed: 30,
+    radius: 22,
+    range: 22,
+    rechargeMs: 6000,
+    knockbackCount: 1,
+    knockbackDistance: 3,
+    knockbackType: 'normal',
+    color: 0x6666cc,
+    label: 'Gd',
+    special: { type: 'none' },
+    critChance: 0,
+    // A shield-basher: weakens whatever it hits rather than freezing it
+    // (differentiating it from `tank`'s Stop).
+    statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.2, durationMs: 1000, multiplier: 0.6 },
+    // Barrier (bible §A.3.8): its own shell that must be cracked (or
+    // Barrier-Broken) before real damage gets through, layered on top of
+    // its already-high HP.
+    barrierMaxHp: 20,
+    sprite: null,
+  },
+  support: {
+    id: 'support',
+    displayName: 'Support',
+    role: 'support',
+    trait: 'bug', // pairs with `ranged`
+    // Identity: low direct damage, but a strong, reliable Weaken plus a
+    // Toxic tick on the side — a utility/debuff specialist rather than a
+    // damage dealer, fitting bug/toxin theming.
+    cost: 350,
+    hp: 40,
+    damage: 8,
+    attackSpeed: 1.0, // dps 8 — interval 1000ms, split 35/65 below
+    foreswingMs: 350,
+    backswingMs: 650,
+    moveSpeed: 55,
+    radius: 14,
+    range: 70,
+    rechargeMs: 5000,
+    knockbackCount: 2,
+    knockbackDistance: 12,
+    knockbackType: 'normal',
+    color: 0x99cc99,
+    label: 'Su',
+    special: { type: 'none' },
+    critChance: 0.05,
+    statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.4, durationMs: 2000, multiplier: 0.5 },
+    toxicOnHit: { chance: 0.3, percent: 0.08 },
+    sprite: null,
+  },
+  titan: {
+    id: 'titan',
+    displayName: 'Titan',
+    role: 'titan',
+    trait: 'plant', // pairs with `aoe`
+    // Identity: the roster's top-end powerhouse — the single most
+    // expensive and slowest-recharging unit, but hits an entire area for
+    // huge damage. The "if you can afford it, it changes the fight" unit.
+    cost: 1500,
+    hp: 200,
+    damage: 60,
+    attackSpeed: 0.5, // dps 30 — interval 2000ms, split 35/65 below
+    foreswingMs: 700,
+    backswingMs: 1300,
+    moveSpeed: 25,
+    radius: 30,
+    range: 30,
+    rechargeMs: 12000,
+    knockbackCount: 1,
+    knockbackDistance: 5,
+    knockbackType: 'normal',
+    color: 0x338833,
+    label: 'Ti',
+    special: { type: 'aoe', radius: 60 },
+    critChance: 0.05,
+    statusOnHit: NO_STATUS,
+    sprite: null,
+  },
 };

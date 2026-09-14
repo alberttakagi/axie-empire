@@ -17,12 +17,18 @@ import { getEffectiveUnitConfig } from './UnitStats.js';
 // (Growth Charms), and evolving. Everything here re-reads
 // PlayerProgress.js fresh on every action rather than caching state
 // locally, then does a full-redraw refresh() — simple and correct at this
-// roster size (5 units), even if it's not the most efficient possible
-// approach.
+// scale, even if it's not the most efficient possible approach.
+//
+// Roster expansion (bible §A.4.1): the roster no longer fits as one
+// un-scrolled column of rows on an 800x450 canvas, so this screen paginates
+// (ROWS_PER_PAGE at a time) rather than scroll — consistent with this
+// build's existing button-driven nav (no scroll/drag interactions used
+// anywhere else yet).
 
 const ROW_HEIGHT = 74;
 const ROW_START_Y = 86;
 const ROW_WIDTH_MARGIN = 32;
+const ROWS_PER_PAGE = 4;
 
 const BUTTON_HEIGHT = 40;
 
@@ -33,6 +39,8 @@ export default class UpgradeScene extends Phaser.Scene {
 
   create() {
     const { width } = this.scale;
+
+    this.page = 0;
 
     this.add
       .text(width / 2, 20, 'Upgrade', {
@@ -66,6 +74,30 @@ export default class UpgradeScene extends Phaser.Scene {
 
     this.rowContainer = this.add.container(0, 0);
 
+    // Pagination controls (see file header) — sit below the last possible
+    // row on any page, so they never fight the row grid for vertical space.
+    const pagerY = ROW_START_Y + ROWS_PER_PAGE * ROW_HEIGHT + 10;
+    const prevButton = this.add.rectangle(width / 2 - 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
+    this.add.text(width / 2 - 90, pagerY, '< Prev', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    prevButton.on('pointerdown', () => {
+      if (this.page > 0) {
+        this.page -= 1;
+        this.refresh();
+      }
+    });
+
+    const nextButton = this.add.rectangle(width / 2 + 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
+    this.add.text(width / 2 + 90, pagerY, 'Next >', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    nextButton.on('pointerdown', () => {
+      const totalPages = Math.ceil(Object.keys(UNIT_CONFIG).length / ROWS_PER_PAGE);
+      if (this.page < totalPages - 1) {
+        this.page += 1;
+        this.refresh();
+      }
+    });
+
+    this.pageText = this.add.text(width / 2, pagerY, '', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+
     this.refresh();
   }
 
@@ -77,9 +109,15 @@ export default class UpgradeScene extends Phaser.Scene {
       `XP: ${Math.floor(progress.xp).toLocaleString()}    Evo Shards: ${progress.evoShards}    Growth Charms: ${progress.growthCharms}`,
     );
 
-    Object.keys(UNIT_CONFIG).forEach((type, index) => {
+    const allKeys = Object.keys(UNIT_CONFIG);
+    const totalPages = Math.ceil(allKeys.length / ROWS_PER_PAGE);
+    const pageKeys = allKeys.slice(this.page * ROWS_PER_PAGE, this.page * ROWS_PER_PAGE + ROWS_PER_PAGE);
+
+    pageKeys.forEach((type, index) => {
       this.renderUnitRow(type, ROW_START_Y + index * ROW_HEIGHT, progress);
     });
+
+    this.pageText.setText(`Page ${this.page + 1}/${totalPages}`);
   }
 
   renderUnitRow(type, y, progress) {

@@ -27,9 +27,17 @@ export default class StageSelectScene extends Phaser.Scene {
     super('StageSelectScene');
   }
 
-  create() {
+  create(data) {
     const { width } = this.scale;
     const progress = loadStageProgress();
+
+    // Saga expansion (bible §A.6.1): STAGE_CONFIG.js stays one flat array
+    // (see its own header), so this screen just filters down to one saga's
+    // slice of it for display — the game's own default (no data passed,
+    // e.g. a stale deep-link) falls back to the very first saga rather than
+    // erroring.
+    this.sagaId = data?.sagaId || STAGE_CONFIG[0].saga;
+    this.sagaStages = STAGE_CONFIG.filter((stage) => stage.saga === this.sagaId);
 
     this.add
       .text(width / 2, 24, 'Select Stage', {
@@ -38,15 +46,15 @@ export default class StageSelectScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    this.createHomeButton();
+    this.createBackButton();
     this.createEnergyDisplay();
     this.createStageGrid(progress);
   }
 
-  createHomeButton() {
+  createBackButton() {
     const rect = this.add.rectangle(50, 24, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 24, 'Home', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.scene.start('HomeScene'));
+    this.add.text(50, 24, 'Sagas', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerdown', () => this.scene.start('SagaSelectScene'));
   }
 
   // Energy/Stamina (bible §A.9) — the one piece of the old header worth
@@ -70,14 +78,21 @@ export default class StageSelectScene extends Phaser.Scene {
     const startX = (width - totalWidth) / 2 + CARD_WIDTH / 2;
     const startY = 110;
 
-    STAGE_CONFIG.forEach((stage, index) => {
-      const col = index % GRID_COLS;
-      const row = Math.floor(index / GRID_COLS);
+    this.sagaStages.forEach((stage, localIndex) => {
+      const col = localIndex % GRID_COLS;
+      const row = Math.floor(localIndex / GRID_COLS);
       const x = startX + col * (CARD_WIDTH + CARD_GAP);
       const y = startY + row * (CARD_HEIGHT + ROW_GAP);
 
-      const previousStage = STAGE_CONFIG[index - 1];
-      const isUnlocked = index === 0 || progress[previousStage.id]?.cleared === true;
+      // Unlock state is resolved against STAGE_CONFIG's GLOBAL flat index,
+      // not this screen's per-saga local index — this is what keeps a saga
+      // boundary working as a plain continuation of the same sequential
+      // chain (this saga's stage 1 unlocks only once the PREVIOUS saga's
+      // final stage is cleared), with zero changes to the unlock logic
+      // itself.
+      const globalIndex = STAGE_CONFIG.indexOf(stage);
+      const previousStage = STAGE_CONFIG[globalIndex - 1];
+      const isUnlocked = globalIndex === 0 || progress[previousStage.id]?.cleared === true;
       const stageProgress = progress[stage.id];
       const isCleared = stageProgress?.cleared === true;
 
@@ -85,7 +100,7 @@ export default class StageSelectScene extends Phaser.Scene {
       const rect = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, fillColor).setAlpha(isUnlocked ? 1 : 0.6);
 
       this.add
-        .text(x, y - 24, `${index + 1}. ${stage.displayName}`, {
+        .text(x, y - 24, `${localIndex + 1}. ${stage.displayName}`, {
           fontSize: '10px',
           color: '#ffffff',
           align: 'center',

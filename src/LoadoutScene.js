@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { getUnitProgress, loadPlayerProgress } from './PlayerProgress.js';
-import { loadLoadout, saveLoadout } from './Loadout.js';
+import { loadLoadout, saveLoadout, MAX_LOADOUT_SIZE } from './Loadout.js';
 import { getActiveCombos } from './Combo.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
@@ -13,6 +13,8 @@ import { getActiveCombos } from './Combo.js';
 const CARD_WIDTH = 130;
 const CARD_HEIGHT = 100;
 const CARD_GAP = 12;
+const CARDS_PER_ROW = 5;
+const ROW_GAP = 118;
 
 export default class LoadoutScene extends Phaser.Scene {
   constructor() {
@@ -24,7 +26,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
     this.add.text(width / 2, 20, 'Character Formation', { fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
     this.add
-      .text(width / 2, 42, 'Tap a unit to include/exclude it from battle', {
+      .text(width / 2, 42, `Tap a unit to include/exclude it — max ${MAX_LOADOUT_SIZE} in Formation`, {
         fontSize: '11px',
         color: '#aaaaaa',
       })
@@ -43,14 +45,14 @@ export default class LoadoutScene extends Phaser.Scene {
     // player can actually see which synergies their current Formation has
     // activated and why.
     this.add
-      .text(width / 2, 250, 'Active Squad Synergies:', { fontSize: '13px', color: '#ffdd33' })
+      .text(width / 2, 300, 'Active Squad Synergies:', { fontSize: '13px', color: '#ffdd33' })
       .setOrigin(0.5);
     this.synergyText = this.add
-      .text(width / 2, 272, '', { fontSize: '12px', color: '#ffffff', align: 'center' })
+      .text(width / 2, 320, '', { fontSize: '12px', color: '#ffffff', align: 'center', wordWrap: { width: width - 40 } })
       .setOrigin(0.5);
 
     this.messageText = this.add
-      .text(width / 2, 400, '', { fontSize: '12px', color: '#ff6666' })
+      .text(width / 2, 344, '', { fontSize: '12px', color: '#ff6666' })
       .setOrigin(0.5);
 
     this.renderCards();
@@ -65,13 +67,20 @@ export default class LoadoutScene extends Phaser.Scene {
   renderCards() {
     this.cardContainer.removeAll(true);
 
+    // Roster expansion (bible §A.4.1): the full owned roster no longer fits
+    // in one row, so it wraps into rows of CARDS_PER_ROW — this is just a
+    // browse/select grid (unlike GameScene's in-battle deploy bar, it
+    // doesn't need to fit in one un-scrolled strip).
     const keys = Object.keys(UNIT_CONFIG);
-    const totalWidth = keys.length * CARD_WIDTH + (keys.length - 1) * CARD_GAP;
-    const startX = (this.scale.width - totalWidth) / 2 + CARD_WIDTH / 2;
-    const y = 130;
+    const rowWidth = Math.min(keys.length, CARDS_PER_ROW) * CARD_WIDTH + (Math.min(keys.length, CARDS_PER_ROW) - 1) * CARD_GAP;
+    const startX = (this.scale.width - rowWidth) / 2 + CARD_WIDTH / 2;
+    const startY = 100;
 
     keys.forEach((key, index) => {
-      const x = startX + index * (CARD_WIDTH + CARD_GAP);
+      const row = Math.floor(index / CARDS_PER_ROW);
+      const col = index % CARDS_PER_ROW;
+      const x = startX + col * (CARD_WIDTH + CARD_GAP);
+      const y = startY + row * ROW_GAP;
       this.renderCard(key, x, y);
     });
   }
@@ -119,6 +128,10 @@ export default class LoadoutScene extends Phaser.Scene {
       }
       this.selected.delete(type);
     } else {
+      if (this.selected.size >= MAX_LOADOUT_SIZE) {
+        this.showMessage(`Formation is full! Max ${MAX_LOADOUT_SIZE} units — remove one first.`);
+        return;
+      }
       this.selected.add(type);
     }
 
