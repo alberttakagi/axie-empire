@@ -2,14 +2,32 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
-import { saveStageResult, getClearCount } from './StageProgress.js';
+import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
 import { FLAT_DAMAGE_TRAIT, FLAT_DAMAGE_AMOUNT, MATCHUP_BONUSES, RESIST_BONUSES } from './TRAIT_CONFIG.js';
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
-import { loadPlayerProgress, getUnitProgress, grantStageRewards } from './PlayerProgress.js';
+import {
+  loadPlayerProgress,
+  getUnitProgress,
+  grantStageRewards,
+  getBaseUpgradeLevel,
+  addGems,
+} from './PlayerProgress.js';
+import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage } from './Treasure.js';
 import { loadLoadout } from './Loadout.js';
+import { getComboBonusValue } from './Combo.js';
+
+// Account-wide Base Upgrades (bible §A.7.1) — read once per battle at
+// create() time into flat numbers, since they only change between battles
+// (via UpgradeScene/BaseUpgradeScene), never mid-fight.
+function getBaseUpgradeEffect(key) {
+  return getBaseUpgradeLevel(key) * BASE_UPGRADE_CONFIG[key].perLevelEffect;
+}
+
+const MIN_RECHARGE_MS = 500; // Research can never push a unit's recharge below this
+const SPEED_UP_MULTIPLIER = 2;
 
 const TREASURE_TIER_NAMES = ['', 'Bronze', 'Silver', 'Gold'];
 
@@ -111,28 +129,59 @@ export default class GameScene extends Phaser.Scene {
     this.workerCatLevel = 1;
     this.workerCatUpgradeCost = MONEY_CONFIG.workerCat.baseUpgradeCost * this.workerCatLevel;
 
-    this.laneY = height * LANE_Y_RATIO;
-    this.baseX = BASE_WIDTH / 2;
-    this.baseHp = this.stage.baseHp;
-    this.baseMaxHp = this.stage.baseHp;
-    this.enemyBaseX = width - BASE_WIDTH / 2;
-    this.enemyBaseMaxHp = this.stage.enemyBaseHp;
-    this.enemyBaseHp = this.enemyBaseMaxHp;
-    this.enemies = [];
-    this.playerUnits = [];
-    this.money = this.getWalletCap();
-    this.enemiesKilled = 0;
-    this.specialMeter = 0;
-    this.baseCurseMs = 0; // curse landed directly on the player's base — blocks triggerSpecialBurst
-    this.enemyBaseCurseMs = 0; // mirror on the enemy base — currently a no-op, nothing to suppress there yet
-    this.elapsedMs = 0;
-    this.isGameOver = false;
+    // Account-wide Base Upgrades (bible §A.7.1) — read once, since they
+    // only change between battles via the Upgrade Menu. Cannon
+    // power/charge feed the Cat Cannon constants directly (see
+    // updateCannonButton/triggerSpecialBurst); baseDefense/research/
+    // accounting/study are read where their effect actually applies below.
+    this.cannonPowerBonus = getBaseUpgradeEffect('cannonPower');
+    this.cannonChargePerSecBonus = getBaseUpgradeEffect('cannonCharge');
+    this.baseDefenseBonus = getBaseUpgradeEffect('baseDefense');
+    this.rechargeReductionMs = getBaseUpgradeEffect('research');
+    this.accountingBonusPercent = getBaseUpgradeEffect('accounting');
+    this.studyBonusPercent = getBaseUpgradeEffect('study');
 
     // The player's chosen Formation (bible §A.10.3) — only these units get
     // a deploy button at all, see createSpawnButtons. Falls back to every
     // unit if nothing's saved (Loadout.js's own default), so this never
     // regresses a player who's never opened the Formation screen.
     this.loadout = loadLoadout();
+
+    // Cat-Combo-equivalent team synergy (bible §A.7.3) — purely a function
+    // of which units are in the current Formation, read once here and
+    // applied at the relevant point below (starting money immediately;
+    // attack%/crit-chance-bonus at unit-spawn time in trySpawnUnit).
+    this.comboUnitAttackPercent = getComboBonusValue(this.loadout, 'unitAttackPercent');
+    this.comboCritChanceBonus = getComboBonusValue(this.loadout, 'critChanceBonus');
+    const comboStartingMoneyPercent = getComboBonusValue(this.loadout, 'startingMoneyPercent');
+
+    this.laneY = height * LANE_Y_RATIO;
+    this.baseX = BASE_WIDTH / 2;
+    this.baseMaxHp = this.stage.baseHp + this.baseDefenseBonus;
+    this.baseHp = this.baseMaxHp;
+    this.enemyBaseX = width - BASE_WIDTH / 2;
+    this.enemyBaseMaxHp = this.stage.enemyBaseHp;
+    this.enemyBaseHp = this.enemyBaseMaxHp;
+    this.enemies = [];
+    this.playerUnits = [];
+    // Combo's "Starting Money Up" is a bonus ON TOP of the normal starting
+    // fill — deliberately allowed to exceed getWalletCap() for this one
+    // initial value (a real "bonus," not just a differently-computed cap);
+    // every accrual tick afterward still clamps to the normal cap as usual.
+    this.money = this.getWalletCap() * (1 + comboStartingMoneyPercent / 100);
+    this.enemiesKilled = 0;
+    this.specialMeter = 0;
+    this.baseCurseMs = 0; // curse landed directly on the player's base — blocks triggerSpecialBurst
+    this.enemyBaseCurseMs = 0; // mirror on the enemy base — currently a no-op, nothing to suppress there yet
+    this.elapsedMs = 0;
+    this.isGameOver = false;
+    // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
+    // real game gates 2x/3x behind item charges and a subscription perk;
+    // out of scope here, see the Battle Items note in this session's
+    // commit). Scales BOTH this scene's own per-frame deltaMs (see update)
+    // and Phaser's own timer clock (this.time.timeScale), so scripted
+    // enemy spawns and the special-burst flash speed up consistently too.
+    this.speedMultiplier = 1;
 
     // Per-unit-type redeploy cooldown (bible §A.3.2/§A.3.7) — global floor
     // is 2000ms across every UNIT_CONFIG entry; see trySpawnUnit/update.
@@ -184,6 +233,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.createWorkerCatButton();
     this.createCannonButton();
+    this.createSpeedUpButton();
 
     this.gameOverText = this.add
       .text(width / 2, height / 2, '', {
@@ -302,6 +352,26 @@ export default class GameScene extends Phaser.Scene {
       .on('pointerdown', () => this.tryTriggerSpecialBurst());
   }
 
+  // Speed Up (bible §A.10.4) — confirmed top-right position, just below the
+  // wallet readout. See the speedMultiplier field comment in create() for
+  // what toggling this actually scales.
+  createSpeedUpButton() {
+    const { width } = this.scale;
+    const x = width - 50;
+    const y = 45;
+
+    this.speedUpButton = this.add.rectangle(x, y, 68, 24, 0x555566).setInteractive({ useHandCursor: true });
+    this.speedUpText = this.add.text(x, y, '1x SPEED', { fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
+    this.speedUpButton.on('pointerdown', () => this.toggleSpeedUp());
+  }
+
+  toggleSpeedUp() {
+    this.speedMultiplier = this.speedMultiplier === 1 ? SPEED_UP_MULTIPLIER : 1;
+    this.time.timeScale = this.speedMultiplier;
+    this.speedUpText.setText(`${this.speedMultiplier}x SPEED`);
+    this.speedUpButton.fillColor = this.speedMultiplier > 1 ? 0xffdd33 : 0x555566;
+  }
+
   // Level-1 values come from the stage itself; each Worker Cat level above 1
   // adds a flat amount on top (see MONEY_CONFIG.workerCat), then the
   // account-wide Treasure income bonus (bible §A.6.3, "Energy Drink")
@@ -330,14 +400,26 @@ export default class GameScene extends Phaser.Scene {
     // effective config, computed once here rather than twice.
     const effectiveConfig = getEffectiveUnitConfig(key);
     // Account-wide Treasure HP bonus (bible §A.6.3, "Legendary Cat Shield")
-    // — layered on top of the unit's own level/evolution stats, not part
-    // of UnitStats.js's per-unit formula, since it's a GLOBAL modifier
-    // rather than something specific to this one unit's progression.
+    // and Cat-Combo attack/crit bonuses (bible §A.7.3) — all layered on top
+    // of the unit's own level/evolution stats, not part of UnitStats.js's
+    // per-unit formula, since they're GLOBAL modifiers rather than
+    // anything specific to this one unit's own progression.
     const hpBonusMultiplier = 1 + getBonusPercent('unitHpPercent') / 100;
-    const finalConfig = { ...effectiveConfig, hp: Math.round(effectiveConfig.hp * hpBonusMultiplier) };
+    const attackBonusMultiplier = 1 + this.comboUnitAttackPercent / 100;
+    // Research Base Upgrade (bible §A.7.1) shaves flat time off every
+    // unit's recharge, floored so it can never reach an unbeatable 0ms spam rate.
+    const recharge = Math.max(MIN_RECHARGE_MS, effectiveConfig.rechargeMs - this.rechargeReductionMs);
+
+    const finalConfig = {
+      ...effectiveConfig,
+      hp: Math.round(effectiveConfig.hp * hpBonusMultiplier),
+      damage: Math.round(effectiveConfig.damage * attackBonusMultiplier * 100) / 100,
+      critChance: effectiveConfig.critChance + this.comboCritChanceBonus,
+      rechargeMs: recharge,
+    };
 
     this.money -= baseConfig.cost;
-    this.unitCooldowns[key] = effectiveConfig.rechargeMs;
+    this.unitCooldowns[key] = recharge;
     this.spawnUnit(key, finalConfig);
   }
 
@@ -465,6 +547,16 @@ export default class GameScene extends Phaser.Scene {
   update(time, deltaMs) {
     if (this.isGameOver) return;
 
+    // Speed Up (see toggleSpeedUp) scales every per-frame calculation below
+    // by reassigning the parameter itself — everything downstream
+    // (updatePlayerUnits(deltaMs), updateEnemies(deltaMs), etc.) already
+    // just uses whatever's passed in, so nothing past this line needs to
+    // know Speed Up exists at all. Phaser's own timer clock
+    // (this.time.timeScale, set in toggleSpeedUp) handles the two
+    // delayedCall usages elsewhere (scheduleStageScript, the special-burst
+    // flash) consistently with this.
+    deltaMs *= this.speedMultiplier;
+
     this.elapsedMs += deltaMs;
 
     for (const key of Object.keys(this.unitCooldowns)) {
@@ -479,8 +571,10 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
 
     // Cat Cannon charges passively over time (bible §A.3.9), independent of
-    // combat performance.
-    this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_CHARGE_PER_SEC * deltaMs) / 1000);
+    // combat performance. Cannon Charge Base Upgrade (bible §A.7.1) adds
+    // flat charge-per-second on top.
+    const chargePerSec = SPECIAL_CHARGE_PER_SEC + this.cannonChargePerSecBonus;
+    this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
     this.updateCannonButton();
     this.base.fillColor = this.baseCurseMs > 0 ? BASE_CURSE_COLOR : BASE_COLOR;
 
@@ -654,7 +748,8 @@ export default class GameScene extends Phaser.Scene {
 
   onEnemyKilled(enemy) {
     this.enemiesKilled += 1;
-    const bonus = enemy.config.threat * MONEY_CONFIG.killBonusMultiplier;
+    // Accounting Base Upgrade (bible §A.7.1) — % more money per kill.
+    const bonus = enemy.config.threat * MONEY_CONFIG.killBonusMultiplier * (1 + this.accountingBonusPercent / 100);
     this.money = Math.min(this.getWalletCap(), this.money + bonus);
   }
 
@@ -1014,15 +1109,20 @@ export default class GameScene extends Phaser.Scene {
   triggerSpecialBurst() {
     this.specialMeter = 0;
 
+    // Cannon Power Base Upgrade (bible §A.7.1) adds flat damage to both
+    // halves of the burst.
+    const burstDamage = SPECIAL_BURST_DAMAGE + this.cannonPowerBonus;
+    const burstBaseDamage = SPECIAL_BURST_BASE_DAMAGE + this.cannonPowerBonus;
+
     const syntheticAttacker = { shape: { x: this.baseX } };
     for (const enemy of this.enemies) {
       if (enemy.hp > 0) {
-        enemy.hp -= SPECIAL_BURST_DAMAGE;
+        enemy.hp -= burstDamage;
         if (enemy.hp > 0) this.startKnockbackSlide(syntheticAttacker, enemy);
       }
     }
     this.removeDead(this.enemies, (enemy) => this.onEnemyKilled(enemy));
-    this.damageEnemyBase(SPECIAL_BURST_BASE_DAMAGE);
+    this.damageEnemyBase(burstBaseDamage);
 
     const { width } = this.scale;
     const flash = this.add.rectangle(width / 2, this.laneY, width, 80, SPECIAL_FLASH_COLOR).setAlpha(0.5);
@@ -1073,9 +1173,11 @@ export default class GameScene extends Phaser.Scene {
     this.isGameOver = true;
 
     const finalScore = this.getScore();
-    // Read the clear count BEFORE saveStageResult increments it — the XP
-    // decay (bible §A.5.1) is based on how many times this stage was ALREADY
-    // won prior to this run, not counting this run itself.
+    // Read both the clear count AND whether this stage was EVER cleared
+    // before BEFORE saveStageResult updates either — the XP decay (bible
+    // §A.5.1) needs the prior clear count, and the Gems first-clear bonus
+    // (bible §A.5) needs to know this specific win is the first one.
+    const wasAlreadyCleared = loadStageProgress()[this.stage.id]?.cleared === true;
     const xpReward = this.getXpReward();
     const rewards = grantStageRewards({
       xp: xpReward,
@@ -1089,6 +1191,10 @@ export default class GameScene extends Phaser.Scene {
     if (rewards.evoShardsGranted) lines.push('+1 Evo Shard!');
     if (rewards.growthCharmsGranted) lines.push('+1 Growth Charm!');
     if (treasureResult.improved) lines.push(`${TREASURE_TIER_NAMES[treasureResult.tier]} Treasure!`);
+    if (!wasAlreadyCleared) {
+      addGems(this.stage.gemsFirstClear);
+      lines.push(`+${this.stage.gemsFirstClear} Gems! (First Clear)`);
+    }
     this.showEndScreen(lines);
   }
 
@@ -1101,7 +1207,8 @@ export default class GameScene extends Phaser.Scene {
   getXpReward() {
     const previousClears = getClearCount(this.stage.id);
     const decay = Math.max(XP_DECAY_FLOOR, 1 - XP_DECAY_PER_CLEAR * previousClears);
-    return Math.round(this.stage.baseXp * decay);
+    // Study Base Upgrade (bible §A.7.1) — % more XP per clear.
+    return Math.round(this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100));
   }
 
   showEndScreen(lines) {

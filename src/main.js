@@ -5,6 +5,8 @@ import GameScene from './GameScene.js';
 import UpgradeScene from './UpgradeScene.js';
 import TreasureScene from './TreasureScene.js';
 import LoadoutScene from './LoadoutScene.js';
+import BaseUpgradeScene from './BaseUpgradeScene.js';
+import GachaScene from './GachaScene.js';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -17,5 +19,14 @@ new Phaser.Game({
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
   // HomeScene is first in this list, so it's the scene Phaser boots into.
-  scene: [HomeScene, StageSelectScene, GameScene, UpgradeScene, TreasureScene, LoadoutScene],
+  scene: [
+    HomeScene,
+    StageSelectScene,
+    GameScene,
+    UpgradeScene,
+    TreasureScene,
+    LoadoutScene,
+    BaseUpgradeScene,
+    GachaScene,
+  ],
 });

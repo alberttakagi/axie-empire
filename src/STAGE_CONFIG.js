@@ -42,6 +42,10 @@
 //                 to ENTER this stage at all — deducted (and entry blocked
 //                 if insufficient) by StageSelectScene before GameScene ever
 //                 starts; see Energy.js. Never refunded on a loss.
+//   gemsFirstClear  a one-time Gems reward (bible §A.5's premium-currency
+//                 equivalent) paid out ONLY the very first time this stage
+//                 is won — distinct from the always-available XP/Treasure
+//                 rewards above. See GameScene.winStage.
 //   Clearing a stage = reducing its enemy base's HP to 0 (see GameScene's
 //   damageEnemyBase/winStage).
 
@@ -52,6 +56,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Easy',
     baseXp: 1000,
     energyCost: 5,
+    gemsFirstClear: 20,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -71,6 +76,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Easy',
     baseXp: 1200,
     energyCost: 6,
+    gemsFirstClear: 25,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -92,6 +98,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Easy',
     baseXp: 1400,
     energyCost: 7,
+    gemsFirstClear: 30,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -114,6 +121,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Normal',
     baseXp: 2000,
     energyCost: 8,
+    gemsFirstClear: 35,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -136,6 +144,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Normal',
     baseXp: 2500,
     energyCost: 9,
+    gemsFirstClear: 40,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -158,6 +167,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Normal',
     baseXp: 3000,
     energyCost: 10,
+    gemsFirstClear: 45,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -181,6 +191,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Hard',
     baseXp: 4000,
     energyCost: 12,
+    gemsFirstClear: 55,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -204,6 +215,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Hard',
     baseXp: 5000,
     energyCost: 14,
+    gemsFirstClear: 65,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -228,6 +240,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Hard',
     baseXp: 6000,
     energyCost: 16,
+    gemsFirstClear: 75,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -254,6 +267,7 @@ export const STAGE_CONFIG = [
     difficulty: 'Boss',
     baseXp: 12000,
     energyCost: 25,
+    gemsFirstClear: 150,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,

@@ -8,16 +8,24 @@
 // Shape:
 // {
 //   xp: number,
+//   gems: number,
 //   evoShards: number,
 //   growthCharms: number,
 //   units: {
 //     [unitType]: { level: number, extraCap: number, evolutionStage: number }
-//   }
+//   },
+//   baseUpgrades: { [BASE_UPGRADE_CONFIG key]: number }
 // }
 // A unit not yet present in `units` is treated as level 1, extraCap 0,
-// evolutionStage 0 (Normal Form) — see getUnitProgress.
+// evolutionStage 0 (Normal Form) — see getUnitProgress. A category not yet
+// present in `baseUpgrades` is treated as level 0 — see getBaseUpgradeLevel.
+//
+// `gems` is the premium-currency-equivalent (bible §A.5's Cat Food) spent
+// on Gacha pulls (Gacha.js/GachaScene.js) — separate from XP (the
+// unit/base-upgrade currency) and from in-battle money.
 
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
+import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 
 const STORAGE_KEY = 'axieSkirmishPlayerProgress';
 
@@ -29,12 +37,14 @@ function load() {
     const parsed = raw ? JSON.parse(raw) : {};
     return {
       xp: parsed.xp || 0,
+      gems: parsed.gems || 0,
       evoShards: parsed.evoShards || 0,
       growthCharms: parsed.growthCharms || 0,
       units: parsed.units || {},
+      baseUpgrades: parsed.baseUpgrades || {},
     };
   } catch {
-    return { xp: 0, evoShards: 0, growthCharms: 0, units: {} };
+    return { xp: 0, gems: 0, evoShards: 0, growthCharms: 0, units: {}, baseUpgrades: {} };
   }
 }
 
@@ -152,4 +162,69 @@ export function grantStageRewards({ xp, evoShardChance, growthCharmChance }) {
 
   save(progress);
   return { xpGranted: xp, evoShardsGranted, growthCharmsGranted };
+}
+
+// --- Account-wide Base Upgrades (bible §A.7.1) ---
+
+export function getBaseUpgradeLevel(key) {
+  return loadPlayerProgress().baseUpgrades[key] || 0;
+}
+
+export function getNextBaseUpgradeCost(key) {
+  const config = BASE_UPGRADE_CONFIG[key];
+  const level = getBaseUpgradeLevel(key);
+  return Math.round(config.xpCostBase * Math.pow(level + 1, 1.3));
+}
+
+export function tryLevelUpBaseUpgrade(key) {
+  const config = BASE_UPGRADE_CONFIG[key];
+  const progress = loadPlayerProgress();
+  const level = progress.baseUpgrades[key] || 0;
+
+  if (level >= config.maxLevel) return { ok: false, reason: 'at-cap' };
+
+  const cost = Math.round(config.xpCostBase * Math.pow(level + 1, 1.3));
+  if (progress.xp < cost) return { ok: false, reason: 'insufficient-xp' };
+
+  progress.xp -= cost;
+  progress.baseUpgrades[key] = level + 1;
+  save(progress);
+  return { ok: true };
+}
+
+// Generic material grants (used by grantStageRewards above AND by
+// Gacha.js's roll rewards, so both routes add to the same pools the same way).
+export function addXp(amount) {
+  const progress = loadPlayerProgress();
+  progress.xp += amount;
+  save(progress);
+}
+
+export function addEvoShards(amount) {
+  const progress = loadPlayerProgress();
+  progress.evoShards += amount;
+  save(progress);
+}
+
+export function addGrowthCharms(amount) {
+  const progress = loadPlayerProgress();
+  progress.growthCharms += amount;
+  save(progress);
+}
+
+// --- Gems (premium-currency-equivalent, bible §A.5's Cat Food) ---
+
+export function addGems(amount) {
+  const progress = loadPlayerProgress();
+  progress.gems += amount;
+  save(progress);
+}
+
+export function trySpendGems(amount) {
+  const progress = loadPlayerProgress();
+  if (progress.gems < amount) return false;
+
+  progress.gems -= amount;
+  save(progress);
+  return true;
 }

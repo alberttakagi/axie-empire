@@ -45,7 +45,13 @@ export default class UpgradeScene extends Phaser.Scene {
       .rectangle(50, 20, 80, 32, 0x444444)
       .setInteractive({ useHandCursor: true });
     this.add.text(50, 20, 'Back', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    backButton.on('pointerdown', () => this.scene.start('StageSelectScene'));
+    backButton.on('pointerdown', () => this.scene.start('HomeScene'));
+
+    const baseUpgradesButton = this.add
+      .rectangle(175, 20, 150, 32, 0x336699)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(175, 20, 'Base Upgrades', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    baseUpgradesButton.on('pointerdown', () => this.scene.start('BaseUpgradeScene'));
 
     // Its own row below the header (not sharing a row with the centered
     // title) — the full currency string is too wide to sit beside "Upgrade"

@@ -59,6 +59,16 @@ export default class HomeScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     this.add.text(this.scale.width - 60, 24, 'Treasure', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
     treasureButton.on('pointerdown', () => this.scene.start('TreasureScene'));
+
+    const gachaButton = this.add
+      .rectangle(this.scale.width - 164, 24, 96, 32, 0x33aacc)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(this.scale.width - 164, 24, 'Gacha', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    gachaButton.on('pointerdown', () => this.scene.start('GachaScene'));
+
+    this.add
+      .text(16, 60, `Gems: ${playerProgress.gems.toLocaleString()}`, { fontSize: '13px', color: '#66ddff' })
+      .setOrigin(0, 0.5);
   }
 
   createPrimaryButtons() {

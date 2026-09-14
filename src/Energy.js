@@ -1,34 +1,42 @@
 // Stamina/Energy (bible §A.9 — confirmed real reference mechanic named
 // 統率力 in-game, see the bible's cross-check notes): a real-time-regenerating
 // resource spent to ENTER a stage at all, separate from every other
-// currency in this build (in-battle money, meta XP, Evo Shards, Growth
-// Charms). Persisted in localStorage as { current, cap, lastUpdateMs } —
-// `current` is only ever "true as of lastUpdateMs"; every read/write below
-// re-applies whatever regen has accrued since then before doing anything
-// else, so the game doesn't need to be open for Energy to refill.
+// currency in this build (in-battle money, meta XP, Gems, Evo Shards,
+// Growth Charms). Persisted in localStorage as { current, lastUpdateMs } —
+// note there's no stored `cap`: the cap is always computed LIVE from the
+// staminaCap Base Upgrade (bible §A.7.1) via getMaxEnergy(), so buying that
+// upgrade takes effect immediately rather than needing a stored value
+// resynced. `current` is only ever "true as of lastUpdateMs"; every
+// read/write below re-applies whatever regen has accrued since then before
+// doing anything else, so the game doesn't need to be open for Energy to
+// refill.
 //
-// Deliberately NOT modeled here (out of scope for this pass, flagged so a
-// later phase doesn't silently forget them): cap upgrades from Treasure
-// bonuses or account milestones (bible §A.7.1/§A.9 — this build's cap is a
-// flat constant), Leadership-style full-refill items, and ad-based partial
-// refills.
+// Deliberately NOT modeled here (out of scope for this pass): Leadership-
+// style full-refill items and ad-based partial refills.
+
+import { getBaseUpgradeLevel } from './PlayerProgress.js';
+import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 
 const STORAGE_KEY = 'axieSkirmishEnergy';
-const MAX_ENERGY = 100;
+const BASE_MAX_ENERGY = 100;
 const REGEN_INTERVAL_MS = 60 * 1000; // 1 point per real minute — bible's own reference rate
+
+export function getMaxEnergy() {
+  const level = getBaseUpgradeLevel('staminaCap');
+  return BASE_MAX_ENERGY + level * BASE_UPGRADE_CONFIG.staminaCap.perLevelEffect;
+}
 
 function loadRaw() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { current: MAX_ENERGY, cap: MAX_ENERGY, lastUpdateMs: Date.now() };
+    if (!raw) return { current: getMaxEnergy(), lastUpdateMs: Date.now() };
     const parsed = JSON.parse(raw);
     return {
-      current: typeof parsed.current === 'number' ? parsed.current : MAX_ENERGY,
-      cap: typeof parsed.cap === 'number' ? parsed.cap : MAX_ENERGY,
+      current: typeof parsed.current === 'number' ? parsed.current : getMaxEnergy(),
       lastUpdateMs: typeof parsed.lastUpdateMs === 'number' ? parsed.lastUpdateMs : Date.now(),
     };
   } catch {
-    return { current: MAX_ENERGY, cap: MAX_ENERGY, lastUpdateMs: Date.now() };
+    return { current: getMaxEnergy(), lastUpdateMs: Date.now() };
   }
 }
 
@@ -46,7 +54,10 @@ function save(state) {
 // this file routes through this first.
 function applyRegen() {
   const state = loadRaw();
-  if (state.current >= state.cap) {
+  const cap = getMaxEnergy();
+
+  if (state.current >= cap) {
+    state.current = cap; // clamp down if a staminaCap... this never actually shrinks, but stay defensive
     state.lastUpdateMs = Date.now();
     save(state);
     return state;
@@ -56,7 +67,7 @@ function applyRegen() {
   const pointsRegenerated = Math.floor(elapsedMs / REGEN_INTERVAL_MS);
 
   if (pointsRegenerated > 0) {
-    state.current = Math.min(state.cap, state.current + pointsRegenerated);
+    state.current = Math.min(cap, state.current + pointsRegenerated);
     // Only advance lastUpdateMs by the whole intervals actually consumed,
     // not all the way to now — otherwise partial progress toward the NEXT
     // point would be silently discarded.
@@ -68,13 +79,13 @@ function applyRegen() {
 }
 
 export function getEnergyState() {
-  const { current, cap } = applyRegen();
-  return { current, cap };
+  const { current } = applyRegen();
+  return { current, cap: getMaxEnergy() };
 }
 
 export function getMsUntilNextPoint() {
   const state = applyRegen();
-  if (state.current >= state.cap) return 0;
+  if (state.current >= getMaxEnergy()) return 0;
   return REGEN_INTERVAL_MS - ((Date.now() - state.lastUpdateMs) % REGEN_INTERVAL_MS);
 }
 
