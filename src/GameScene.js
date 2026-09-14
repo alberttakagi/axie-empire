@@ -9,6 +9,7 @@ import { STATUS_TYPES } from './STATUS_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
 import { loadPlayerProgress, getUnitProgress, grantStageRewards } from './PlayerProgress.js';
 import { getBonusPercent, rollTreasureForStage } from './Treasure.js';
+import { loadLoadout } from './Loadout.js';
 
 const TREASURE_TIER_NAMES = ['', 'Bronze', 'Silver', 'Gold'];
 
@@ -127,10 +128,16 @@ export default class GameScene extends Phaser.Scene {
     this.elapsedMs = 0;
     this.isGameOver = false;
 
+    // The player's chosen Formation (bible §A.10.3) — only these units get
+    // a deploy button at all, see createSpawnButtons. Falls back to every
+    // unit if nothing's saved (Loadout.js's own default), so this never
+    // regresses a player who's never opened the Formation screen.
+    this.loadout = loadLoadout();
+
     // Per-unit-type redeploy cooldown (bible §A.3.2/§A.3.7) — global floor
     // is 2000ms across every UNIT_CONFIG entry; see trySpawnUnit/update.
     this.unitCooldowns = {};
-    for (const key of Object.keys(UNIT_CONFIG)) this.unitCooldowns[key] = 0;
+    for (const key of this.loadout) this.unitCooldowns[key] = 0;
 
     this.add.rectangle(width / 2, this.laneY, width, 80, 0x2a2a2a);
 
@@ -201,7 +208,7 @@ export default class GameScene extends Phaser.Scene {
 
   createSpawnButtons() {
     const { width, height } = this.scale;
-    const keys = Object.keys(UNIT_CONFIG);
+    const keys = this.loadout;
     const totalWidth = keys.length * BUTTON_WIDTH + (keys.length - 1) * BUTTON_GAP;
     const startX = (width - totalWidth) / 2 + BUTTON_WIDTH / 2;
     const y = height - BUTTON_HEIGHT / 2 - 10;

@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
-import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
 
@@ -33,75 +32,36 @@ export default class StageSelectScene extends Phaser.Scene {
     const progress = loadStageProgress();
 
     this.add
-      .text(width / 2, 24, 'Axie Skirmish', {
-        fontSize: '26px',
+      .text(width / 2, 24, 'Select Stage', {
+        fontSize: '22px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
 
-    this.add
-      .text(width / 2, 52, 'Select Stage', {
-        fontSize: '16px',
-        color: '#aaaaaa',
-      })
-      .setOrigin(0.5);
-
-    this.createStageGrid(progress);
-    this.createTreasureButton();
-    this.createUpgradeButton();
-    this.createXpDisplay();
+    this.createHomeButton();
     this.createEnergyDisplay();
+    this.createStageGrid(progress);
   }
 
-  createUpgradeButton() {
-    const { width } = this.scale;
-    const x = width - 60;
-    const y = 24;
-
-    const rect = this.add
-      .rectangle(x, y, 90, 32, 0x9933cc)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(x, y, 'Upgrade', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.scene.start('UpgradeScene'));
+  createHomeButton() {
+    const rect = this.add.rectangle(50, 24, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
+    this.add.text(50, 24, 'Home', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerdown', () => this.scene.start('HomeScene'));
   }
 
-  createTreasureButton() {
-    const { width } = this.scale;
-    const x = width - 158;
-    const y = 24;
-
-    const rect = this.add
-      .rectangle(x, y, 96, 32, 0xcc9933)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(x, y, 'Treasure', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.scene.start('TreasureScene'));
-  }
-
-  // XP is the meta-progression currency spent in the Upgrade Menu (bible
-  // §A.5.1) — shown here so the player has a reason to check the Upgrade
-  // screen between runs without having to open it just to see the number.
-  createXpDisplay() {
-    const playerProgress = loadPlayerProgress();
-    this.add
-      .text(16, 24, `XP: ${Math.floor(playerProgress.xp).toLocaleString()}`, {
-        fontSize: '13px',
-        color: '#ffdd33',
-      })
-      .setOrigin(0, 0.5);
-  }
-
-  // Energy/Stamina (bible §A.9) — shown on its own line so it doesn't
-  // collide with the XP text above it (same overlap lesson learned in
-  // UpgradeScene: don't share a row with a fixed-position neighbor without
-  // checking both strings' actual widths).
+  // Energy/Stamina (bible §A.9) — the one piece of the old header worth
+  // repeating here even though HomeScene now owns the full status bar:
+  // it's what actually gates whether a tap on a stage tile below will
+  // succeed, so the player shouldn't have to go back to Home to check it.
   createEnergyDisplay() {
+    const { width } = this.scale;
     const { current, cap } = getEnergyState();
     this.add
-      .text(16, 44, `Energy: ${current}/${cap}`, {
+      .text(width - 16, 24, `Energy: ${current}/${cap}`, {
         fontSize: '13px',
         color: '#66ccff',
       })
-      .setOrigin(0, 0.5);
+      .setOrigin(1, 0.5);
   }
 
   createStageGrid(progress) {

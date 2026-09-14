@@ -1,0 +1,107 @@
+import Phaser from 'phaser';
+import { loadPlayerProgress } from './PlayerProgress.js';
+import { getEnergyState } from './Energy.js';
+
+// The bible's §A.10.1 Home/Base Screen — confirmed-from-screenshot layout:
+// a top status bar, a center-lower stack of three primary action buttons
+// ("Start Battle!!" / "Power Up" / "Character Formation"), and a secondary
+// icon row (Menu / Gamatoto / Missions). This is now the game's actual
+// first screen — StageSelectScene no longer doubles as the hub.
+//
+// Gamatoto (an idle side-activity for base-building materials) and
+// Missions (quest objectives) are shown as real icons matching the
+// confirmed layout, but have no backing system yet in this build — they're
+// deliberately out of scope for this pass (nothing in the bible's Phase
+// 1-5 build order requires them), so tapping either just shows a "coming
+// soon"-style toast rather than pretending to be a finished feature.
+
+const PRIMARY_BUTTON_WIDTH = 220;
+const PRIMARY_BUTTON_HEIGHT = 56;
+const PRIMARY_BUTTON_GAP = 14;
+
+export default class HomeScene extends Phaser.Scene {
+  constructor() {
+    super('HomeScene');
+  }
+
+  create() {
+    const { width, height } = this.scale;
+
+    this.add
+      .text(width / 2, 40, 'Axie Skirmish', { fontSize: '28px', color: '#ffffff' })
+      .setOrigin(0.5);
+
+    this.createStatusBar();
+    this.createPrimaryButtons();
+    this.createSecondaryIcons();
+
+    this.messageText = this.add
+      .text(width / 2, height - 20, '', { fontSize: '13px', color: '#ffdd33' })
+      .setOrigin(0.5);
+  }
+
+  createStatusBar() {
+    const playerProgress = loadPlayerProgress();
+    const { current, cap } = getEnergyState();
+
+    this.add
+      .text(16, 20, `XP: ${Math.floor(playerProgress.xp).toLocaleString()}`, {
+        fontSize: '13px',
+        color: '#ffdd33',
+      })
+      .setOrigin(0, 0.5);
+    this.add
+      .text(16, 40, `Energy: ${current}/${cap}`, { fontSize: '13px', color: '#66ccff' })
+      .setOrigin(0, 0.5);
+
+    const treasureButton = this.add
+      .rectangle(this.scale.width - 60, 24, 96, 32, 0xcc9933)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(this.scale.width - 60, 24, 'Treasure', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    treasureButton.on('pointerdown', () => this.scene.start('TreasureScene'));
+  }
+
+  createPrimaryButtons() {
+    const { width, height } = this.scale;
+    const centerX = width / 2;
+    const startY = height / 2 - PRIMARY_BUTTON_HEIGHT - PRIMARY_BUTTON_GAP;
+
+    const buttons = [
+      { label: 'Start Battle!!', color: 0xffcc33, scene: 'StageSelectScene' },
+      { label: 'Power Up', color: 0x9933cc, scene: 'UpgradeScene' },
+      { label: 'Character Formation', color: 0x3366cc, scene: 'LoadoutScene' },
+    ];
+
+    buttons.forEach((button, index) => {
+      const y = startY + index * (PRIMARY_BUTTON_HEIGHT + PRIMARY_BUTTON_GAP);
+      const rect = this.add
+        .rectangle(centerX, y, PRIMARY_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT, button.color)
+        .setInteractive({ useHandCursor: true });
+      this.add.text(centerX, y, button.label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
+      rect.on('pointerdown', () => this.scene.start(button.scene));
+    });
+  }
+
+  createSecondaryIcons() {
+    const { width, height } = this.scale;
+    const y = height - 60;
+    const icons = [
+      { label: 'Menu', x: width / 2 - 100 },
+      { label: 'Gamatoto', x: width / 2 },
+      { label: 'Missions', x: width / 2 + 100 },
+    ];
+
+    icons.forEach((icon) => {
+      const rect = this.add.circle(icon.x, y, 26, 0x444444).setInteractive({ useHandCursor: true });
+      this.add
+        .text(icon.x, y + 36, icon.label, { fontSize: '11px', color: '#aaaaaa' })
+        .setOrigin(0.5);
+      rect.on('pointerdown', () => this.showComingSoon(icon.label));
+    });
+  }
+
+  showComingSoon(label) {
+    this.messageText.setText(`${label}: coming soon!`);
+    this.time.delayedCall(1500, () => this.messageText.setText(''));
+  }
+}
