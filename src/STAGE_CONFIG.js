@@ -33,6 +33,11 @@
 //                   spawnDelayMs     time since the STAGE STARTED (not since
 //                                    the previous spawn) — so entries must be
 //                                    listed in increasing spawnDelayMs order.
+//   baseXp        this stage's XP reward (bible §A.5.1) on a first clear;
+//                 repeat clears taper toward a floor — see GameScene's
+//                 getXpReward for the exact decay formula. This is the
+//                 meta-progression XP (PlayerProgress.js), unrelated to
+//                 the in-battle money economy above.
 //   Clearing a stage = reducing its enemy base's HP to 0 (see GameScene's
 //   damageEnemyBase/winStage).
 
@@ -41,6 +46,7 @@ export const STAGE_CONFIG = [
     id: 'stage1',
     displayName: 'Training Grounds',
     difficulty: 'Easy',
+    baseXp: 1000,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -58,6 +64,7 @@ export const STAGE_CONFIG = [
     id: 'stage2',
     displayName: 'Basic Skirmish',
     difficulty: 'Easy',
+    baseXp: 1200,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -77,6 +84,7 @@ export const STAGE_CONFIG = [
     id: 'stage3',
     displayName: 'Fast Rush',
     difficulty: 'Easy',
+    baseXp: 1400,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -97,6 +105,7 @@ export const STAGE_CONFIG = [
     id: 'stage4',
     displayName: 'Ranged Threat',
     difficulty: 'Normal',
+    baseXp: 2000,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -117,6 +126,7 @@ export const STAGE_CONFIG = [
     id: 'stage5',
     displayName: 'Armor Up',
     difficulty: 'Normal',
+    baseXp: 2500,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -137,6 +147,7 @@ export const STAGE_CONFIG = [
     id: 'stage6',
     displayName: 'Combined Arms',
     difficulty: 'Normal',
+    baseXp: 3000,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -158,6 +169,7 @@ export const STAGE_CONFIG = [
     id: 'stage7',
     displayName: 'All-Out Assault',
     difficulty: 'Hard',
+    baseXp: 4000,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -179,6 +191,7 @@ export const STAGE_CONFIG = [
     id: 'stage8',
     displayName: 'Pressure Point',
     difficulty: 'Hard',
+    baseXp: 5000,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -201,6 +214,7 @@ export const STAGE_CONFIG = [
     id: 'stage9',
     displayName: 'Gauntlet',
     difficulty: 'Hard',
+    baseXp: 6000,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -225,6 +239,7 @@ export const STAGE_CONFIG = [
     id: 'stage10',
     displayName: 'The Overlord',
     difficulty: 'Boss',
+    baseXp: 12000,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,

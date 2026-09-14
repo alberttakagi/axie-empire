@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import StageSelectScene from './StageSelectScene.js';
 import GameScene from './GameScene.js';
+import UpgradeScene from './UpgradeScene.js';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -12,5 +13,5 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  scene: [StageSelectScene, GameScene],
+  scene: [StageSelectScene, GameScene, UpgradeScene],
 });

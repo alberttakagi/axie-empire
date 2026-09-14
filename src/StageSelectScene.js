@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
+import { loadPlayerProgress } from './PlayerProgress.js';
 
 const DIFFICULTY_COLOR = {
   Easy: 0x33cc33,
@@ -41,6 +42,33 @@ export default class StageSelectScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.createStageGrid(progress);
+    this.createUpgradeButton();
+    this.createXpDisplay();
+  }
+
+  createUpgradeButton() {
+    const { width } = this.scale;
+    const x = width - 60;
+    const y = 24;
+
+    const rect = this.add
+      .rectangle(x, y, 90, 32, 0x9933cc)
+      .setInteractive({ useHandCursor: true });
+    this.add.text(x, y, 'Upgrade', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerdown', () => this.scene.start('UpgradeScene'));
+  }
+
+  // XP is the meta-progression currency spent in the Upgrade Menu (bible
+  // §A.5.1) — shown here so the player has a reason to check the Upgrade
+  // screen between runs without having to open it just to see the number.
+  createXpDisplay() {
+    const playerProgress = loadPlayerProgress();
+    this.add
+      .text(16, 24, `XP: ${Math.floor(playerProgress.xp).toLocaleString()}`, {
+        fontSize: '13px',
+        color: '#ffdd33',
+      })
+      .setOrigin(0, 0.5);
   }
 
   createStageGrid(progress) {

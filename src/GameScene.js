@@ -2,10 +2,33 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
-import { saveStageResult } from './StageProgress.js';
+import { saveStageResult, getClearCount } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
 import { FLAT_DAMAGE_TRAIT, FLAT_DAMAGE_AMOUNT, MATCHUP_BONUSES, RESIST_BONUSES } from './TRAIT_CONFIG.js';
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
+import { getEffectiveUnitConfig } from './UnitStats.js';
+import { loadPlayerProgress, getUnitProgress, grantStageRewards } from './PlayerProgress.js';
+
+// Stage-clear XP reward decay (bible §A.5.1 — repeat clears taper toward a
+// floor rather than paying full XP forever): each previous clear of this
+// exact stage reduces its baseXp payout by XP_DECAY_PER_CLEAR, down to a
+// floor of XP_DECAY_FLOOR (e.g. 15%/clear, floor 20% => full reward on a
+// first clear, ~85% on the 2nd, ... bottoming out at 20% from the 6th on).
+const XP_DECAY_PER_CLEAR = 0.15;
+const XP_DECAY_FLOOR = 0.2;
+
+// Evolution-material drop chances on a stage win (bible §A.4.4's Catfruit/
+// Behemoth-Stone-equivalent economy, simplified to one flat chance per
+// material rather than per-stage-tuned tables — a reasonable placeholder
+// per the bible's own "tune to your own economy" framing).
+const EVO_SHARD_DROP_CHANCE = 0.3;
+const GROWTH_CHARM_DROP_CHANCE = 0.15;
+
+// Evolution-stage visual cue (sprites aren't in yet — see UNIT_CONFIG.js's
+// `sprite` field — so evolved/True Form units get a stroked ring instead of
+// new art, matching the bible's "sprites can be inserted later" scoping).
+const EVOLUTION_RING_COLOR = [null, 0xffffff, 0xffdd33]; // index = evolutionStage
+const EVOLUTION_RING_WIDTH = [0, 2, 3];
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
@@ -283,12 +306,19 @@ export default class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
     if (this.unitCooldowns[key] > 0) return;
 
-    const config = UNIT_CONFIG[key];
-    if (this.money < config.cost) return;
+    // Cost never scales with level/evolution (bible §A.3.2/§A.4.2) — always
+    // checked/charged against the unit's plain UNIT_CONFIG cost, never the
+    // effective (leveled) config.
+    const baseConfig = UNIT_CONFIG[key];
+    if (this.money < baseConfig.cost) return;
 
-    this.money -= config.cost;
-    this.unitCooldowns[key] = config.rechargeMs;
-    this.spawnUnit(key);
+    // Recharge time DOES change with evolution (a True Form's
+    // rechargeMultiplier — bible §A.4.4), so the cooldown uses the
+    // effective config, computed once here rather than twice.
+    const effectiveConfig = getEffectiveUnitConfig(key);
+    this.money -= baseConfig.cost;
+    this.unitCooldowns[key] = effectiveConfig.rechargeMs;
+    this.spawnUnit(key, effectiveConfig);
   }
 
   tryUpgradeWorkerCat() {
@@ -301,11 +331,19 @@ export default class GameScene extends Phaser.Scene {
     this.workerCatUpgradeCost = MONEY_CONFIG.workerCat.baseUpgradeCost * this.workerCatLevel;
   }
 
-  spawnUnit(type) {
-    const config = UNIT_CONFIG[type];
+  // `config` is the unit's EFFECTIVE (leveled + evolved) stat block — see
+  // UnitStats.js — computed once by trySpawnUnit rather than recomputed here.
+  spawnUnit(type, config) {
     const x = this.baseX + BASE_WIDTH / 2 + config.radius;
 
     const shape = this.add.circle(x, this.laneY, config.radius, config.color);
+    // Evolution-stage visual cue (no sprites yet — see UNIT_CONFIG.js's
+    // `sprite` field): an evolved/True Form unit gets a stroked ring around
+    // its placeholder shape instead of new art.
+    const evolutionStage = getUnitProgress(loadPlayerProgress(), type).evolutionStage;
+    if (evolutionStage > 0) {
+      shape.setStrokeStyle(EVOLUTION_RING_WIDTH[evolutionStage], EVOLUTION_RING_COLOR[evolutionStage]);
+    }
     const label = this.add.text(x, this.laneY, config.label, {
       fontSize: '16px',
       color: '#000000',
@@ -1015,8 +1053,33 @@ export default class GameScene extends Phaser.Scene {
     this.isGameOver = true;
 
     const finalScore = this.getScore();
+    // Read the clear count BEFORE saveStageResult increments it — the XP
+    // decay (bible §A.5.1) is based on how many times this stage was ALREADY
+    // won prior to this run, not counting this run itself.
+    const xpReward = this.getXpReward();
+    const rewards = grantStageRewards({
+      xp: xpReward,
+      evoShardChance: EVO_SHARD_DROP_CHANCE,
+      growthCharmChance: GROWTH_CHARM_DROP_CHANCE,
+    });
     saveStageResult(this.stage.id, finalScore, true);
-    this.showEndScreen(['STAGE CLEAR', `Score: ${finalScore}`]);
+
+    const lines = ['STAGE CLEAR', `Score: ${finalScore}`, `+${xpReward.toLocaleString()} XP`];
+    if (rewards.evoShardsGranted) lines.push('+1 Evo Shard!');
+    if (rewards.growthCharmsGranted) lines.push('+1 Growth Charm!');
+    this.showEndScreen(lines);
+  }
+
+  // XP reward for THIS clear (bible §A.5.1): full baseXp on a first win,
+  // decaying by XP_DECAY_PER_CLEAR per prior clear of this same stage down
+  // to a floor of XP_DECAY_FLOOR — the same "don't let players farm one
+  // easy stage forever at full reward" shape the bible's real formula has,
+  // simplified to a flat per-clear decay instead of the real per-mode
+  // lookup formula.
+  getXpReward() {
+    const previousClears = getClearCount(this.stage.id);
+    const decay = Math.max(XP_DECAY_FLOOR, 1 - XP_DECAY_PER_CLEAR * previousClears);
+    return Math.round(this.stage.baseXp * decay);
   }
 
   showEndScreen(lines) {
