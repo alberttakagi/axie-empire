@@ -33,6 +33,7 @@ export default class HomeScene extends Phaser.Scene {
 
     this.createStatusBar();
     this.createPrimaryButtons();
+    this.createDojoButton();
     this.createSecondaryIcons();
 
     this.messageText = this.add
@@ -90,6 +91,28 @@ export default class HomeScene extends Phaser.Scene {
       this.add.text(centerX, y, button.label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
       rect.on('pointerdown', () => this.scene.start(button.scene));
     });
+  }
+
+  // Sparring Grounds (bible §A.6.4's Catclaw Dojo) — a free, timed,
+  // score-attack mode. No Energy cost, so it launches GameScene directly,
+  // skipping StageSelectScene's energy gate entirely (matching the bible's
+  // "free-play" framing).
+  createDojoButton() {
+    const { width, height } = this.scale;
+    const x = width / 2;
+    // Sits in the gap between the primary-button stack's bottom edge and
+    // the secondary-icon row's top edge — computed from the same layout
+    // constants createPrimaryButtons/createSecondaryIcons use, so it never
+    // collides with either regardless of future tweaks to those.
+    const lastPrimaryButtonY =
+      height / 2 - PRIMARY_BUTTON_HEIGHT - PRIMARY_BUTTON_GAP + 2 * (PRIMARY_BUTTON_HEIGHT + PRIMARY_BUTTON_GAP);
+    const stackBottom = lastPrimaryButtonY + PRIMARY_BUTTON_HEIGHT / 2;
+    const iconRowTop = height - 60 - 26;
+    const y = (stackBottom + iconRowTop) / 2;
+
+    const rect = this.add.rectangle(x, y, 200, 36, 0x669933).setInteractive({ useHandCursor: true });
+    this.add.text(x, y, 'Sparring Grounds', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerdown', () => this.scene.start('GameScene', { mode: 'dojo' }));
   }
 
   createSecondaryIcons() {

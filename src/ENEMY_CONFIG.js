@@ -46,7 +46,7 @@ export const ENEMY_CONFIG = {
     id: 'basic',
     displayName: 'Basic Melee',
     role: 'basic',
-    trait: 'feral',
+    trait: 'beast',
     threat: 2,
     hp: 16,
     damage: 3,
@@ -71,7 +71,7 @@ export const ENEMY_CONFIG = {
     id: 'fast',
     displayName: 'Fast Melee',
     role: 'fast',
-    trait: 'aerial',
+    trait: 'bird',
     // Directional push only, mirroring the unit-side literal-ratio jump
     // (the real reference here is a premium unit, a poor tier match to
     // apply literally against our other enemy-tier stats).
@@ -105,7 +105,7 @@ export const ENEMY_CONFIG = {
     id: 'tank',
     displayName: 'Tank',
     role: 'tank',
-    trait: 'alloy',
+    trait: 'mech',
     // Pushed toward the real reference direction (enemy-side walls skew even
     // harder toward "pure roadblock" than player walls do) without going all
     // the way to the literal ratio, which would demand ~1,776 hp off our
@@ -144,7 +144,7 @@ export const ENEMY_CONFIG = {
     id: 'ranged',
     displayName: 'Ranged',
     role: 'ranged',
-    trait: 'blight',
+    trait: 'bug',
     // Directional push only (the tier-matched real reference for this
     // archetype was ~44x our basic enemy's hp — a poor tier match, not a
     // ratio to apply literally): more hp, notably more burst dps, a bit
@@ -187,7 +187,7 @@ export const ENEMY_CONFIG = {
     id: 'aoe',
     displayName: 'Special (AoE)',
     role: 'aoe',
-    trait: 'verdant',
+    trait: 'plant',
     // Directional push only (poor tier match — the real splash-attack
     // reference sits well above our whole enemy-stat tier; see
     // UNIT_CONFIG.js's aoe entry for the full ratio derivation).

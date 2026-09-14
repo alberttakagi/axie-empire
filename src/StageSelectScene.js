@@ -125,6 +125,19 @@ export default class StageSelectScene extends Phaser.Scene {
           .setStrokeStyle(1, 0xffffff);
       }
 
+      // Restriction Stage badge (bible §A.6.5) — top-left corner, mirroring
+      // the treasure dot's top-right placement. The specific restriction
+      // details show up as a message in GameScene when a blocked action is
+      // actually attempted, rather than being spelled out on this small tile.
+      if (isUnlocked && stage.restrictions) {
+        this.add
+          .circle(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 6, 0xcc3333)
+          .setStrokeStyle(1, 0xffffff);
+        this.add
+          .text(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 'R', { fontSize: '8px', color: '#ffffff' })
+          .setOrigin(0.5);
+      }
+
       if (isUnlocked) {
         rect.setInteractive({ useHandCursor: true });
         rect.on('pointerdown', () => this.onStageSelected(stage));

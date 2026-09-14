@@ -3,6 +3,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { getUnitProgress, loadPlayerProgress } from './PlayerProgress.js';
 import { loadLoadout, saveLoadout } from './Loadout.js';
+import { getActiveCombos } from './Combo.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
 // "manage my formation" screen reachable from the Home screen, rather than
@@ -35,11 +36,30 @@ export default class LoadoutScene extends Phaser.Scene {
 
     this.selected = new Set(loadLoadout());
     this.cardContainer = this.add.container(0, 0);
+
+    // Squad Synergy (bible §A.7.3's Cat Combo) — this mechanic otherwise
+    // applies completely silently in battle (a starting-money/attack/crit
+    // bonus with no on-screen label anywhere), so this is the one place a
+    // player can actually see which synergies their current Formation has
+    // activated and why.
+    this.add
+      .text(width / 2, 250, 'Active Squad Synergies:', { fontSize: '13px', color: '#ffdd33' })
+      .setOrigin(0.5);
+    this.synergyText = this.add
+      .text(width / 2, 272, '', { fontSize: '12px', color: '#ffffff', align: 'center' })
+      .setOrigin(0.5);
+
     this.messageText = this.add
       .text(width / 2, 400, '', { fontSize: '12px', color: '#ff6666' })
       .setOrigin(0.5);
 
     this.renderCards();
+    this.refreshSynergies();
+  }
+
+  refreshSynergies() {
+    const activeCombos = getActiveCombos([...this.selected]);
+    this.synergyText.setText(activeCombos.length > 0 ? activeCombos.map((combo) => combo.name).join('   •   ') : 'None');
   }
 
   renderCards() {
@@ -104,6 +124,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
     saveLoadout([...this.selected]);
     this.renderCards();
+    this.refreshSynergies();
   }
 
   showMessage(text) {

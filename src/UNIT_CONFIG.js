@@ -9,7 +9,7 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 //                   the human-facing name shown on the spawn button.
 //   role            shared taxonomy with ENEMY_CONFIG.js (basic/fast/tank/ranged/aoe).
 //   trait           one of TRAIT_CONFIG.js's TRAITS — drives matchup bonuses
-//                    and the flat-damage-vs-alloy rule; see that file.
+//                    and the flat-damage-vs-mech rule; see that file.
 //   cost            yen spent to spawn one (see MONEY_CONFIG.js) — set to
 //                   the literal real Battle Cats price for that unit's
 //                   reference archetype, not a ratio-derived figure.
@@ -47,9 +47,9 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 //                   { type: 'aoe', radius } to splash all enemies within that
 //                   radius of the primary target instead of hitting one.
 //   critChance      0-1 chance per landed hit to deal double damage AND
-//                   bypass the flat-damage-vs-alloy rule entirely (bible
+//                   bypass the flat-damage-vs-mech rule entirely (bible
 //                   §A.3.6 — Critical Hit is the one thing that ignores
-//                   Metal/alloy's damage cap). 0 = never crits.
+//                   Metal/mech's damage cap). 0 = never crits.
 //   knockbackCount  how many times cumulative damage can stagger this entity
 //                   (bible §A.3.5's "endurance" model: endurance = hp /
 //                   knockbackCount) before it's simply destroyed by normal HP
@@ -86,7 +86,7 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 //                   whatever status ability this unit already has: on a
 //                   successful roll, adds bonus damage equal to `percent`
 //                   of the DEFENDER's own max HP, bypassing the
-//                   Metal/alloy flat-damage cap. Suppressed by Curse.
+//                   Metal/mech flat-damage cap. Suppressed by Curse.
 //   waveOnHit       { radius } (bible §A.3.8, Wave Attack) — also
 //                   independent of statusOnHit/special: after the primary
 //                   hit resolves, sweeps outward from THIS unit's own
@@ -119,7 +119,7 @@ export const UNIT_CONFIG = {
     id: 'basic',
     displayName: 'Basic Melee',
     role: 'basic',
-    trait: 'feral',
+    trait: 'beast',
     cost: 50, // literal real price of this archetype's basic-attacker reference
     hp: 14,
     damage: 3,
@@ -144,7 +144,7 @@ export const UNIT_CONFIG = {
     id: 'fast',
     displayName: 'Fast Melee',
     role: 'fast',
-    trait: 'aerial',
+    trait: 'bird',
     // Rebalanced against real reference ratios (fastest-mover archetype vs.
     // basic attacker): hp 5x basic, dps ~6x basic, speed 3x basic. The real
     // reference unit for "fastest mover" turned out to be a premium unit
@@ -181,7 +181,7 @@ export const UNIT_CONFIG = {
     id: 'tank',
     displayName: 'Tank',
     role: 'tank',
-    trait: 'alloy',
+    trait: 'mech',
     // Rebalanced against real reference ratios (wall unit vs. basic attacker):
     // hp 4x basic, dps ~0.14x basic, speed ~0.8x basic. cost is that unit's
     // literal real price (happens to land at 2x basic).
@@ -218,7 +218,7 @@ export const UNIT_CONFIG = {
     id: 'ranged',
     displayName: 'Ranged',
     role: 'ranged',
-    trait: 'blight',
+    trait: 'bug',
     // Rebalanced against real reference ratios (ranged attacker vs. basic
     // attacker): hp 4x basic (this archetype isn't a glass cannon in HP —
     // its edge is one huge hit on a slow cadence), dps ~3.64x basic, speed
@@ -257,7 +257,7 @@ export const UNIT_CONFIG = {
     id: 'aoe',
     displayName: 'Special (AoE)',
     role: 'aoe',
-    trait: 'verdant',
+    trait: 'plant',
     // Rebalanced against real reference ratios (splash/area attacker vs.
     // basic attacker): hp 3x basic, dps ~16.2x basic, speed same as basic.
     // No basic-tier real unit has a true area attack — pulled this from the

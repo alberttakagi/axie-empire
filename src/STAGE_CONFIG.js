@@ -46,6 +46,20 @@
 //                 equivalent) paid out ONLY the very first time this stage
 //                 is won — distinct from the always-available XP/Treasure
 //                 rewards above. See GameScene.winStage.
+//   restrictions  optional (bible §A.6.5's Restriction Stage) — a modifier
+//                 layer most stages omit entirely. Fields (any combo):
+//                   maxDeployed       hard cap on simultaneously-alive
+//                                     player units on the field at once
+//                                     (well below the engine's implicit
+//                                     "however many you can afford" limit).
+//                   bannedUnitTypes   UNIT_CONFIG keys that can't be
+//                                     deployed at all on this stage, even
+//                                     though they're still in the Formation.
+//                   costRange         { min, max } — a unit can't be
+//                                     deployed unless its cost falls in
+//                                     this (inclusive) band.
+//                 All enforced in GameScene.trySpawnUnit, which shows a
+//                 brief on-screen reason when a restriction blocks a tap.
 //   Clearing a stage = reducing its enemy base's HP to 0 (see GameScene's
 //   damageEnemyBase/winStage).
 
@@ -244,6 +258,9 @@ export const STAGE_CONFIG = [
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
+    // Restriction Stage (bible §A.6.5): forces lineup discipline instead of
+    // just spamming everything at once.
+    restrictions: { maxDeployed: 3 },
     enemyBaseHp: 500,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1.4, spawnDelayMs: 1000 },
@@ -271,6 +288,10 @@ export const STAGE_CONFIG = [
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
+    // Restriction Stage (bible §A.6.5): the boss fight bans the single
+    // strongest unit outright, forcing a different lineup than "just bring
+    // the best DPS."
+    restrictions: { bannedUnitTypes: ['aoe'] },
     enemyBaseHp: 900,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1.2, spawnDelayMs: 1000 },

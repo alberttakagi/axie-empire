@@ -18,6 +18,8 @@ import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage } from './Treasure.js';
 import { loadLoadout } from './Loadout.js';
 import { getComboBonusValue } from './Combo.js';
+import { DOJO_CONFIG } from './DOJO_CONFIG.js';
+import { saveDojoScore } from './DojoProgress.js';
 
 // Account-wide Base Upgrades (bible §A.7.1) — read once per battle at
 // create() time into flat numbers, since they only change between battles
@@ -119,7 +121,32 @@ export default class GameScene extends Phaser.Scene {
   create(data) {
     const { width, height } = this.scale;
 
-    this.stage = STAGE_CONFIG.find((s) => s.id === data.stageId);
+    // Sparring Grounds (bible §A.6.4's Catclaw Dojo) — a free, timed,
+    // score-attack mode against an invincible base with endless waves,
+    // reusing this exact combat engine. See the `this.mode === 'dojo'`
+    // branches below/in damageBase/damageEnemyBase/onEnemyKilled/update
+    // for the handful of points where it genuinely differs from a normal
+    // stage: no Energy cost (enforced by HomeScene launching this scene
+    // directly), an invincible player base, no destroy-the-enemy-base win
+    // condition, endless escalating spawns instead of a scripted wave
+    // list, a hard time limit instead of a base-HP-driven ending, no
+    // money from kills, and no stage-clear rewards (XP/Treasure/Gems) —
+    // just a best-score record (DojoProgress.js).
+    this.mode = data.mode === 'dojo' ? 'dojo' : 'stage';
+    this.stage =
+      this.mode === 'dojo'
+        ? {
+            id: 'dojo',
+            displayName: 'Sparring Grounds',
+            baseHp: Infinity,
+            enemyBaseHp: Infinity,
+            startingMoney: DOJO_CONFIG.startingMoney,
+            moneyAccrualPerSec: DOJO_CONFIG.moneyAccrualPerSec,
+            spawnScript: [],
+            baseXp: 0,
+            gemsFirstClear: 0,
+          }
+        : STAGE_CONFIG.find((s) => s.id === data.stageId);
 
     // Worker Cat: an in-battle levelable economy building (bible §A.3.10/
     // §A.7.1 — confirmed real reference mechanic, not invented). Starts
@@ -243,8 +270,20 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    if (this.mode === 'dojo') {
+      this.dojoTimeRemainingMs = DOJO_CONFIG.timeLimitMs;
+      this.dojoTimerText = this.add
+        .text(width / 2, 16, '', { fontSize: '16px', color: '#ffdd33' })
+        .setOrigin(0.5, 0);
+    }
+
     this.createSpawnButtons();
-    this.scheduleStageScript();
+
+    if (this.mode === 'dojo') {
+      this.scheduleDojoWaves();
+    } else {
+      this.scheduleStageScript();
+    }
   }
 
   scheduleStageScript() {
@@ -254,6 +293,50 @@ export default class GameScene extends Phaser.Scene {
         this.spawnScriptedEnemy(entry);
       });
     }
+  }
+
+  // Sparring Grounds' endless, escalating spawner (DOJO_CONFIG.js) — every
+  // tierDurationMs the "tier" rises, enemies get tougher/faster/denser, and
+  // more of them spawn per burst. Re-schedules itself, so it keeps running
+  // until endDojo() sets isGameOver.
+  getDojoTier() {
+    return Math.floor(this.elapsedMs / DOJO_CONFIG.tierDurationMs);
+  }
+
+  scheduleDojoWaves() {
+    if (this.isGameOver) return;
+
+    const tier = this.getDojoTier();
+    const burstSize = 1 + Math.floor(tier / DOJO_CONFIG.burstTierStep);
+    const availableRoles = Object.keys(ENEMY_CONFIG).filter(
+      (role) => tier >= (DOJO_CONFIG.roleUnlockTier[role] ?? 0),
+    );
+
+    for (let i = 0; i < burstSize; i += 1) {
+      const role = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+      this.time.delayedCall(i * 250, () => {
+        if (this.isGameOver) return;
+        this.spawnDojoEnemy(role);
+      });
+    }
+
+    const delay = Math.max(
+      DOJO_CONFIG.minSpawnIntervalMs,
+      DOJO_CONFIG.baseSpawnIntervalMs - tier * DOJO_CONFIG.spawnIntervalStepMs,
+    );
+    this.time.delayedCall(delay, () => this.scheduleDojoWaves());
+  }
+
+  spawnDojoEnemy(type) {
+    const base = ENEMY_CONFIG[type];
+    const tier = this.getDojoTier();
+    const config = {
+      ...base,
+      hp: Math.round(base.hp * (1 + tier * DOJO_CONFIG.hpMultiplierPerTier)),
+      moveSpeed: base.moveSpeed * (1 + tier * DOJO_CONFIG.speedMultiplierPerTier),
+    };
+
+    this.createEnemy(type, config);
   }
 
   createSpawnButtons() {
@@ -340,7 +423,7 @@ export default class GameScene extends Phaser.Scene {
     this.cannonBase = this.add.circle(this.cannonX, this.cannonY, CANNON_BUTTON_RADIUS, CANNON_NOT_READY_COLOR);
     this.cannonChargeGraphics = this.add.graphics();
     this.add
-      .text(this.cannonX, this.cannonY, 'CANNON', {
+      .text(this.cannonX, this.cannonY, 'RUNE\nCANNON', {
         fontSize: '10px',
         color: '#ffffff',
         align: 'center',
@@ -395,6 +478,26 @@ export default class GameScene extends Phaser.Scene {
     const baseConfig = UNIT_CONFIG[key];
     if (this.money < baseConfig.cost) return;
 
+    // Restriction Stage checks (bible §A.6.5) — a no-op on any stage
+    // without a `restrictions` block (including Sparring Grounds' synthetic
+    // pseudo-stage, which never has one).
+    const restrictions = this.stage.restrictions;
+    if (restrictions?.bannedUnitTypes?.includes(key)) {
+      this.showRestrictionMessage('Banned in this stage!');
+      return;
+    }
+    if (restrictions?.costRange && (baseConfig.cost < restrictions.costRange.min || baseConfig.cost > restrictions.costRange.max)) {
+      this.showRestrictionMessage(`Cost must be ${restrictions.costRange.min}-${restrictions.costRange.max}円!`);
+      return;
+    }
+    if (restrictions?.maxDeployed) {
+      const currentlyDeployed = this.playerUnits.filter((unit) => unit.hp > 0).length;
+      if (currentlyDeployed >= restrictions.maxDeployed) {
+        this.showRestrictionMessage(`Max ${restrictions.maxDeployed} units at once!`);
+        return;
+      }
+    }
+
     // Recharge time DOES change with evolution (a True Form's
     // rechargeMultiplier — bible §A.4.4), so the cooldown uses the
     // effective config, computed once here rather than twice.
@@ -421,6 +524,25 @@ export default class GameScene extends Phaser.Scene {
     this.money -= baseConfig.cost;
     this.unitCooldowns[key] = recharge;
     this.spawnUnit(key, finalConfig);
+  }
+
+  // Brief on-screen reason for a blocked Restriction Stage tap (bible
+  // §A.6.5) — same "temporary bottom-of-screen text" pattern
+  // StageSelectScene uses for its own "Not enough Energy!" message.
+  showRestrictionMessage(text) {
+    if (this.restrictionMessageText) this.restrictionMessageText.destroy();
+
+    const { width, height } = this.scale;
+    this.restrictionMessageText = this.add
+      .text(width / 2, height - 90, text, { fontSize: '13px', color: '#ff6666' })
+      .setOrigin(0.5);
+
+    this.time.delayedCall(1500, () => {
+      if (this.restrictionMessageText) {
+        this.restrictionMessageText.destroy();
+        this.restrictionMessageText = null;
+      }
+    });
   }
 
   tryUpgradeWorkerCat() {
@@ -581,8 +703,25 @@ export default class GameScene extends Phaser.Scene {
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
 
-    this.baseHpText.setText(`${Math.max(0, this.baseHp)}/${this.baseMaxHp}`);
-    this.enemyBaseHpText.setText(`${Math.max(0, this.enemyBaseHp)}/${this.enemyBaseMaxHp}`);
+    // Sparring Grounds' base is invincible (see damageBase/damageEnemyBase),
+    // so its HP is always Infinity — shown as "∞/∞" rather than a literal
+    // (and confusing) "Infinity/Infinity" string.
+    this.baseHpText.setText(Number.isFinite(this.baseHp) ? `${Math.max(0, this.baseHp)}/${this.baseMaxHp}` : '∞/∞');
+    this.enemyBaseHpText.setText(
+      Number.isFinite(this.enemyBaseHp) ? `${Math.max(0, this.enemyBaseHp)}/${this.enemyBaseMaxHp}` : '∞/∞',
+    );
+
+    if (this.mode === 'dojo') {
+      this.dojoTimeRemainingMs = Math.max(0, this.dojoTimeRemainingMs - deltaMs);
+      const totalSeconds = Math.ceil(this.dojoTimeRemainingMs / 1000);
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      this.dojoTimerText.setText(`Time: ${minutes}:${String(seconds).padStart(2, '0')}`);
+
+      if (this.dojoTimeRemainingMs <= 0) {
+        this.endDojo();
+      }
+    }
   }
 
   getScore() {
@@ -608,7 +747,7 @@ export default class GameScene extends Phaser.Scene {
     const button = this.workerCatButton;
     const maxed = this.workerCatLevel >= MONEY_CONFIG.workerCat.maxLevel;
 
-    button.labelText.setText(`Worker Cat Lv${this.workerCatLevel}`);
+    button.labelText.setText(`Land Worker Lv${this.workerCatLevel}`);
     button.costText.setText(maxed ? 'MAX' : `${Math.round(this.workerCatUpgradeCost).toLocaleString()}円`);
 
     const affordable = !maxed && this.money >= this.workerCatUpgradeCost;
@@ -748,6 +887,11 @@ export default class GameScene extends Phaser.Scene {
 
   onEnemyKilled(enemy) {
     this.enemiesKilled += 1;
+    // Sparring Grounds pays no money for kills at all (bible: it's a
+    // damage-test venue, not a money-farming one) — score still counts
+    // the kill via enemiesKilled above, just no economy payout.
+    if (this.mode === 'dojo') return;
+
     // Accounting Base Upgrade (bible §A.7.1) — % more money per kill.
     const bonus = enemy.config.threat * MONEY_CONFIG.killBonusMultiplier * (1 + this.accountingBonusPercent / 100);
     this.money = Math.min(this.getWalletCap(), this.money + bonus);
@@ -1143,6 +1287,7 @@ export default class GameScene extends Phaser.Scene {
 
   damageBase(amount) {
     if (this.isGameOver) return;
+    if (this.mode === 'dojo') return; // invincible — no loss condition in Sparring Grounds
 
     this.baseHp = Math.max(0, this.baseHp - amount);
     if (this.baseHp <= 0) {
@@ -1152,6 +1297,7 @@ export default class GameScene extends Phaser.Scene {
 
   damageEnemyBase(amount) {
     if (this.isGameOver) return;
+    if (this.mode === 'dojo') return; // no destroy-the-base win condition in Sparring Grounds
 
     this.enemyBaseHp = Math.max(0, this.enemyBaseHp - amount);
     if (this.enemyBaseHp <= 0) {
@@ -1166,6 +1312,21 @@ export default class GameScene extends Phaser.Scene {
     // A loss can still raise a stage's best score; it never marks it cleared.
     saveStageResult(this.stage.id, finalScore, false);
     this.showEndScreen(['GAME OVER', `Score: ${finalScore}`]);
+  }
+
+  // Sparring Grounds' only ending: the timer runs out (see update()). No
+  // stage-clear rewards at all (bible: Dojo is a pure damage-test venue) —
+  // just a best-score record, same getScore() formula as a normal stage
+  // (enemiesKilled-weighted + elapsed time), reused as-is since Dojo has no
+  // reason to compute score any differently.
+  endDojo() {
+    this.isGameOver = true;
+
+    const finalScore = this.getScore();
+    const { bestScore, isNewBest } = saveDojoScore(finalScore);
+    const lines = ['TIME UP!', `Score: ${finalScore}`];
+    lines.push(isNewBest ? 'New best score!' : `Best: ${bestScore}`);
+    this.showEndScreen(lines);
   }
 
   // The only win trigger: destroying the enemy base (see damageEnemyBase).
@@ -1241,6 +1402,8 @@ export default class GameScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0.5);
-    menuButton.on('pointerdown', () => this.scene.start('StageSelectScene'));
+    // Dojo wasn't reached via Stage Select at all (HomeScene launches it
+    // directly), so "Menu" should return there instead.
+    menuButton.on('pointerdown', () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene'));
   }
 }
