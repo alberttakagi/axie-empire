@@ -202,6 +202,7 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseCurseMs = 0; // mirror on the enemy base — currently a no-op, nothing to suppress there yet
     this.elapsedMs = 0;
     this.isGameOver = false;
+    this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
     // real game gates 2x/3x behind item charges and a subscription perk;
     // out of scope here, see the Battle Items note in this session's
@@ -240,10 +241,13 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(1, 0.5);
 
-    // Top-left: stage name (confirmed screenshot position — a pause icon
-    // sits here too in the reference game; not implemented yet, see the
-    // bible cross-check notes).
-    this.add.text(16, 16, this.stage.displayName, {
+    // Top-left: a Quit button (this build's stand-in for the reference
+    // game's own pause icon in this exact corner — see the bible
+    // cross-check notes) so a battle can be abandoned mid-fight instead of
+    // only ever reachable from the post-battle Menu button, then the stage
+    // name alongside it (shifted right to make room).
+    this.createQuitButton();
+    this.add.text(92, 16, this.stage.displayName, {
       fontSize: '18px',
       color: '#ffdd33',
     });
@@ -381,6 +385,64 @@ export default class GameScene extends Phaser.Scene {
 
       return { key, config, rect, labelText, costText, cooldownOverlay };
     });
+  }
+
+  // Quit mid-battle (not just from the post-battle Menu button) — a plain
+  // scene.start away, same as the existing Menu button, is one accidental
+  // tap away from throwing away a live run (Energy already spent, non-
+  // refundable per STAGE_CONFIG.js; no stage-clear rewards, since
+  // winStage() never runs), so this is gated behind a Yes/No confirm
+  // overlay rather than firing immediately.
+  createQuitButton() {
+    const rect = this.add.rectangle(48, 16, 64, 28, 0x444444).setInteractive({ useHandCursor: true });
+    this.add.text(48, 16, 'Quit', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    rect.on('pointerdown', () => this.showQuitConfirm());
+  }
+
+  showQuitConfirm() {
+    if (this.quitConfirmObjects) return; // already showing
+    this.isPaused = true;
+
+    const { width, height } = this.scale;
+    const objects = [];
+
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setInteractive());
+    objects.push(
+      this.add
+        .text(width / 2, height / 2 - 40, 'Quit this battle?\nProgress in this run will be lost.', {
+          fontSize: '18px',
+          color: '#ffffff',
+          align: 'center',
+        })
+        .setOrigin(0.5),
+    );
+
+    const buttonY = height / 2 + 30;
+    const yesButton = this.add
+      .rectangle(width / 2 - 80, buttonY, 130, 48, 0xcc3333)
+      .setInteractive({ useHandCursor: true });
+    objects.push(yesButton, this.add.text(width / 2 - 80, buttonY, 'Quit', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
+
+    const noButton = this.add
+      .rectangle(width / 2 + 80, buttonY, 130, 48, 0x444444)
+      .setInteractive({ useHandCursor: true });
+    objects.push(noButton, this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
+
+    // Dojo wasn't reached via Stage Select at all (HomeScene launches it
+    // directly), but unlike the post-battle Menu button, quitting mid-battle
+    // always goes all the way back to the Home hub/lobby regardless of
+    // mode — there's no "current saga's stage list" to return to mid-run.
+    yesButton.on('pointerdown', () => this.scene.start('HomeScene'));
+    noButton.on('pointerdown', () => this.hideQuitConfirm());
+
+    this.quitConfirmObjects = objects;
+  }
+
+  hideQuitConfirm() {
+    if (!this.quitConfirmObjects) return;
+    this.quitConfirmObjects.forEach((obj) => obj.destroy());
+    this.quitConfirmObjects = null;
+    this.isPaused = false;
   }
 
   createWorkerCatButton() {
@@ -667,7 +729,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   update(time, deltaMs) {
-    if (this.isGameOver) return;
+    if (this.isGameOver || this.isPaused) return;
 
     // Speed Up (see toggleSpeedUp) scales every per-frame calculation below
     // by reassigning the parameter itself — everything downstream
