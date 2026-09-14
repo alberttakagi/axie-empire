@@ -24,12 +24,20 @@ export const MONEY_CONFIG = {
   // maxLevel (matches the real reference mechanic's own level-8 cap). Each
   // level adds a flat amount to BOTH the income rate and the wallet cap —
   // two separate levers a player is trading early income for.
+  //
+  // walletCapPerLevel and baseUpgradeCost are CONFIRMED real numbers, read
+  // directly off in-game screenshots (three data points at Worker Cat
+  // levels 1/2/4, all on the same stage): cap went 6000 → 7500 → 10500
+  // (exactly +1500/level), and the on-screen upgrade cost went
+  // 440 → 880 → 1760 (exactly 440 × current level). accrualPerLevel has no
+  // screenshot evidence either way (money-accrual RATE isn't visible in a
+  // static screenshot) and stays a reasoned placeholder.
   workerCat: {
     maxLevel: 8,
-    accrualPerLevel: 8, // flat ¥/sec added per level above 1
-    walletCapPerLevel: 150, // flat ¥ added to the wallet cap per level above 1
-    // Cost to go from level N to N+1 is baseUpgradeCost * N (matches the
-    // researched real formula: "level 1 cost × current level").
-    baseUpgradeCost: 150,
+    accrualPerLevel: 8, // flat ¥/sec added per level above 1 — placeholder, unconfirmed
+    walletCapPerLevel: 1500, // flat ¥ added to the wallet cap per level above 1 — confirmed
+    // Cost to go from level N to N+1 is baseUpgradeCost * N (confirmed
+    // formula AND confirmed base value from screenshot evidence).
+    baseUpgradeCost: 440,
   },
 };

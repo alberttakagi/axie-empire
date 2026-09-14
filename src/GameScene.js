@@ -40,24 +40,29 @@ const STATUS_CURSE_COLOR = 0x9933cc;
 const STATUS_SLOW_COLOR = 0x88ccff;
 const STATUS_WEAKEN_COLOR = 0xcc8844;
 
-// Curse tint for the player's base itself (see baseCurseMs) — takes
-// priority over the special-ready gold tint, since a cursed base can't
-// fire its burst regardless of meter charge.
+// Curse tint for the player's base itself (see baseCurseMs) — a cursed base
+// can't fire the Cat Cannon regardless of meter charge (see
+// tryTriggerSpecialBurst); the base's own fillColor only ever reflects this,
+// never the cannon's ready state (that's the cannon button's own job now —
+// see updateCannonButton).
 const BASE_CURSE_COLOR = 0x663399;
 
-// Special meter (this build's Cat Cannon equivalent, bible §A.3.9): fills
-// PASSIVELY OVER TIME, independent of combat performance — not from damage
-// dealt. Once full, the player's base turns gold and becomes clickable —
-// tapping it fires a flat burst against every living enemy on screen plus
-// the enemy base (with knockback, matching the bible), then resets to 0.
-// Deliberately bypasses the trait/matchup system (there's no single
-// attacker to assign a trait to for a screen-wide effect).
+// Cat Cannon: fills PASSIVELY OVER TIME (bible §A.3.9), independent of
+// combat performance — not from damage dealt. Rendered as a dedicated
+// bottom-right circular button (confirmed screenshot layout: Worker Cat
+// bottom-left, Cat Cannon bottom-right, both separate from the bases
+// themselves) with a radial charge fill; once full it lights up and becomes
+// tappable — tapping it fires a flat burst against every living enemy on
+// screen plus the enemy base (with knockback, matching the bible), then
+// resets to 0.
 const SPECIAL_METER_MAX = 200;
 const SPECIAL_CHARGE_PER_SEC = 10; // fills from empty in 20s
 const SPECIAL_BURST_DAMAGE = 30;
 const SPECIAL_BURST_BASE_DAMAGE = 25;
-const SPECIAL_BAR_WIDTH = 140;
-const SPECIAL_BAR_HEIGHT = 14;
+const CANNON_BUTTON_RADIUS = 34;
+const CANNON_NOT_READY_COLOR = 0x555566;
+const CANNON_READY_COLOR = 0xffdd33;
+const CANNON_CHARGE_FILL_COLOR = 0xffaa33;
 const SPECIAL_FLASH_COLOR = 0xffdd33;
 const SPECIAL_FLASH_DURATION_MS = 250;
 
@@ -82,6 +87,7 @@ export default class GameScene extends Phaser.Scene {
     this.laneY = height * LANE_Y_RATIO;
     this.baseX = BASE_WIDTH / 2;
     this.baseHp = this.stage.baseHp;
+    this.baseMaxHp = this.stage.baseHp;
     this.enemyBaseX = width - BASE_WIDTH / 2;
     this.enemyBaseMaxHp = this.stage.enemyBaseHp;
     this.enemyBaseHp = this.enemyBaseMaxHp;
@@ -102,45 +108,49 @@ export default class GameScene extends Phaser.Scene {
 
     this.add.rectangle(width / 2, this.laneY, width, 80, 0x2a2a2a);
 
-    this.base = this.add
-      .rectangle(this.baseX, this.laneY, BASE_WIDTH, 100, BASE_COLOR)
-      .setInteractive({ useHandCursor: true });
-    this.base.on('pointerdown', () => this.tryTriggerSpecialBurst());
+    this.base = this.add.rectangle(this.baseX, this.laneY, BASE_WIDTH, 100, BASE_COLOR);
+    // Left-anchored (not centered on baseX): the base sits flush against the
+    // canvas's left edge, so a centered "current/max" string would overflow
+    // past x=0 (confirmed via direct measurement — a 76px-wide string
+    // centered at baseX=30 spans -8..68). Anchoring to the left edge and
+    // growing rightward keeps it fully on-screen regardless of digit count.
     this.baseHpText = this.add
-      .text(this.baseX, this.laneY - 70, `${this.baseHp}`, {
-        fontSize: '20px',
+      .text(2, this.laneY - 70, '', {
+        fontSize: '18px',
         color: '#ffffff',
       })
-      .setOrigin(0.5);
+      .setOrigin(0, 0.5);
 
     this.enemyBase = this.add.rectangle(this.enemyBaseX, this.laneY, BASE_WIDTH, 100, ENEMY_BASE_COLOR);
+    // Mirror of the above: right-anchored, growing leftward from the
+    // canvas's right edge.
     this.enemyBaseHpText = this.add
-      .text(this.enemyBaseX, this.laneY - 70, `${this.enemyBaseHp}`, {
-        fontSize: '20px',
+      .text(width - 2, this.laneY - 70, '', {
+        fontSize: '18px',
         color: '#ffffff',
       })
-      .setOrigin(0.5);
+      .setOrigin(1, 0.5);
 
-    this.moneyText = this.add.text(16, 16, '', {
-      fontSize: '20px',
-      color: '#ffffff',
+    // Top-left: stage name (confirmed screenshot position — a pause icon
+    // sits here too in the reference game; not implemented yet, see the
+    // bible cross-check notes).
+    this.add.text(16, 16, this.stage.displayName, {
+      fontSize: '18px',
+      color: '#ffdd33',
     });
 
-    this.workerCatStatusText = this.add.text(16, 40, '', {
-      fontSize: '13px',
-      color: '#aaaaaa',
-    });
-
-    this.createWorkerCatButton();
-
-    this.scoreText = this.add
+    // Top-right: a single combined "current/cap円" wallet readout
+    // (confirmed screenshot format/position — replaces this build's old
+    // separate top-left money text + small "Cap: ¥Y" line).
+    this.walletText = this.add
       .text(width - 16, 16, '', {
         fontSize: '20px',
         color: '#ffffff',
       })
       .setOrigin(1, 0);
 
-    this.createSpecialMeter();
+    this.createWorkerCatButton();
+    this.createCannonButton();
 
     this.gameOverText = this.add
       .text(width / 2, height / 2, '', {
@@ -187,7 +197,7 @@ export default class GameScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       const costText = this.add
-        .text(x, y + 14, `¥${Math.round(config.cost).toLocaleString()}`, {
+        .text(x, y + 14, `${Math.round(config.cost).toLocaleString()}円`, {
           fontSize: '11px',
           color: '#ffffff',
         })
@@ -234,23 +244,29 @@ export default class GameScene extends Phaser.Scene {
     this.workerCatButton = { rect, labelText, costText };
   }
 
-  createSpecialMeter() {
-    const { width } = this.scale;
-    const barCenterX = width - 16 - SPECIAL_BAR_WIDTH / 2;
-    const barY = 50;
+  // Bottom-right circular button (confirmed screenshot position, mirroring
+  // Worker Cat's bottom-left placement) with a radial charge fill drawn via
+  // Graphics — the confirmed real visual (a charge RING around the icon,
+  // not a horizontal bar). Tapping it only does something once full; see
+  // tryTriggerSpecialBurst.
+  createCannonButton() {
+    const { width, height } = this.scale;
+    this.cannonX = width - 16 - CANNON_BUTTON_RADIUS;
+    this.cannonY = height - 16 - CANNON_BUTTON_RADIUS;
 
+    this.cannonBase = this.add.circle(this.cannonX, this.cannonY, CANNON_BUTTON_RADIUS, CANNON_NOT_READY_COLOR);
+    this.cannonChargeGraphics = this.add.graphics();
     this.add
-      .text(width - 16, barY - 16, 'Special', {
-        fontSize: '12px',
-        color: '#ffdd33',
+      .text(this.cannonX, this.cannonY, 'CANNON', {
+        fontSize: '10px',
+        color: '#ffffff',
+        align: 'center',
       })
-      .setOrigin(1, 0.5);
+      .setOrigin(0.5);
 
-    this.add.rectangle(barCenterX, barY, SPECIAL_BAR_WIDTH, SPECIAL_BAR_HEIGHT, 0x333333);
-
-    this.specialBarFill = this.add
-      .rectangle(barCenterX - SPECIAL_BAR_WIDTH / 2, barY, 0, SPECIAL_BAR_HEIGHT, SPECIAL_FLASH_COLOR)
-      .setOrigin(0, 0.5);
+    this.cannonBase
+      .setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Circle(0, 0, CANNON_BUTTON_RADIUS), hitAreaCallback: Phaser.Geom.Circle.Contains })
+      .on('pointerdown', () => this.tryTriggerSpecialBurst());
   }
 
   // Level-1 values come from the stage itself; each Worker Cat level above 1
@@ -370,30 +386,23 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.money = Math.min(this.getWalletCap(), this.money + (this.getMoneyAccrualPerSec() * deltaMs) / 1000);
-    this.moneyText.setText(`¥${Math.round(this.money).toLocaleString()}`);
-    this.workerCatStatusText.setText(`Worker Cat Lv${this.workerCatLevel} — Cap: ¥${Math.round(this.getWalletCap()).toLocaleString()}`);
+    this.walletText.setText(`${Math.round(this.money).toLocaleString()}/${Math.round(this.getWalletCap()).toLocaleString()}円`);
     this.updateSpawnButtons();
     this.updateWorkerCatButton();
     this.baseCurseMs = Math.max(0, this.baseCurseMs - deltaMs);
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
 
-    // Special meter charges passively over time (bible §A.3.9's Cat Cannon),
-    // independent of combat performance.
+    // Cat Cannon charges passively over time (bible §A.3.9), independent of
+    // combat performance.
     this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_CHARGE_PER_SEC * deltaMs) / 1000);
-    this.specialBarFill.setSize(SPECIAL_BAR_WIDTH * Math.min(1, this.specialMeter / SPECIAL_METER_MAX), SPECIAL_BAR_HEIGHT);
-    this.base.fillColor =
-      this.baseCurseMs > 0
-        ? BASE_CURSE_COLOR
-        : this.specialMeter >= SPECIAL_METER_MAX
-          ? SPECIAL_FLASH_COLOR
-          : BASE_COLOR;
+    this.updateCannonButton();
+    this.base.fillColor = this.baseCurseMs > 0 ? BASE_CURSE_COLOR : BASE_COLOR;
 
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
 
-    this.baseHpText.setText(`${this.baseHp}`);
-    this.enemyBaseHpText.setText(`${this.enemyBaseHp}`);
-    this.scoreText.setText(`Score: ${this.getScore()}`);
+    this.baseHpText.setText(`${Math.max(0, this.baseHp)}/${this.baseMaxHp}`);
+    this.enemyBaseHpText.setText(`${Math.max(0, this.enemyBaseHp)}/${this.enemyBaseMaxHp}`);
   }
 
   getScore() {
@@ -420,13 +429,37 @@ export default class GameScene extends Phaser.Scene {
     const maxed = this.workerCatLevel >= MONEY_CONFIG.workerCat.maxLevel;
 
     button.labelText.setText(`Worker Cat Lv${this.workerCatLevel}`);
-    button.costText.setText(maxed ? 'MAX' : `¥${Math.round(this.workerCatUpgradeCost).toLocaleString()}`);
+    button.costText.setText(maxed ? 'MAX' : `${Math.round(this.workerCatUpgradeCost).toLocaleString()}円`);
 
     const affordable = !maxed && this.money >= this.workerCatUpgradeCost;
     const alpha = maxed ? 0.5 : affordable ? 1 : 0.4;
     button.rect.setAlpha(alpha);
     button.labelText.setAlpha(alpha);
     button.costText.setAlpha(alpha);
+  }
+
+  // Draws the Cat Cannon's radial charge fill (a pie-slice sweeping clockwise
+  // from the top as specialMeter fills, matching the confirmed screenshot
+  // visual) and swaps the button's base color once it's fully charged and
+  // tappable.
+  updateCannonButton() {
+    const ready = this.specialMeter >= SPECIAL_METER_MAX && this.baseCurseMs <= 0;
+    this.cannonBase.fillColor = ready ? CANNON_READY_COLOR : CANNON_NOT_READY_COLOR;
+
+    const fraction = Math.min(1, this.specialMeter / SPECIAL_METER_MAX);
+    this.cannonChargeGraphics.clear();
+    if (fraction > 0 && !ready) {
+      this.cannonChargeGraphics.fillStyle(CANNON_CHARGE_FILL_COLOR, 1);
+      this.cannonChargeGraphics.slice(
+        this.cannonX,
+        this.cannonY,
+        CANNON_BUTTON_RADIUS,
+        Phaser.Math.DegToRad(-90),
+        Phaser.Math.DegToRad(-90 + 360 * fraction),
+        false,
+      );
+      this.cannonChargeGraphics.fillPath();
+    }
   }
 
   updatePlayerUnits(deltaMs) {
@@ -745,10 +778,10 @@ export default class GameScene extends Phaser.Scene {
     return attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier;
   }
 
-  // Player-triggered: tapping the base only does something once the meter
-  // is full (the base itself turns gold as the "ready" signal — see
-  // update()). A cursed base blocks this outright regardless of meter
-  // charge — see applyStatusEffectToBase/baseCurseMs.
+  // Player-triggered: tapping the Cat Cannon button only does something
+  // once the meter is full (see updateCannonButton for its ready-state
+  // visual). A cursed base blocks this outright regardless of meter charge
+  // — see applyStatusEffectToBase/baseCurseMs.
   tryTriggerSpecialBurst() {
     if (this.isGameOver) return;
     if (this.baseCurseMs > 0) return;
@@ -759,12 +792,12 @@ export default class GameScene extends Phaser.Scene {
 
   // Flat damage + knockback to every living enemy plus a chip of enemy-base
   // damage, then resets to 0. Enemy kills route through the normal
-  // removeDead/onEnemyKilled path so they still pay out money and count
-  // toward score like any other kill; the base damage goes through
-  // damageEnemyBase so it still triggers a normal win if it finishes the
-  // base off. Knockback here is unconditional (not the HP-threshold
-  // "endurance" gate combat hits use) — the burst is a special, guaranteed
-  // effect, matching the bible's Cat Cannon including knockback (§A.3.9).
+  // removeDead/onEnemyKilled path so they still pay out money like any
+  // other kill; the base damage goes through damageEnemyBase so it still
+  // triggers a normal win if it finishes the base off. Knockback here is
+  // unconditional (not the HP-threshold "endurance" gate combat hits use)
+  // — the burst is a special, guaranteed effect, matching the bible's Cat
+  // Cannon including knockback (§A.3.9).
   triggerSpecialBurst() {
     this.specialMeter = 0;
 

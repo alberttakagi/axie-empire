@@ -17,7 +17,7 @@ Sprites, music, and story text are intentionally **not** covered here — the br
 
 ## A.0 What Kind of Game This Is
 
-The Battle Cats is a **single-lane, real-time, base-defense game** (often called a "tower-offense" or "auto-battler tug-of-war"). Picture a single horizontal street. Your base sits at the right edge, the enemy's base sits at the left edge. You don't move a cursor around a battlefield — your only two actions during a fight are:
+The Battle Cats is a **single-lane, real-time, base-defense game** (often called a "tower-offense" or "auto-battler tug-of-war"). Picture a single horizontal street. Your base sits at the left edge, the enemy's base sits at the right edge. You don't move a cursor around a battlefield — your only two actions during a fight are:
 
 1. **Tap a unit's icon to spend money and summon it at your base**, where it walks left automatically and fights whatever it runs into.
 2. **Tap the special cannon button when it's charged** to fire a big area attack at everything currently near the enemy base.
@@ -61,7 +61,7 @@ This is why the game is so replicable in spirit while being deep in practice: th
 ## A.2 The Core Battle Loop, Plain-English Walkthrough
 
 1. Player enters a stage. Energy is deducted immediately on entry.
-2. The screen shows a single horizontal battlefield. **Your base is on the right edge of the map, the enemy base is on the left edge** — units you summon walk leftward; enemy units walk rightward toward you. (This is the game's actual, verified orientation — many people assume the mirror image, so get this right early since it affects every UI mock you build.)
+2. The screen shows a single horizontal battlefield. **Your base is on the left edge of the map, the enemy base is on the right edge** — units you summon walk rightward; enemy units walk leftward toward you. (Confirmed directly from in-game screenshots — an earlier pass through this document had this backwards based on a wiki-text extraction that turned out to be wrong; screenshots are the higher-confidence source here.)
 3. **Money starts ticking up automatically** the instant the battle begins, at a rate that itself grows over the course of the fight (see §A.3.10).
 4. Along the bottom of the screen is a row of icons — one per unit in your pre-chosen loadout ("Formation," §A.6.3). Tapping an icon, if you can afford its Cost, spawns one copy of that unit at your base's edge and drains the Cost from your money pool. That unit then enters its own **Recharge** timer before you can summon it again.
 5. Units walk automatically toward the enemy side. When a unit's detection box touches an enemy, it **stops moving and starts its attack animation** (foreswing → hit → backswing loop) instead of continuing to advance. Combat is fully automatic from here — there is no manual targeting.
@@ -79,7 +79,7 @@ That's the entire moment-to-moment game. Everything else in this document is eit
 ### A.3.1 Battlefield Model
 
 - One axis only. No lanes, no rows to switch between, no vertical movement.
-- Player base: right edge. Enemy base: left edge. Player units move left; enemy units move right.
+- Player base: left edge. Enemy base: right edge. Player units move right; enemy units move left. (Confirmed from screenshots — see the note in §A.2.)
 - Distances measured in **DU**; there is no single fixed battlefield length — it's authored per stage (build your stage schema with an explicit `length_du` field per stage rather than a global constant).
 - Every unit has a **detection box** that is what actually triggers "stop and attack" — for a typical melee/short-range unit this detection reaches roughly 320 DU *behind* the unit's front edge in addition to its stated Range in front, so units start attacking a little before an enemy is exactly at their nominal Range. Units with Long Distance or Omni Strike (§A.3.8) override this default detection shape with an explicit min/max window instead.
 
@@ -409,7 +409,7 @@ Each is earned in small free quantities from a themed daily-rotation stage (one 
 
 ## A.9 Stamina/Energy, Login, and Retention Systems
 
-- **Stamina/Energy**: regenerates at a slow constant rate (reference: ~1 point/minute baseline, improvable via Treasure bonuses), capped by an upgradable max value; deducted in full on stage entry.
+- **Stamina/Energy** (JP term confirmed from screenshots: **統率力**, literally "command/leadership power" — shown on the stage-select map as a per-stage cost like `統率力 -30` and as a running pool with its own upgrade line in the meta Upgrade Menu, both matching this section's model exactly): regenerates at a slow constant rate (reference: ~1 point/minute baseline, improvable via Treasure bonuses), capped by an upgradable max value; deducted in full on stage entry.
 - **Daily login ladder**: a long, one-time-per-account sequential reward track (escalating XP/item grants, capped by a big unlock at the very end) that only progresses on days the account is played, distinct from a **separate short re-engagement ladder** that only activates after a long absence.
 - **Weekday-themed farming stages**: assign one Battle Item and/or one evolution-material color to each day of the week as a simple, predictable "there's always something worth logging in for today" pattern; a separate always-available "XP stage" (reward doesn't diminish with repeats) should exist as the primary steady-state grinding venue once a player has burned through story content.
 - **A monthly "everything is better today" calendar day** (reference: the 22nd of each month) doubling Treasure drop rates account-wide and granting bonus login rewards is a good lightweight retention hook to include.
@@ -419,15 +419,16 @@ Each is earned in small free quantities from a themed daily-rotation stage (one 
 
 ## A.10 UI/UX Specification
 
-> **Confidence note:** the layouts below are reconstructed from documented functional behavior, not pixel-perfect screenshots. Treat every element list as authoritative; treat exact pixel coordinates as a design-freedom area you should feel free to make your own (this is a reskin anyway).
+> **Confidence note:** most of the layouts below have since been cross-checked directly against in-game screenshots (§A.10.1, §A.10.4, and §A.10.6 in particular are now screenshot-confirmed, not just reconstructed from documented behavior — see the inline "confirmed" flags in those sections). Sections without that flag (Stage Select, Loadout, Results, Gacha) are still reconstructed from functional-behavior documentation rather than pixel-perfect screenshots. Treat exact pixel coordinates as a design-freedom area you should feel free to make your own regardless (this is a reskin anyway) — it's the information architecture and element positions that matter for fidelity.
 
 ### A.10.1 Home / Base Screen
 
 This is the actual home screen — there's no separate static title screen with a "Play" button; your base scene itself **is** the menu, and you pan across it horizontally to reach different functional areas.
 
-- **Persistent top status bar**: User Rank badge, premium currency count, XP/leveling-currency count, Energy bar with current/max plus a small "how many refill items you're holding" indicator (tapping it offers a paid or item-based full refill).
-- **Center-lower stack of three primary action buttons** (this vertical arrangement is the single most load-bearing piece of layout to keep): top = **Play** (opens stage-select), middle = **Upgrade** (opens the unit-leveling menu), bottom = **Equip/Formation** (opens loadout selection).
-- **Secondary icon row** around the main stack: a general Menu/Settings icon, a passive-resource-collection icon (reference: "Gamatoto," an idle side-activity for base-building materials), and a Missions/Quests checklist icon.
+- **Persistent top status bar**: premium currency count top-left with a small calendar/login-bonus icon beside it; a time-limited banner (e.g. a collab pack with a "N days remaining" countdown) can occupy the top-right when active.
+- **Center-lower stack of three primary action buttons**, confirmed exact labels from screenshots (this vertical arrangement is the single most load-bearing piece of layout to keep): top = **"Start Battle!!"** (opens stage-select), middle = **"Power Up"** (opens the base-upgrade categories screen, §A.10.6(b)), bottom = **"Character Formation"** (opens loadout selection, §A.10.3).
+- **Secondary icon row** below/beside the main stack, confirmed: a book-icon **Menu** (general settings/info), a pickaxe-icon **Gamatoto** (the passive/idle side-activity for base-building materials, sometimes flagged with a "!" badge when something's ready to collect), and a clipboard-icon **Missions** (quest objectives, also badge-flagged when one's newly available).
+- **Gacha buttons are directly reachable from this home screen**, not nested behind another menu — confirmed as their own small button row (e.g. a "Nyanko Gacha" and a "Rare Gacha" button, each showing a small badge count of free/discounted rolls currently available) sitting near the bottom of this screen, alongside a "storage/vault" button for previously-rolled duplicates.
 - **Horizontal pan** reveals a second base area purely for the Cannon-customization tree (§A.7.2) — keep this as a distinct, separately-scrollable zone rather than a modal popup.
 
 ### A.10.2 Stage Select
@@ -445,18 +446,20 @@ This is the actual home screen — there's no separate static title screen with 
 
 ### A.10.4 In-Battle HUD (the highest-priority screen to get exactly right)
 
+> **Confirmed directly from screenshots** (superseding the earlier "reconstructed from documented behavior" confidence note above for this section specifically): every element below is now a verified layout, not an inference.
+
 **Top bar:**
-- Enemy Base HP bar, top of screen.
-- Your ticking money counter (top-left convention).
-- Speed Up toggle button (2×, upgradable to 3× via a subscription-style perk).
-- Pause/Settings icon (opens audio settings + a help overlay).
+- **Top-left**: a pause icon plus the current stage's name (e.g. a Japanese prefecture name in the source game — use your own stage name here).
+- **Top-right**: a single combined **wallet readout** in the format `current/cap` followed by the currency unit (the source game appends the yen kanji directly after the number, no separator) — e.g. `2231/9000円`. This is one fused reading, not a separate "current" display plus a smaller "cap" caption elsewhere.
+- **Speed Up** toggle button sits just below/beside the wallet readout, top-right (2×, upgradable to 3× via a subscription-style perk).
+- Enemy Base HP and player Base HP are each shown as their own `current/max` numeric readout positioned above their respective base sprite (left side for the player base, right side for the enemy base) — plain numbers, no visible health-bar graphic in the reference screenshots.
 - **Camera**: side-scrolling with pinch-to-zoom; there is **no minimap** in the reference game — the single-lane layout makes one unnecessary, so don't build one.
+- **No visible score/kill-counter appears anywhere in the in-battle HUD.** If your build tracks a score-like metric for its own meta-progression purposes (e.g. a stage-select "best run" stat), compute it silently and surface it only on the results screen / stage-select screen — never as a live on-screen readout during the fight itself, which would be a deviation from the reference UI.
 
 **Bottom bar:**
-- A **row of tappable unit-deploy icons**, one per loadout slot, each showing its Cost underneath and a visual **cooldown fill overlay** (radial or greyscale wipe) while its Recharge timer is running — tapping a ready icon spawns it instantly.
-- If the loadout has more units than fit in one visible row, **flicking up/down** reveals additional rows (support an alternate fixed two-column layout as a display-preference toggle, which the reference game also offers).
-- **Worker/income icon**, bottom-left, tappable to manually boost that battle's income-rate progress.
-- **Cannon "Fire" button**, bottom-right, with its own segmented charge meter (reference: ten discrete segments) filling over time; only tappable once full, and resets to empty on use.
+- A **row of tappable unit-deploy icons** (confirmed as two stacked rows of five in the reference screenshots, all visible simultaneously — not a single row requiring a flick, at least at this roster size), each showing its Cost underneath and a visual **cooldown fill overlay** while its Recharge timer is running — tapping a ready icon spawns it instantly. If a loadout has more units than fit in the visible grid, support a flick/scroll to reveal more (reference also offers an alternate two-column layout as a display-preference toggle).
+- **Worker Cat icon, bottom-left**: a round icon showing the current level as a badge, with the ¥ cost to upgrade to the next level displayed underneath — tapping it spends money (mid-battle) to level Worker Cat up, capped at level 8. **Confirmed real per-level numbers** (read directly off three screenshots at Worker Cat levels 1/2/4, all the same stage): the wallet cap climbs by **exactly +1,500 per level**, and the upgrade cost is **exactly `440 × current level`** (440 at Lv1→2, 880 at Lv2→3, 1,760 at Lv4→5). Both are confirmed formulas/values, not placeholders — implement them exactly.
+- **Cat Cannon button, bottom-right**: a dedicated circular icon, separate from the base itself (tapping the base does nothing in the reference game — the cannon has its own icon). Its charge is shown as a **radial/circular fill sweeping around the icon** (confirmed from screenshots — not a horizontal segmented bar as an earlier pass through this document guessed). Only tappable once fully charged; firing resets it to empty and deals area damage + knockback per §A.3.9.
 
 ### A.10.5 Results Screen
 
@@ -465,8 +468,11 @@ This is the actual home screen — there's no separate static title screen with 
 
 ### A.10.6 Upgrade Menu
 
-- Scrollable roster; select a unit to open its stat panel (HP / Attack / Recharge shown together) with a single "Upgrade!" action button, its XP cost shown live, and level-cap/evolution-eligibility indicated visually once reached (e.g. the Upgrade button changes state/color when an evolution is available instead of a plain level-up).
-- A distinct confirmation screen for evolutions, showing a before/after stat comparison and the full material cost, with explicit Confirm/Cancel actions.
+There are two distinct screens sharing the "Upgrade" label — don't conflate them:
+
+**(a) Per-unit leveling screen**: scrollable roster; select a unit to open its stat panel (HP / Attack / Recharge shown together) with a single "Upgrade!" action button, its XP cost shown live, and level-cap/evolution-eligibility indicated visually once reached (e.g. the Upgrade button changes state/color when an evolution is available instead of a plain level-up). A distinct confirmation screen for evolutions, showing a before/after stat comparison and the full material cost, with explicit Confirm/Cancel actions.
+
+**(b) Base-upgrade categories screen** (the §A.7.1 upgrade lines — Cannon Power/Range/Charge, Worker Rate/Wallet, Base Defense, Research, Accounting, Study, Stamina Cap — confirmed screenshot layout): a **horizontally-scrollable carousel of cards**, one per category, grouped under a named tab (e.g. "Worker Cat," "Cat Cannon," "Special Abilities"). The focused card shows the category's icon/name, its level as `MAX レベル 20 +N` (a base cap of 20 plus N bonus levels unlocked via account-progression milestones — matching this document's User Rank-gated cap-extension pattern, §A.7.4), and a plain-language one-to-two-line effect description underneath (e.g. "Increases Worker Cat's efficiency; money increases faster"). A row of small colored orb icons with counts sits top-right of this screen — these are the Catseye-equivalent level-cap items (§A.4.3), one icon per rarity/type, each showing how many the player is currently holding.
 
 ### A.10.7 Gacha Screen
 
