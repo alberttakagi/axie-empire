@@ -58,15 +58,19 @@ const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
 
 const BUTTON_HEIGHT = 70;
-// BUTTON_WIDTH is now a CEILING, not a fixed size (bible §A.10.3/real
-// Battle Cats: a Formation/Deck can hold up to 10 units) — createSpawnButtons
-// shrinks the actual per-button width to whatever fits this.loadout.length
-// buttons in one un-scrolled row, capped at this value so a small Formation
-// (the common case) still gets buttons at (close to) this original size.
+// BUTTON_WIDTH is a CEILING, not a fixed size — createSpawnButtons shrinks
+// the actual per-button width to whatever fits SPAWN_BUTTONS_PER_ROW
+// buttons in one row, capped at this value.
 const BUTTON_WIDTH = 136;
 const BUTTON_GAP = 8;
 const SPAWN_ROW_LEFT_MARGIN = 16;
 const SPAWN_ROW_CANNON_GAP = 10; // clearance kept between the row and the Cannon button's own footprint
+const SPAWN_ROW_GAP = 6;
+// A Formation/Deck can hold up to MAX_LOADOUT_SIZE (10, matching the real
+// game's own Deck size) units — wrapped into rows of 5 (bible §A.10.3/real
+// Battle Cats' own deploy bar) rather than shrunk to fit one long row, so
+// each button stays large and legible regardless of Formation size.
+const SPAWN_BUTTONS_PER_ROW = 5;
 
 const CAP_BUTTON_WIDTH = 150;
 const CAP_BUTTON_HEIGHT = 44;
@@ -356,27 +360,37 @@ export default class GameScene extends Phaser.Scene {
 
     // The row's available width is bounded on the right by the Cannon
     // button's own footprint (bottom-right corner), not the full canvas —
-    // at the original fixed BUTTON_WIDTH, even the base 5-unit Formation's
-    // row already reached into the Cannon's circle (an existing, easy-to-
-    // miss overlap caught while checking a full 10-unit row here); centering
-    // within this narrower zone instead of the whole canvas fixes both.
+    // at the original fixed BUTTON_WIDTH, even a single row of exactly 5
+    // buttons already reached into the Cannon's circle (an existing,
+    // easy-to-miss overlap caught while first checking this against a full
+    // 10-unit row); centering within this narrower zone instead of the
+    // whole canvas fixes both.
     const zoneLeft = SPAWN_ROW_LEFT_MARGIN;
     const zoneRight = this.cannonX - CANNON_BUTTON_RADIUS - SPAWN_ROW_CANNON_GAP;
     const zoneWidth = zoneRight - zoneLeft;
 
-    // Shrink to fit a Formation of up to MAX_LOADOUT_SIZE (10, matching the
-    // real game's own Deck size) in one un-scrolled row, without shrinking
-    // below the original BUTTON_WIDTH for a smaller Formation that already
-    // fits the zone at full size.
-    const buttonWidth = Math.min(BUTTON_WIDTH, (zoneWidth - (keys.length - 1) * BUTTON_GAP) / keys.length);
+    // Wrapped into rows of SPAWN_BUTTONS_PER_ROW (5) instead of shrinking
+    // to fit the whole Formation in one long row — a Formation bigger than
+    // 5 gets a second row below the first, but every button stays the same
+    // (near-BUTTON_WIDTH) size regardless of Formation size, matching the
+    // real game's own fixed-size deploy icons.
+    const columns = Math.min(keys.length, SPAWN_BUTTONS_PER_ROW);
+    const totalRows = Math.ceil(keys.length / SPAWN_BUTTONS_PER_ROW);
+    const buttonWidth = Math.min(BUTTON_WIDTH, (zoneWidth - (columns - 1) * BUTTON_GAP) / columns);
     const isCompact = buttonWidth < BUTTON_WIDTH - 1;
-    const totalWidth = keys.length * buttonWidth + (keys.length - 1) * BUTTON_GAP;
-    const startX = zoneLeft + (zoneWidth - totalWidth) / 2 + buttonWidth / 2;
-    const y = height - BUTTON_HEIGHT / 2 - 10;
+    const rowWidth = columns * buttonWidth + (columns - 1) * BUTTON_GAP;
+    const startX = zoneLeft + (zoneWidth - rowWidth) / 2 + buttonWidth / 2;
+    // The BOTTOM row sits at the original single-row position (unchanged
+    // for a Formation of 5 or fewer); any earlier row(s) stack upward from
+    // there.
+    const bottomY = height - BUTTON_HEIGHT / 2 - 10;
 
     this.spawnButtons = keys.map((key, index) => {
       const config = UNIT_CONFIG[key];
-      const x = startX + index * (buttonWidth + BUTTON_GAP);
+      const row = Math.floor(index / SPAWN_BUTTONS_PER_ROW);
+      const col = index % SPAWN_BUTTONS_PER_ROW;
+      const x = startX + col * (buttonWidth + BUTTON_GAP);
+      const y = bottomY - (totalRows - 1 - row) * (BUTTON_HEIGHT + SPAWN_ROW_GAP);
 
       const rect = this.add
         .rectangle(x, y, buttonWidth, BUTTON_HEIGHT, config.color)
