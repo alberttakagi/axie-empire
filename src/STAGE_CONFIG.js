@@ -33,6 +33,22 @@
 //                   spawnDelayMs     time since the STAGE STARTED (not since
 //                                    the previous spawn) — so entries must be
 //                                    listed in increasing spawnDelayMs order.
+//                                    Mutually exclusive with baseHpPercentTrigger
+//                                    below — an entry uses exactly one trigger.
+//                   baseHpPercentTrigger (bible §A.3.9) — an alternative to
+//                                    spawnDelayMs: fires once the enemy
+//                                    base's remaining HP crosses at/below
+//                                    this percent, checked in GameScene's
+//                                    damageEnemyBase rather than on a timer
+//                                    (a failsafe there guarantees this can't
+//                                    be skipped by one huge burst). Every
+//                                    boss entry in this file uses 99, per
+//                                    the bible's "bosses conventionally
+//                                    trigger at 99% enemy base HP" note.
+//                   isBoss           triggers GameScene's boss-shockwave
+//                                    moment (knocks back every deployed
+//                                    player unit) the instant this entry
+//                                    spawns.
 //   baseXp        this stage's XP reward (bible §A.5.1) on a first clear;
 //                 repeat clears taper toward a floor — see GameScene's
 //                 getXpReward for the exact decay formula. This is the
@@ -307,7 +323,12 @@ export const STAGE_CONFIG = [
       { enemyId: 'fast', statMultiplier: 1.2, spawnDelayMs: 1000 },
       { enemyId: 'basic', statMultiplier: 1.2, spawnDelayMs: 3000 },
       { enemyId: 'ranged', statMultiplier: 1.3, spawnDelayMs: 6000 },
-      { enemyId: 'tank', statMultiplier: 8, spawnDelayMs: 10000 }, // the boss
+      // Base-HP%-triggered boss spawn (bible §A.3.9): fires once the enemy
+      // base drops to 99% HP — i.e. almost immediately once it's taken ANY
+      // damage — rather than at a fixed time offset, with a failsafe
+      // (GameScene's damageEnemyBase) guaranteeing it can't be skipped by a
+      // single huge burst. isBoss triggers the shockwave-knockback moment.
+      { enemyId: 'tank', statMultiplier: 8, baseHpPercentTrigger: 99, isBoss: true },
     ],
   },
   {
@@ -550,7 +571,9 @@ export const STAGE_CONFIG = [
       { enemyId: 'support', statMultiplier: 1.4, spawnDelayMs: 3000 },
       { enemyId: 'swarm', statMultiplier: 1.5, spawnDelayMs: 5000 },
       { enemyId: 'ranged', statMultiplier: 1.6, spawnDelayMs: 7500 },
-      { enemyId: 'guardian', statMultiplier: 9, spawnDelayMs: 11000 },
+      // Base-HP%-triggered boss spawn (see stage10's own comment for the
+      // full explanation) — same 99% trigger + isBoss shockwave.
+      { enemyId: 'guardian', statMultiplier: 9, baseHpPercentTrigger: 99, isBoss: true },
     ],
   },
   {
@@ -783,7 +806,9 @@ export const STAGE_CONFIG = [
       { enemyId: 'sniper', statMultiplier: 2.3, spawnDelayMs: 3000 },
       { enemyId: 'support', statMultiplier: 2.3, spawnDelayMs: 5500 },
       { enemyId: 'swarm', statMultiplier: 2.3, spawnDelayMs: 8000 },
-      { enemyId: 'titan', statMultiplier: 12, spawnDelayMs: 12000 },
+      // Base-HP%-triggered boss spawn (see stage10's own comment) — same
+      // 99% trigger + isBoss shockwave, for the campaign's final boss.
+      { enemyId: 'titan', statMultiplier: 12, baseHpPercentTrigger: 99, isBoss: true },
     ],
   },
 ];

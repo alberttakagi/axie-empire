@@ -15,11 +15,16 @@ import {
   addGems,
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
-import { getBonusPercent, rollTreasureForStage } from './Treasure.js';
+import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
 import { loadLoadout } from './Loadout.js';
+import { trySpendEnergy } from './Energy.js';
 import { getComboBonusValue } from './Combo.js';
 import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
+import { playDeploySfx, playCannonSfx, playBossShockwaveSfx, playVictorySfx, playDefeatSfx, startMusic, stopMusic } from './Audio.js';
+import { addUserRank } from './UserRank.js';
+import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
+import { getBattleItemCount, tryUseBattleItem, rollBattleItemDrop } from './BattleItems.js';
 
 // Account-wide Base Upgrades (bible §A.7.1) — read once per battle at
 // create() time into flat numbers, since they only change between battles
@@ -30,6 +35,15 @@ function getBaseUpgradeEffect(key) {
 
 const MIN_RECHARGE_MS = 500; // Research can never push a unit's recharge below this
 const SPEED_UP_MULTIPLIER = 2;
+
+// In-battle income ramps up over the fight rather than staying flat (bible
+// §A.3.10: "early-battle income is slow, and it accelerates the longer the
+// fight goes on, up to a cap") — climbs linearly from
+// MONEY_RAMP_START_MULTIPLIER up to a full 1x over MONEY_RAMP_DURATION_MS,
+// then holds there. Rich Cat (a Battle Item, see BATTLE_ITEMS_CONFIG.js)
+// bypasses this ramp entirely by setting moneyRampBypassed.
+const MONEY_RAMP_START_MULTIPLIER = 0.4;
+const MONEY_RAMP_DURATION_MS = 60000;
 
 const TREASURE_TIER_NAMES = ['', 'Bronze', 'Silver', 'Gold'];
 
@@ -47,6 +61,10 @@ const XP_DECAY_FLOOR = 0.2;
 // per the bible's own "tune to your own economy" framing).
 const EVO_SHARD_DROP_CHANCE = 0.3;
 const GROWTH_CHARM_DROP_CHANCE = 0.15;
+
+// User Rank (bible §A.7.4) — see UserRank.js for why this doesn't gate
+// anything; PlayerProgress.js awards its own share on level-up/evolution.
+const RANK_PER_FIRST_CLEAR = 5;
 
 // Evolution-stage visual cue (sprites aren't in yet — see UNIT_CONFIG.js's
 // `sprite` field — so evolved/True Form units get a stroked ring instead of
@@ -89,6 +107,18 @@ const ENEMY_BASE_COLOR = 0x992222;
 // per-hit chance/certainty).
 const KNOCKBACK_DURATION_MS = 200;
 
+// Boss arrivals (bible §A.3.9): a scripted "reset the board" shockwave —
+// knocks back every currently-deployed player unit further and slower than
+// a normal combat knockback (reference: ~24x the distance, ~2x the
+// duration), interrupting whatever they were mid-swing on. Always shoves
+// toward the player's own base (leftward, since bosses only ever spawn on
+// the enemy side) regardless of the unit's own knockbackType — a boss's
+// entrance overrides even knockback immunity, same spirit as a scripted
+// cutscene beat rather than an ordinary hit.
+const BOSS_SHOCKWAVE_DISTANCE_MULTIPLIER = 24;
+const BOSS_SHOCKWAVE_DURATION_MULTIPLIER = 2;
+const BOSS_SHOCKWAVE_FALLBACK_DISTANCE = 15; // used only if a unit has no knockbackDistance at all
+
 // Status-effect visual cues — priority order when more than one is active:
 // stop (fully frozen) beats curse beats slow beats weaken, so the most
 // disruptive/visible state wins. Cleared back to the entity's own
@@ -97,6 +127,13 @@ const STATUS_STOP_COLOR = 0x556677;
 const STATUS_CURSE_COLOR = 0x9933cc;
 const STATUS_SLOW_COLOR = 0x88ccff;
 const STATUS_WEAKEN_COLOR = 0xcc8844;
+const STATUS_DODGE_COLOR = 0xffffff; // a brief white flash — rare and outranks every other tint
+
+// Dodge (bible §A.3.8): "a % chance to take zero damage... for a short
+// window after triggering; cannot re-trigger while already active" — see
+// tryDodge. Used as the fallback window length for a unit whose config
+// doesn't specify its own dodgeWindowMs.
+const DEFAULT_DODGE_WINDOW_MS = 400;
 
 // Curse tint for the player's base itself (see baseCurseMs) — a cursed base
 // can't fire the Cat Cannon regardless of meter charge (see
@@ -202,6 +239,19 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseHp = this.enemyBaseMaxHp;
     this.enemies = [];
     this.playerUnits = [];
+    // Base-HP%-triggered spawns (bible §A.3.9) — e.g. a scripted boss at
+    // 99% enemy base HP — checked in damageEnemyBase rather than on a timer.
+    // Dojo's synthetic pseudo-stage has no spawnScript at all, so this is
+    // always empty there.
+    this.pendingHpTriggers = (this.stage.spawnScript || [])
+      .filter((entry) => entry.baseHpPercentTrigger !== undefined)
+      .map((entry) => ({ entry, fired: false }));
+    // Battle Items (bible §A.8) — consumed mid-battle via useBattleItem;
+    // these flags are what their effects actually read at the relevant
+    // point (getMoneyRampMultiplier, getXpReward, winStage's Treasure roll).
+    this.moneyRampBypassed = false; // Rich Cat
+    this.xpBoostMultiplier = 1; // XP Boost
+    this.treasureRadarActive = false; // Treasure Radar
     // Combo's "Starting Money Up" is a bonus ON TOP of the normal starting
     // fill — deliberately allowed to exceed getWalletCap() for this one
     // initial value (a real "bonus," not just a differently-computed cap);
@@ -290,6 +340,11 @@ export default class GameScene extends Phaser.Scene {
       this.dojoTimerText = this.add
         .text(width / 2, 16, '', { fontSize: '16px', color: '#ffdd33' })
         .setOrigin(0.5, 0);
+    } else {
+      // Battle Items (bible §A.8) only make sense against a real stage
+      // clear — Sparring Grounds has no Treasure/XP reward for any of them
+      // to affect, and its top-center is already the dojo timer's spot.
+      this.createBattleItemButtons();
     }
 
     this.createSpawnButtons();
@@ -299,10 +354,23 @@ export default class GameScene extends Phaser.Scene {
     } else {
       this.scheduleStageScript();
     }
+
+    startMusic();
+    // Stop the placeholder music loop no matter HOW this scene ends —
+    // Restart, Quit, the post-battle Menu button, Next Stage, all of them
+    // just call scene.start/scene.restart, and Phaser fires 'shutdown' on
+    // every one of those. A single hook here beats sprinkling stopMusic()
+    // calls at every exit point.
+    this.events.once('shutdown', () => stopMusic());
   }
 
   scheduleStageScript() {
     for (const entry of this.stage.spawnScript) {
+      // A baseHpPercentTrigger entry has no spawnDelayMs at all — it's
+      // handled entirely by checkHpTriggers (called from damageEnemyBase)
+      // instead of a timer.
+      if (entry.spawnDelayMs === undefined) continue;
+
       this.time.delayedCall(entry.spawnDelayMs, () => {
         if (this.isGameOver) return;
         this.spawnScriptedEnemy(entry);
@@ -438,6 +506,64 @@ export default class GameScene extends Phaser.Scene {
     rect.on('pointerdown', () => this.showQuitConfirm());
   }
 
+  // Battle Items (bible §A.8) — a compact top-center row, one button per
+  // BATTLE_ITEMS_CONFIG entry, showing how many are held and greyed out at
+  // zero. Tapping one with count > 0 spends it immediately (no confirm —
+  // these are all beneficial, none of them risk anything the way Quit
+  // does).
+  createBattleItemButtons() {
+    const { width } = this.scale;
+    const ids = Object.keys(BATTLE_ITEMS_CONFIG);
+    const itemWidth = 76;
+    const gap = 6;
+    const totalWidth = ids.length * itemWidth + (ids.length - 1) * gap;
+    const startX = width / 2 - totalWidth / 2 + itemWidth / 2;
+    const y = 48;
+
+    this.battleItemButtons = ids.map((id, index) => {
+      const config = BATTLE_ITEMS_CONFIG[id];
+      const x = startX + index * (itemWidth + gap);
+
+      const rect = this.add.rectangle(x, y, itemWidth, 34, config.color).setInteractive({ useHandCursor: true });
+      const label = this.add
+        .text(x, y - 8, config.displayName, {
+          fontSize: '8px',
+          color: '#000000',
+          align: 'center',
+          wordWrap: { width: itemWidth - 6 },
+        })
+        .setOrigin(0.5);
+      const countText = this.add.text(x, y + 9, '', { fontSize: '9px', color: '#000000' }).setOrigin(0.5);
+
+      rect.on('pointerdown', () => this.useBattleItem(id));
+
+      return { id, rect, label, countText };
+    });
+
+    this.updateBattleItemButtons();
+  }
+
+  updateBattleItemButtons() {
+    for (const button of this.battleItemButtons) {
+      const count = getBattleItemCount(button.id);
+      button.countText.setText(`x${count}`);
+      button.rect.setAlpha(count > 0 && !this.isGameOver ? 1 : 0.35);
+    }
+  }
+
+  useBattleItem(id) {
+    if (this.isGameOver) return;
+    if (!tryUseBattleItem(id)) return; // none held — nothing to do
+
+    const config = BATTLE_ITEMS_CONFIG[id];
+    if (config.effect === 'guaranteedTopTreasure') this.treasureRadarActive = true;
+    else if (config.effect === 'richCat') this.moneyRampBypassed = true;
+    else if (config.effect === 'xpBoost') this.xpBoostMultiplier = config.xpMultiplier;
+
+    this.showRestrictionMessage(`Used ${config.displayName}!`);
+    this.updateBattleItemButtons();
+  }
+
   showQuitConfirm() {
     if (this.quitConfirmObjects) return; // already showing
     this.isPaused = true;
@@ -562,7 +688,14 @@ export default class GameScene extends Phaser.Scene {
   // multiplies the whole thing.
   getMoneyAccrualPerSec() {
     const base = this.stage.moneyAccrualPerSec + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.accrualPerLevel;
-    return base * (1 + getBonusPercent('moneyIncomePercent') / 100);
+    return base * (1 + getBonusPercent('moneyIncomePercent') / 100) * this.getMoneyRampMultiplier();
+  }
+
+  // See MONEY_RAMP_START_MULTIPLIER/MONEY_RAMP_DURATION_MS above.
+  getMoneyRampMultiplier() {
+    if (this.moneyRampBypassed) return 1; // Rich Cat battle item (§A.8)
+    const progress = Math.min(1, this.elapsedMs / MONEY_RAMP_DURATION_MS);
+    return MONEY_RAMP_START_MULTIPLIER + (1 - MONEY_RAMP_START_MULTIPLIER) * progress;
   }
 
   getWalletCap() {
@@ -625,6 +758,7 @@ export default class GameScene extends Phaser.Scene {
     this.money -= baseConfig.cost;
     this.unitCooldowns[key] = recharge;
     this.spawnUnit(key, finalConfig);
+    playDeploySfx();
   }
 
   // Brief on-screen reason for a blocked Restriction Stage tap (bible
@@ -688,6 +822,54 @@ export default class GameScene extends Phaser.Scene {
     };
 
     this.createEnemy(entry.enemyId, config);
+
+    if (entry.isBoss) this.triggerBossShockwave();
+  }
+
+  // See BOSS_SHOCKWAVE_* constants above.
+  triggerBossShockwave() {
+    const duration = KNOCKBACK_DURATION_MS * BOSS_SHOCKWAVE_DURATION_MULTIPLIER;
+
+    for (const unit of this.playerUnits) {
+      if (unit.hp <= 0) continue;
+      const distance =
+        (unit.config.knockbackDistance || BOSS_SHOCKWAVE_FALLBACK_DISTANCE) * BOSS_SHOCKWAVE_DISTANCE_MULTIPLIER;
+      unit.knockbackVelocity = -distance / duration; // always leftward — bosses only ever spawn on the enemy side
+      unit.knockbackMs = duration;
+      unit.attackPhase = null;
+      unit.phaseMs = 0;
+    }
+
+    this.showBossWarning();
+    playBossShockwaveSfx();
+  }
+
+  showBossWarning() {
+    const { width, height } = this.scale;
+    const text = this.add
+      .text(width / 2, height / 2 - 60, 'BOSS!', { fontSize: '40px', color: '#ff3333', fontStyle: 'bold' })
+      .setOrigin(0.5)
+      .setAlpha(0);
+
+    this.tweens.add({ targets: text, alpha: 1, duration: 200, yoyo: true, hold: 500, onComplete: () => text.destroy() });
+  }
+
+  // Base-HP%-triggered spawns (bible §A.3.9) — checked every time the enemy
+  // base actually takes damage rather than every frame, since that's the
+  // only thing that can change the percentage. See damageEnemyBase for the
+  // "don't let a fast burst skip a scripted boss" failsafe that works
+  // alongside this.
+  checkHpTriggers() {
+    if (this.pendingHpTriggers.length === 0) return;
+
+    const percent = this.enemyBaseMaxHp > 0 ? (this.enemyBaseHp / this.enemyBaseMaxHp) * 100 : 0;
+    for (const pending of this.pendingHpTriggers) {
+      if (pending.fired) continue;
+      if (percent <= pending.entry.baseHpPercentTrigger) {
+        pending.fired = true;
+        this.spawnScriptedEnemy(pending.entry);
+      }
+    }
   }
 
   createEnemy(type, config) {
@@ -739,6 +921,11 @@ export default class GameScene extends Phaser.Scene {
       // 0/undefined configs never enter the barrier-absorption branch at
       // all, see applyDamageAndEffects.
       barrierHp: config.barrierMaxHp || 0,
+      // Dodge (bible §A.3.8) — while dodgeMs > 0, every incoming hit is
+      // negated outright (see tryDodge); it does NOT re-roll or extend the
+      // window, matching "cannot re-trigger while already active." See
+      // tickStatusEffects for the countdown.
+      dodgeMs: 0,
       target: null,
     };
   }
@@ -1046,19 +1233,34 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.applyWaveAttack(attacker, targetPool, primaryTarget);
+    this.scheduleSurgeAttack(attacker, targetPool, totalDamage);
 
     return totalDamage;
   }
 
   // The shared per-hit pipeline: raw damage (crit/weaken/matchup, via
-  // computeDamage) plus any Toxic bonus, then Barrier absorption (if the
-  // defender has a shield), and finally knockback + status effects — but
-  // ONLY for whatever portion of the hit actually reached real HP. A hit
-  // fully absorbed by a Barrier deals no knockback/status at all, matching
-  // the bible's "the shell absorbs the hit" framing (§A.3.8). Returns the
-  // total damage computed (barrier-absorbed or not) for score/UI purposes.
+  // computeDamage) plus any Toxic bonus, then delegates the rest (barrier/
+  // knockback/status) to applyResolvedDamage — see that for why it's split
+  // out. Returns the total damage computed (barrier-absorbed or not, dodged
+  // or not) for score/UI purposes.
   applyDamageAndEffects(attacker, entity) {
     const totalDamage = this.computeDamage(attacker, entity) + this.computeToxicBonus(attacker, entity);
+    this.applyResolvedDamage(attacker, entity, totalDamage);
+    return totalDamage;
+  }
+
+  // Applies an ALREADY-COMPUTED damage amount: Dodge first (a full negation,
+  // see tryDodge — nothing below even runs if it triggers), then Barrier
+  // absorption (if the defender has a shield), and finally knockback +
+  // status effects — but ONLY for whatever portion of the hit actually
+  // reached real HP. A hit fully absorbed by a Barrier deals no knockback/
+  // status at all, matching the bible's "the shell absorbs the hit" framing
+  // (§A.3.8). Split out from applyDamageAndEffects so Surge Attack (below)
+  // can re-apply a hit's already-rolled damage value without re-rolling
+  // Critical Hit/Weaken/trait matchups a second time.
+  applyResolvedDamage(attacker, entity, totalDamage) {
+    if (this.tryDodge(entity)) return;
+
     let appliedToHp = totalDamage;
 
     if (entity.barrierHp > 0) {
@@ -1083,8 +1285,53 @@ export default class GameScene extends Phaser.Scene {
       this.resolveKnockback(attacker, entity);
       this.applyStatusEffect(attacker, entity);
     }
+  }
 
-    return totalDamage;
+  // Dodge (bible §A.3.8): "a % chance to take zero damage and ignore all
+  // attack-attached effects... cannot re-trigger while already active, but
+  // has no separate cooldown once the window ends." A defender already
+  // inside an active window auto-negates without a fresh roll; otherwise
+  // roll dodgeChance once per incoming hit.
+  tryDodge(entity) {
+    const dodgeChance = entity.config.dodgeChance;
+    if (!dodgeChance) return false;
+
+    if (entity.dodgeMs > 0) return true;
+
+    if (Math.random() < dodgeChance) {
+      entity.dodgeMs = entity.config.dodgeWindowMs || DEFAULT_DODGE_WINDOW_MS;
+      return true;
+    }
+
+    return false;
+  }
+
+  // Surge Attack (bible §A.3.8): "a secondary, delayed area effect that
+  // fires from the attacker's OWN position (not the target's) after a
+  // normal hit lands — hits everything within a band around the attacker
+  // for the same damage as the triggering hit." Reuses the exact damage
+  // value the triggering hit already computed (including for an AoE hit,
+  // where it's the summed total across every target that hit connected
+  // with — a deliberate simplification rather than re-deriving a single-
+  // target number) rather than rolling Critical Hit/Weaken a second time.
+  // Suppressed by Curse, same as every other special ability.
+  scheduleSurgeAttack(attacker, targetPool, damage) {
+    const surge = attacker.config.surgeOnHit;
+    if (!surge) return;
+    if (attacker.curseMs > 0) return;
+    if (Math.random() > surge.chance) return;
+
+    this.time.delayedCall(surge.delayMs, () => {
+      if (this.isGameOver || attacker.hp <= 0) return;
+
+      const originX = attacker.shape.x;
+      const candidates = targetPool.filter(
+        (entity) => entity.hp > 0 && Math.abs(entity.shape.x - originX) <= surge.radius,
+      );
+      for (const entity of candidates) {
+        this.applyResolvedDamage(attacker, entity, damage);
+      }
+    });
   }
 
   // Toxic/Poison (bible §A.3.8): a chance-based bonus equal to a % of the
@@ -1278,6 +1525,7 @@ export default class GameScene extends Phaser.Scene {
       entity.weakenMs = Math.max(0, entity.weakenMs - deltaMs);
       if (entity.weakenMs === 0) entity.weakenMultiplier = 1;
     }
+    if (entity.dodgeMs > 0) entity.dodgeMs = Math.max(0, entity.dodgeMs - deltaMs);
 
     if (entity.warpMs > 0) {
       entity.warpMs = Math.max(0, entity.warpMs - deltaMs);
@@ -1299,7 +1547,8 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;
+    if (entity.dodgeMs > 0) entity.shape.fillColor = STATUS_DODGE_COLOR;
+    else if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;
     else if (entity.curseMs > 0) entity.shape.fillColor = STATUS_CURSE_COLOR;
     else if (entity.slowMs > 0) entity.shape.fillColor = STATUS_SLOW_COLOR;
     else if (entity.weakenMs > 0) entity.shape.fillColor = STATUS_WEAKEN_COLOR;
@@ -1353,6 +1602,7 @@ export default class GameScene extends Phaser.Scene {
   // Cannon including knockback (§A.3.9).
   triggerSpecialBurst() {
     this.specialMeter = 0;
+    playCannonSfx();
 
     // Cannon Power Base Upgrade (bible §A.7.1) adds flat damage to both
     // halves of the burst.
@@ -1400,7 +1650,17 @@ export default class GameScene extends Phaser.Scene {
     if (this.isGameOver) return;
     if (this.mode === 'dojo') return; // no destroy-the-base win condition in Sparring Grounds
 
-    this.enemyBaseHp = Math.max(0, this.enemyBaseHp - amount);
+    // Failsafe (bible §A.3.9): a fast burst shouldn't be able to skip a
+    // scripted boss spawn entirely — while any baseHpPercentTrigger entry
+    // hasn't fired yet, the base is held at 1 HP (never actually finished
+    // off) just long enough for checkHpTriggers to fire it below.
+    const hasPendingTrigger = this.pendingHpTriggers.some((pending) => !pending.fired);
+    let nextHp = this.enemyBaseHp - amount;
+    if (hasPendingTrigger && nextHp <= 0) nextHp = 1;
+
+    this.enemyBaseHp = Math.max(0, nextHp);
+    this.checkHpTriggers();
+
     if (this.enemyBaseHp <= 0) {
       this.winStage();
     }
@@ -1408,6 +1668,7 @@ export default class GameScene extends Phaser.Scene {
 
   endGame() {
     this.isGameOver = true;
+    playDefeatSfx();
 
     const finalScore = this.getScore();
     // A loss can still raise a stage's best score; it never marks it cleared.
@@ -1433,6 +1694,7 @@ export default class GameScene extends Phaser.Scene {
   // The only win trigger: destroying the enemy base (see damageEnemyBase).
   winStage() {
     this.isGameOver = true;
+    playVictorySfx();
 
     const finalScore = this.getScore();
     // Read both the clear count AND whether this stage was EVER cleared
@@ -1447,17 +1709,35 @@ export default class GameScene extends Phaser.Scene {
       growthCharmChance: GROWTH_CHARM_DROP_CHANCE,
     });
     saveStageResult(this.stage.id, finalScore, true);
-    const treasureResult = rollTreasureForStage(this.stage.id);
+    // Treasure Radar (bible §A.8) forces the top tier outright instead of
+    // the normal drop-chance/tier-roll.
+    const treasureResult = this.treasureRadarActive
+      ? guaranteeTopTier(this.stage.id)
+      : rollTreasureForStage(this.stage.id);
+    const droppedItem = rollBattleItemDrop();
 
     const lines = ['STAGE CLEAR', `Score: ${finalScore}`, `+${xpReward.toLocaleString()} XP`];
     if (rewards.evoShardsGranted) lines.push('+1 Evo Shard!');
     if (rewards.growthCharmsGranted) lines.push('+1 Growth Charm!');
     if (treasureResult.improved) lines.push(`${TREASURE_TIER_NAMES[treasureResult.tier]} Treasure!`);
+    if (droppedItem) lines.push(`+1 ${droppedItem.displayName}!`);
     if (!wasAlreadyCleared) {
       addGems(this.stage.gemsFirstClear);
       lines.push(`+${this.stage.gemsFirstClear} Gems! (First Clear)`);
+      addUserRank(RANK_PER_FIRST_CLEAR); // User Rank (bible §A.7.4) — see UserRank.js
     }
-    this.showEndScreen(lines);
+
+    // Results screen "Next Stage" button (bible §A.10.5) — only offered on
+    // an actual win, and only when a next stage exists at all (this was
+    // already the very last stage of the very last saga otherwise). It's
+    // always unlockED the instant this win is recorded above, since
+    // StageSelectScene's own unlock check is just "was the previous
+    // STAGE_CONFIG entry cleared" — no separate unlock bookkeeping needed
+    // here.
+    const globalIndex = STAGE_CONFIG.indexOf(this.stage);
+    const nextStage = STAGE_CONFIG[globalIndex + 1] || null;
+
+    this.showEndScreen(lines, nextStage);
   }
 
   // XP reward for THIS clear (bible §A.5.1): full baseXp on a first win,
@@ -1469,47 +1749,60 @@ export default class GameScene extends Phaser.Scene {
   getXpReward() {
     const previousClears = getClearCount(this.stage.id);
     const decay = Math.max(XP_DECAY_FLOOR, 1 - XP_DECAY_PER_CLEAR * previousClears);
-    // Study Base Upgrade (bible §A.7.1) — % more XP per clear.
-    return Math.round(this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100));
+    // Study Base Upgrade (bible §A.7.1) — % more XP per clear. XP Boost
+    // (bible §A.8, this.xpBoostMultiplier) is a separate, independent
+    // multiplier on top, defaulting to 1 (a no-op) when unused.
+    return Math.round(this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100) * this.xpBoostMultiplier);
   }
 
-  showEndScreen(lines) {
+  // `nextStage` (winStage only) adds a third "Next Stage" button (bible
+  // §A.10.5) alongside the always-present Restart/Menu pair.
+  showEndScreen(lines, nextStage = null) {
     this.gameOverText.setText(lines.join('\n'));
+    if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
 
     const { width, height } = this.scale;
     const buttonY = height / 2 + 90;
     const buttonWidth = 160;
     const buttonGap = 20;
-    const restartX = width / 2 - buttonWidth / 2 - buttonGap / 2;
-    const menuX = width / 2 + buttonWidth / 2 + buttonGap / 2;
 
-    const restartButton = this.add
-      .rectangle(restartX, buttonY, buttonWidth, 60, 0x444444)
-      .setInteractive({ useHandCursor: true });
-    this.add
-      .text(restartX, buttonY, 'Restart', {
-        fontSize: '20px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    restartButton.on('pointerdown', () => this.scene.restart());
+    const labels = ['Restart'];
+    if (nextStage) labels.push('Next Stage');
+    labels.push('Menu');
 
-    const menuButton = this.add
-      .rectangle(menuX, buttonY, buttonWidth, 60, 0x444444)
-      .setInteractive({ useHandCursor: true });
-    this.add
-      .text(menuX, buttonY, 'Menu', {
-        fontSize: '20px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-    // Dojo wasn't reached via Stage Select at all (HomeScene launches it
-    // directly), so "Menu" should return there instead. A normal stage
-    // battle returns to its OWN saga's stage list (bible §A.6.1), not
-    // always saga1's — this.stage.saga is read straight off the stage
-    // record STAGE_CONFIG already resolved in create().
-    menuButton.on('pointerdown', () =>
-      this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga }),
-    );
+    const totalWidth = labels.length * buttonWidth + (labels.length - 1) * buttonGap;
+    const startX = (width - totalWidth) / 2 + buttonWidth / 2;
+
+    labels.forEach((label, index) => {
+      const x = startX + index * (buttonWidth + buttonGap);
+      // Next Stage gets its own accent color so it reads as the primary/
+      // recommended action, not just a third identical gray button.
+      const color = label === 'Next Stage' ? 0xffcc33 : 0x444444;
+      const textColor = label === 'Next Stage' ? '#000000' : '#ffffff';
+
+      const button = this.add.rectangle(x, buttonY, buttonWidth, 60, color).setInteractive({ useHandCursor: true });
+      this.add.text(x, buttonY, label, { fontSize: '20px', color: textColor }).setOrigin(0.5);
+
+      if (label === 'Restart') {
+        button.on('pointerdown', () => this.scene.restart());
+      } else if (label === 'Next Stage') {
+        button.on('pointerdown', () => {
+          if (!trySpendEnergy(nextStage.energyCost)) {
+            this.showRestrictionMessage('Not enough Energy for the next stage!');
+            return;
+          }
+          this.scene.start('GameScene', { stageId: nextStage.id });
+        });
+      } else {
+        // Dojo wasn't reached via Stage Select at all (HomeScene launches it
+        // directly), so "Menu" should return there instead. A normal stage
+        // battle returns to its OWN saga's stage list (bible §A.6.1), not
+        // always saga1's — this.stage.saga is read straight off the stage
+        // record STAGE_CONFIG already resolved in create().
+        button.on('pointerdown', () =>
+          this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga }),
+        );
+      }
+    });
   }
 }

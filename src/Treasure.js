@@ -71,6 +71,22 @@ export function rollTreasureForStage(stageId) {
   return { tier: rolledTier, improved: true };
 }
 
+// Treasure Radar (bible §A.8): bypasses the normal drop-chance/tier-roll
+// entirely and forces this stage's tier straight to gold — still trivially
+// respects the ratchet (gold is the max tier, so this can never "downgrade"
+// anything the same way a low roll from rollTreasureForStage wouldn't).
+export function guaranteeTopTier(stageId) {
+  const progress = load();
+  const existingTier = progress[stageId] || 0;
+  const TOP_TIER = 3;
+
+  if (existingTier >= TOP_TIER) return { tier: TOP_TIER, improved: false };
+
+  progress[stageId] = TOP_TIER;
+  save(progress);
+  return { tier: TOP_TIER, improved: true };
+}
+
 // Fraction (0-1) of `set` currently completed — the average of each
 // stage's tier/3 (bible §A.6.3's formula), NOT "how many stages have any
 // treasure" — a set of all-bronze reads as 33% complete, not 100%.

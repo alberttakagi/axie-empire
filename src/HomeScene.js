@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
+import { isMuted, setMuted } from './Audio.js';
+import { getUserRank } from './UserRank.js';
 
 // The bible's §A.10.1 Home/Base Screen — confirmed-from-screenshot layout:
 // a top status bar, a center-lower stack of three primary action buttons
@@ -35,6 +37,7 @@ export default class HomeScene extends Phaser.Scene {
     this.createPrimaryButtons();
     this.createDojoButton();
     this.createSecondaryIcons();
+    this.createSoundToggle();
 
     this.messageText = this.add
       .text(width / 2, height - 20, '', { fontSize: '13px', color: '#ffdd33' })
@@ -69,6 +72,12 @@ export default class HomeScene extends Phaser.Scene {
 
     this.add
       .text(16, 60, `Gems: ${playerProgress.gems.toLocaleString()}`, { fontSize: '13px', color: '#66ddff' })
+      .setOrigin(0, 0.5);
+
+    // User Rank (bible §A.7.4) — a plain, always-visible "number that only
+    // goes up" progression signal; see UserRank.js for why it gates nothing.
+    this.add
+      .text(16, 80, `Rank: ${getUserRank().toLocaleString()}`, { fontSize: '13px', color: '#cc99ff' })
       .setOrigin(0, 0.5);
   }
 
@@ -133,6 +142,23 @@ export default class HomeScene extends Phaser.Scene {
         .text(icon.x, y + 36, icon.label, { fontSize: '11px', color: '#aaaaaa' })
         .setOrigin(0.5);
       rect.on('pointerdown', () => this.showComingSoon(icon.label));
+    });
+  }
+
+  // Placeholder audio (bible §A.10.8, see Audio.js) is synthesized rather
+  // than sampled — cheap and functional, but with a harsher/more artificial
+  // timbre than shipped sound assets would have, so an easy-to-find mute
+  // toggle matters more here than it would for a finished game.
+  createSoundToggle() {
+    const x = this.scale.width - 164 - 100;
+    const y = 24;
+
+    this.soundToggle = this.add.circle(x, y, 16, 0x444444).setInteractive({ useHandCursor: true });
+    this.soundToggleText = this.add.text(x, y, isMuted() ? '🔇' : '🔊', { fontSize: '14px' }).setOrigin(0.5);
+    this.soundToggle.on('pointerdown', () => {
+      const muted = !isMuted();
+      setMuted(muted);
+      this.soundToggleText.setText(muted ? '🔇' : '🔊');
     });
   }
 

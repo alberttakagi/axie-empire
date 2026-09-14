@@ -309,8 +309,10 @@ export const UNIT_CONFIG = {
     role: 'swarm',
     trait: 'beast', // pairs with `basic`
     // Identity: the cheapest, fastest-recharging unit in the roster — meant
-    // to be spammed in numbers rather than relied on individually. No
-    // special ability at all; being disposable IS its gimmick.
+    // to be spammed in numbers rather than relied on individually. Its one
+    // ability (Dodge, bible §A.3.8) fits that same "hard to pin down"
+    // fantasy rather than adding raw power — a small, nimble body that
+    // occasionally just isn't where the hit landed.
     cost: 30,
     hp: 8,
     damage: 2,
@@ -329,6 +331,12 @@ export const UNIT_CONFIG = {
     special: { type: 'none' },
     critChance: 0.03,
     statusOnHit: NO_STATUS,
+    // Dodge (bible §A.3.8): a modest chance to take zero damage entirely
+    // (and ignore whatever status effect came with that hit), with a brief
+    // window afterward where further hits also auto-negate without a fresh
+    // roll.
+    dodgeChance: 0.12,
+    dodgeWindowMs: 400,
     sprite: null,
   },
   sniper: {
@@ -434,6 +442,9 @@ export const UNIT_CONFIG = {
     // Identity: the roster's top-end powerhouse — the single most
     // expensive and slowest-recharging unit, but hits an entire area for
     // huge damage. The "if you can afford it, it changes the fight" unit.
+    // Surge Attack (bible §A.3.8) layers a second, independent ground-slam
+    // on top of its primary aoe hit — a colossus that keeps hurting things
+    // around itself for a moment after it swings.
     cost: 1500,
     hp: 200,
     damage: 60,
@@ -452,6 +463,10 @@ export const UNIT_CONFIG = {
     special: { type: 'aoe', radius: 60 },
     critChance: 0.05,
     statusOnHit: NO_STATUS,
+    // Surge Attack (bible §A.3.8): a delayed second shockwave from the
+    // Titan's own position, dealing the same damage as whatever hit
+    // triggered it.
+    surgeOnHit: { chance: 0.25, delayMs: 600, radius: 70 },
     sprite: null,
   },
 };

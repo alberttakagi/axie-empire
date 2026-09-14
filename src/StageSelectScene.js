@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
@@ -160,13 +161,88 @@ export default class StageSelectScene extends Phaser.Scene {
     });
   }
 
+  // Restriction Stages (bible §A.6.5/§A.10.2) show a detail popup listing
+  // their specific rules BEFORE entering, rather than only surfacing them
+  // as a blocked-action message mid-battle (still there too, in GameScene,
+  // as a reminder). A normal stage skips straight to enterStage as before.
   onStageSelected(stage) {
+    if (stage.restrictions) {
+      this.showRestrictionDetailPopup(stage);
+      return;
+    }
+
+    this.enterStage(stage);
+  }
+
+  enterStage(stage) {
     if (!trySpendEnergy(stage.energyCost)) {
       this.showInsufficientEnergyMessage();
       return;
     }
 
     this.scene.start('GameScene', { stageId: stage.id });
+  }
+
+  formatRestrictionLines(restrictions) {
+    const lines = [];
+    if (restrictions.maxDeployed) {
+      lines.push(`Max ${restrictions.maxDeployed} units deployed at once`);
+    }
+    if (restrictions.bannedUnitTypes) {
+      const names = restrictions.bannedUnitTypes.map((key) => UNIT_CONFIG[key]?.displayName || key);
+      lines.push(`Banned: ${names.join(', ')}`);
+    }
+    if (restrictions.costRange) {
+      lines.push(`Units must cost ${restrictions.costRange.min}-${restrictions.costRange.max}円`);
+    }
+    return lines;
+  }
+
+  showRestrictionDetailPopup(stage) {
+    if (this.restrictionPopupObjects) return;
+
+    const { width, height } = this.scale;
+    const objects = [];
+
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+
+    const lines = [`${stage.displayName}`, 'Restriction Stage:', ...this.formatRestrictionLines(stage.restrictions)];
+    objects.push(
+      this.add
+        .text(width / 2, height / 2 - 50, lines.join('\n'), { fontSize: '14px', color: '#ffffff', align: 'center' })
+        .setOrigin(0.5),
+    );
+
+    const buttonY = height / 2 + 50;
+    const enterButton = this.add
+      .rectangle(width / 2 - 80, buttonY, 140, 44, 0xffcc33)
+      .setInteractive({ useHandCursor: true });
+    objects.push(
+      enterButton,
+      this.add.text(width / 2 - 80, buttonY, 'Enter Stage', { fontSize: '13px', color: '#000000' }).setOrigin(0.5),
+    );
+
+    const cancelButton = this.add
+      .rectangle(width / 2 + 80, buttonY, 140, 44, 0x444444)
+      .setInteractive({ useHandCursor: true });
+    objects.push(
+      cancelButton,
+      this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5),
+    );
+
+    enterButton.on('pointerdown', () => {
+      this.hideRestrictionDetailPopup();
+      this.enterStage(stage);
+    });
+    cancelButton.on('pointerdown', () => this.hideRestrictionDetailPopup());
+
+    this.restrictionPopupObjects = objects;
+  }
+
+  hideRestrictionDetailPopup() {
+    if (!this.restrictionPopupObjects) return;
+    this.restrictionPopupObjects.forEach((obj) => obj.destroy());
+    this.restrictionPopupObjects = null;
   }
 
   showInsufficientEnergyMessage() {

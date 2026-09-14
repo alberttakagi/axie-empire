@@ -243,6 +243,10 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0.03,
     statusOnHit: NO_STATUS,
+    // Dodge (bible §A.3.8) — mirrors the player-side swarm unit's own
+    // evasive identity.
+    dodgeChance: 0.12,
+    dodgeWindowMs: 400,
     sprite: null,
   },
   sniper: {
@@ -350,6 +354,9 @@ export const ENEMY_CONFIG = {
     special: { type: 'aoe', radius: 55 },
     critChance: 0.05,
     statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.25, durationMs: 3000 },
+    // Surge Attack (bible §A.3.8) — mirrors the player-side Titan's own
+    // delayed ground-slam.
+    surgeOnHit: { chance: 0.25, delayMs: 600, radius: 70 },
     sprite: null,
   },
 };

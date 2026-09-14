@@ -26,6 +26,12 @@
 
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
+import { addUserRank } from './UserRank.js';
+
+// User Rank (bible §A.7.4) points awarded per level-up / per evolution —
+// see UserRank.js for why nothing is gated behind the resulting total.
+const RANK_PER_LEVEL_UP = 1;
+const RANK_PER_EVOLUTION = 10;
 
 const STORAGE_KEY = 'axieSkirmishPlayerProgress';
 
@@ -97,6 +103,7 @@ export function tryLevelUpUnit(unitType) {
   progress.xp -= cost;
   progress.units[unitType] = { ...unitProgress, level: unitProgress.level + 1 };
   save(progress);
+  addUserRank(RANK_PER_LEVEL_UP);
   return { ok: true };
 }
 
@@ -138,6 +145,7 @@ export function tryEvolveUnit(unitType) {
   progress.evoShards -= nextEvolution.evoShardCost;
   progress.units[unitType] = { ...unitProgress, evolutionStage: unitProgress.evolutionStage + 1 };
   save(progress);
+  addUserRank(RANK_PER_EVOLUTION);
   return { ok: true };
 }
 
