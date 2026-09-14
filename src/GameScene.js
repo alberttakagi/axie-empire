@@ -13,6 +13,7 @@ import {
   grantStageRewards,
   getBaseUpgradeLevel,
   addGems,
+  trySpendGems,
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
@@ -78,6 +79,16 @@ const GROWTH_CHARM_DROP_CHANCE = 0.15;
 // User Rank (bible §A.7.4) — see UserRank.js for why this doesn't gate
 // anything; PlayerProgress.js awards its own share on level-up/evolution.
 const RANK_PER_FIRST_CLEAR = 5;
+
+// Continue (bible §A.3.9): "the player can pay Cat Food (or watch a
+// rewarded ad) to refill and continue" on a loss — Gems, in this build's
+// currency naming. Offered at most MAX_CONTINUES_PER_BATTLE times per
+// battle (escalating cost each time) so it can't be chained indefinitely;
+// a per-stage `allowContinue: false` flag (a subset of harder stages in
+// STAGE_CONFIG.js) disables the offer outright, matching the bible's
+// "a subset of harder/special stages explicitly disable this." Dojo never
+// offers it — its own timer-based ending isn't a "loss" to continue past.
+const CONTINUE_GEM_COSTS = [5, 10, 20];
 
 // Evolution-stage visual cue (sprites aren't in yet — see UNIT_CONFIG.js's
 // `sprite` field — so evolved/True Form units get a stroked ring instead of
@@ -265,6 +276,7 @@ export default class GameScene extends Phaser.Scene {
     this.moneyRampBypassed = false; // Rich Cat
     this.xpBoostMultiplier = 1; // XP Boost
     this.treasureRadarActive = false; // Treasure Radar
+    this.continuesUsed = 0; // Continue (bible §A.3.9) — see CONTINUE_GEM_COSTS
     // Combo's "Starting Money Up" is a bonus ON TOP of the normal starting
     // fill — deliberately allowed to exceed getWalletCap() for this one
     // initial value (a real "bonus," not just a differently-computed cap);
@@ -1730,8 +1742,78 @@ export default class GameScene extends Phaser.Scene {
 
     this.baseHp = Math.max(0, this.baseHp - amount);
     if (this.baseHp <= 0) {
-      this.endGame();
+      this.handleBaseDestroyed();
     }
+  }
+
+  // Continue (bible §A.3.9) — offered instead of an immediate game-over
+  // when the stage allows it, there are offers left this battle, and the
+  // player can actually afford the next one; falls through to a normal
+  // endGame() otherwise (including a decline).
+  handleBaseDestroyed() {
+    const cost = CONTINUE_GEM_COSTS[this.continuesUsed];
+    const canOffer =
+      cost !== undefined && this.stage.allowContinue !== false && loadPlayerProgress().gems >= cost;
+
+    if (canOffer) this.showContinueOffer(cost);
+    else this.endGame();
+  }
+
+  showContinueOffer(cost) {
+    this.isPaused = true;
+
+    const { width, height } = this.scale;
+    const objects = [];
+
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+    objects.push(
+      this.add
+        .text(width / 2, height / 2 - 50, `Your base was destroyed!\nContinue for ${cost} Gems?`, {
+          fontSize: '18px',
+          color: '#ffffff',
+          align: 'center',
+        })
+        .setOrigin(0.5),
+    );
+
+    const buttonY = height / 2 + 30;
+    const continueButton = this.add
+      .rectangle(width / 2 - 90, buttonY, 150, 48, 0xffdd33)
+      .setInteractive({ useHandCursor: true });
+    objects.push(
+      continueButton,
+      this.add
+        .text(width / 2 - 90, buttonY, `Continue\n${cost} Gems`, { fontSize: '14px', color: '#000000', align: 'center' })
+        .setOrigin(0.5),
+    );
+
+    const declineButton = this.add
+      .rectangle(width / 2 + 90, buttonY, 150, 48, 0x444444)
+      .setInteractive({ useHandCursor: true });
+    objects.push(
+      declineButton,
+      this.add.text(width / 2 + 90, buttonY, 'No Thanks', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
+    );
+
+    continueButton.on('pointerdown', () => {
+      if (!trySpendGems(cost)) return; // shouldn't happen (gated above), but never spend a hit you can't afford
+      this.continuesUsed += 1;
+      this.baseHp = this.baseMaxHp;
+      this.hideContinueOffer();
+    });
+    declineButton.on('pointerdown', () => {
+      this.hideContinueOffer();
+      this.endGame();
+    });
+
+    this.continueOfferObjects = objects;
+  }
+
+  hideContinueOffer() {
+    if (!this.continueOfferObjects) return;
+    this.continueOfferObjects.forEach((obj) => obj.destroy());
+    this.continueOfferObjects = null;
+    this.isPaused = false;
   }
 
   damageEnemyBase(amount) {

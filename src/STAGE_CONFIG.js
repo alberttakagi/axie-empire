@@ -76,6 +76,10 @@
 //                                     this (inclusive) band.
 //                 All enforced in GameScene.trySpawnUnit, which shows a
 //                 brief on-screen reason when a restriction blocks a tap.
+//   allowContinue  optional, defaults to true — bible §A.3.9's Continue
+//                 mechanic (pay Gems to refill your base and keep fighting
+//                 after a loss) is offered on any stage that doesn't set
+//                 this to false. Every saga boss disables it.
 //   Clearing a stage = reducing its enemy base's HP to 0 (see GameScene's
 //   damageEnemyBase/winStage).
 
@@ -318,6 +322,9 @@ export const STAGE_CONFIG = [
     // strongest unit outright, forcing a different lineup than "just bring
     // the best DPS."
     restrictions: { bannedUnitTypes: ['aoe'] },
+    // Continue (bible §A.3.9): "a subset of harder/special stages explicitly
+    // disable this" — every saga's final boss does, here.
+    allowContinue: false,
     enemyBaseHp: 900,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1.2, spawnDelayMs: 1000 },
@@ -565,6 +572,7 @@ export const STAGE_CONFIG = [
     moneyAccrualPerSec: 50,
     baseHp: 100,
     restrictions: { bannedUnitTypes: ['guardian'] },
+    allowContinue: false, // Continue (bible §A.3.9) — disabled for saga bosses, see stage10's own comment
     enemyBaseHp: 5000,
     spawnScript: [
       { enemyId: 'sniper', statMultiplier: 1.5, spawnDelayMs: 1000 },
@@ -800,6 +808,7 @@ export const STAGE_CONFIG = [
     moneyAccrualPerSec: 50,
     baseHp: 100,
     restrictions: { bannedUnitTypes: ['titan'] },
+    allowContinue: false, // Continue (bible §A.3.9) — disabled for saga bosses, see stage10's own comment
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'guardian', statMultiplier: 1.9, spawnDelayMs: 1000 },
