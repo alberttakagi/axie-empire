@@ -58,8 +58,15 @@ const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
 
 const BUTTON_HEIGHT = 70;
+// BUTTON_WIDTH is now a CEILING, not a fixed size (bible §A.10.3/real
+// Battle Cats: a Formation/Deck can hold up to 10 units) — createSpawnButtons
+// shrinks the actual per-button width to whatever fits this.loadout.length
+// buttons in one un-scrolled row, capped at this value so a small Formation
+// (the common case) still gets buttons at (close to) this original size.
 const BUTTON_WIDTH = 136;
 const BUTTON_GAP = 8;
+const SPAWN_ROW_LEFT_MARGIN = 16;
+const SPAWN_ROW_CANNON_GAP = 10; // clearance kept between the row and the Cannon button's own footprint
 
 const CAP_BUTTON_WIDTH = 150;
 const CAP_BUTTON_HEIGHT = 44;
@@ -344,31 +351,49 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createSpawnButtons() {
-    const { width, height } = this.scale;
+    const { height } = this.scale;
     const keys = this.loadout;
-    const totalWidth = keys.length * BUTTON_WIDTH + (keys.length - 1) * BUTTON_GAP;
-    const startX = (width - totalWidth) / 2 + BUTTON_WIDTH / 2;
+
+    // The row's available width is bounded on the right by the Cannon
+    // button's own footprint (bottom-right corner), not the full canvas —
+    // at the original fixed BUTTON_WIDTH, even the base 5-unit Formation's
+    // row already reached into the Cannon's circle (an existing, easy-to-
+    // miss overlap caught while checking a full 10-unit row here); centering
+    // within this narrower zone instead of the whole canvas fixes both.
+    const zoneLeft = SPAWN_ROW_LEFT_MARGIN;
+    const zoneRight = this.cannonX - CANNON_BUTTON_RADIUS - SPAWN_ROW_CANNON_GAP;
+    const zoneWidth = zoneRight - zoneLeft;
+
+    // Shrink to fit a Formation of up to MAX_LOADOUT_SIZE (10, matching the
+    // real game's own Deck size) in one un-scrolled row, without shrinking
+    // below the original BUTTON_WIDTH for a smaller Formation that already
+    // fits the zone at full size.
+    const buttonWidth = Math.min(BUTTON_WIDTH, (zoneWidth - (keys.length - 1) * BUTTON_GAP) / keys.length);
+    const isCompact = buttonWidth < BUTTON_WIDTH - 1;
+    const totalWidth = keys.length * buttonWidth + (keys.length - 1) * BUTTON_GAP;
+    const startX = zoneLeft + (zoneWidth - totalWidth) / 2 + buttonWidth / 2;
     const y = height - BUTTON_HEIGHT / 2 - 10;
 
     this.spawnButtons = keys.map((key, index) => {
       const config = UNIT_CONFIG[key];
-      const x = startX + index * (BUTTON_WIDTH + BUTTON_GAP);
+      const x = startX + index * (buttonWidth + BUTTON_GAP);
 
       const rect = this.add
-        .rectangle(x, y, BUTTON_WIDTH, BUTTON_HEIGHT, config.color)
+        .rectangle(x, y, buttonWidth, BUTTON_HEIGHT, config.color)
         .setInteractive({ useHandCursor: true });
 
       const labelText = this.add
         .text(x, y - 14, config.displayName, {
-          fontSize: '13px',
+          fontSize: isCompact ? '10px' : '13px',
           color: '#ffffff',
           align: 'center',
+          wordWrap: { width: buttonWidth - 6 },
         })
         .setOrigin(0.5);
 
       const costText = this.add
         .text(x, y + 14, `${Math.round(config.cost).toLocaleString()}円`, {
-          fontSize: '11px',
+          fontSize: isCompact ? '9px' : '11px',
           color: '#ffffff',
         })
         .setOrigin(0.5);
@@ -377,7 +402,7 @@ export default class GameScene extends Phaser.Scene {
       // a unit's deploy icon) — a dark wipe that shrinks from full button
       // height to 0 as unitCooldowns[key] counts down; see updateSpawnButtons.
       const cooldownOverlay = this.add
-        .rectangle(x, y - BUTTON_HEIGHT / 2, BUTTON_WIDTH, 0, 0x000000)
+        .rectangle(x, y - BUTTON_HEIGHT / 2, buttonWidth, 0, 0x000000)
         .setOrigin(0.5, 0)
         .setAlpha(0.6);
 

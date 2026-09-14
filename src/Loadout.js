@@ -7,17 +7,20 @@
 // MAX_LOADOUT_SIZE mirrors the reference game's own real mechanic: owning a
 // large roster doesn't mean every unit rides along into every battle — you
 // assemble a capped Deck/Formation beforehand (bible §A.10.3), and the
-// in-battle deploy bar only ever shows that capped subset. Now that the
-// roster has grown past what the deploy bar (GameScene's BUTTON_WIDTH row,
-// tuned for a 800px-wide canvas) can fit in one un-scrolled row, this cap
-// is load-bearing, not cosmetic — see GameScene.js's createSpawnButtons.
-export const MAX_LOADOUT_SIZE = 5;
+// in-battle deploy bar only ever shows that capped subset. Set to 10 to
+// match the real game's own Deck size exactly (and, right now, this
+// build's entire roster — see UNIT_CONFIG.js — so in practice every owned
+// unit can ride along at once; the cap stays in place for when the roster
+// eventually grows past 10). GameScene.js's createSpawnButtons shrinks the
+// deploy bar's per-button width to whatever fits the current Formation
+// size in one un-scrolled row on the 800px-wide canvas, so this cap no
+// longer needs to be tuned to a fixed button size.
+export const MAX_LOADOUT_SIZE = 10;
 
-// Persisted as a plain array of UNIT_CONFIG keys. Defaults to the game's
-// original 5-unit starter roster (so a player who never opens the Loadout
-// screen keeps seeing the exact same button row this build always had — no
-// surprise regression — and newly-added units must be deliberately swapped
-// in via the Loadout screen, same as "unlocking" a new deck slot choice).
+// Persisted as a plain array of UNIT_CONFIG keys. Defaults to every unit in
+// the roster (since MAX_LOADOUT_SIZE now equals the full roster size) — a
+// player who never opens the Loadout screen still deploys with everything
+// they own, matching the real game's own "full Deck by default" feel.
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 
 const STORAGE_KEY = 'axieSkirmishLoadout';
