@@ -4,7 +4,13 @@ import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
-import { FLAT_DAMAGE_TRAIT, FLAT_DAMAGE_AMOUNT, MATCHUP_BONUSES, RESIST_BONUSES } from './TRAIT_CONFIG.js';
+import {
+  FLAT_DAMAGE_TRAIT,
+  FLAT_DAMAGE_AMOUNT,
+  MATCHUP_BONUSES,
+  RESIST_BONUSES,
+  SUPER_CLASS_SLAYER_BONUSES,
+} from './TRAIT_CONFIG.js';
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
 import {
@@ -1026,6 +1032,14 @@ export default class GameScene extends Phaser.Scene {
       // window, matching "cannot re-trigger while already active." See
       // tickStatusEffects for the countdown.
       dodgeMs: 0,
+      // Zombie (bible §A.3.8) — remainingRevives starts at config.reviveCount
+      // (0 for every non-Zombie config) and counts down each time
+      // processZombieRevives actually revives this entity; lastAttacker
+      // records whoever most recently reduced its hp, so a revival check
+      // can tell whether THIS specific finishing blow came from a
+      // zombieKiller unit (see applyResolvedDamage).
+      remainingRevives: config.reviveCount || 0,
+      lastAttacker: null,
       target: null,
     };
   }
@@ -1270,7 +1284,28 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
+    this.processZombieRevives(this.enemies);
     this.removeDead(this.enemies, (enemy) => this.onEnemyKilled(enemy));
+  }
+
+  // Zombie (bible §A.3.8) — checked immediately before every removeDead
+  // pass over this.enemies: an entity that would otherwise be removed here
+  // gets its hp bumped back above 0 instead, so removeDead's own hp<=0
+  // check simply skips it afterward (no changes needed there, and no risk
+  // of double-handling the same "death").
+  processZombieRevives(list) {
+    for (const entity of list) {
+      if (entity.hp > 0) continue;
+      if (entity.remainingRevives <= 0) continue;
+      // Zombie Killer (bible §A.3.8): the finishing blow's attacker denies
+      // the revive outright when it carries this flag.
+      if (entity.lastAttacker?.config?.zombieKiller) continue;
+
+      entity.remainingRevives -= 1;
+      entity.hp = Math.round(entity.config.hp * entity.config.reviveHpPercent);
+      entity.hpAtLastKnockback = entity.hp; // reset the HP-threshold knockback bookkeeping to the fresh HP
+      entity.knockbacksUsed = 0;
+    }
   }
 
   onEnemyKilled(enemy) {
@@ -1380,6 +1415,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     entity.hp -= appliedToHp;
+    if (appliedToHp > 0) entity.lastAttacker = attacker; // Zombie revival (bible §A.3.8) — see processZombieRevives
 
     if (appliedToHp > 0) {
       this.resolveKnockback(attacker, entity);
@@ -1676,8 +1712,33 @@ export default class GameScene extends Phaser.Scene {
     const resistMultiplier = RESIST_BONUSES[defender.config.trait]?.[attacker.config.trait] ?? 1;
     const weakenMultiplier = attacker.weakenMs > 0 ? attacker.weakenMultiplier : 1;
     const critMultiplier = isCrit ? 2 : 1;
+    const superClassMultiplier = this.getSuperClassMultiplier(attacker, defender);
 
-    return attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier;
+    return (
+      attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier
+    );
+  }
+
+  // Colossus/Behemoth Slayer (bible §A.3.8) — independent of, and stacking
+  // multiplicatively with, the trait matchup above (both apply simultaneously
+  // per the bible). Two symmetric halves, either or both of which can fire
+  // on the same hit: the ATTACKER's own Slayer flag boosts damage dealt
+  // against a superClass DEFENDER, and the DEFENDER's own Slayer flag
+  // reduces damage taken from a superClass ATTACKER.
+  getSuperClassMultiplier(attacker, defender) {
+    let multiplier = 1;
+
+    const defenderBonus = SUPER_CLASS_SLAYER_BONUSES[defender.config.superClass];
+    if (defenderBonus && attacker.config[`${defender.config.superClass}Slayer`]) {
+      multiplier *= defenderBonus.dealt;
+    }
+
+    const attackerBonus = SUPER_CLASS_SLAYER_BONUSES[attacker.config.superClass];
+    if (attackerBonus && defender.config[`${attacker.config.superClass}Slayer`]) {
+      multiplier *= attackerBonus.taken;
+    }
+
+    return multiplier;
   }
 
   // Player-triggered: tapping the Cat Cannon button only does something
@@ -1713,9 +1774,11 @@ export default class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       if (enemy.hp > 0) {
         enemy.hp -= burstDamage;
+        enemy.lastAttacker = syntheticAttacker; // no .config at all — never counts as a zombieKiller finish, see processZombieRevives
         if (enemy.hp > 0) this.startKnockbackSlide(syntheticAttacker, enemy);
       }
     }
+    this.processZombieRevives(this.enemies);
     this.removeDead(this.enemies, (enemy) => this.onEnemyKilled(enemy));
     this.damageEnemyBase(burstBaseDamage);
 

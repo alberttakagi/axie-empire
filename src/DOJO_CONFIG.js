@@ -35,6 +35,8 @@ export const DOJO_CONFIG = {
   // Minimum tier at which each ENEMY_CONFIG role can be picked for a spawn.
   // Roster expansion (bible §A.4.1): the 5 new enemy roles slot in above the
   // original ceiling of 3, escalating roughly by how dangerous each one is.
+  // Wider enemy trait roster (bible §A.3.8): zombie/colossus/behemoth slot
+  // in even later, mirroring their late-saga3 introduction in STAGE_CONFIG.
   roleUnlockTier: {
     basic: 0,
     fast: 0,
@@ -46,5 +48,8 @@ export const DOJO_CONFIG = {
     support: 3,
     guardian: 4,
     titan: 5,
+    zombie: 5,
+    colossus: 7,
+    behemoth: 9,
   },
 };

@@ -38,6 +38,18 @@
 // `longDistance`/`toxicOnHit`/`waveOnHit`/`waveImmune`/`warpImmune`/
 // `barrierMaxHp`/`barrierBreakerChance` — see UNIT_CONFIG.js for the full
 // field reference; same mechanics apply symmetrically to enemies.
+//
+// `reviveCount`/`reviveHpPercent` — Zombie's own special rule (bible
+// §A.3.8), enemy-only: on what would otherwise be its death, if reviveCount
+// is still > 0 it instead comes back at reviveHpPercent of its (unscaled)
+// max HP with its revive counter decremented — UNLESS the finishing blow's
+// attacker has UNIT_CONFIG's zombieKiller flag, which denies the revive
+// outright. See GameScene's handleEnemyDeath.
+//
+// `superClass` — Colossus/Behemoth (bible §A.3.8): a tag layered ON TOP OF
+// the normal `trait` above, not a replacement for it — see
+// TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES and UNIT_CONFIG.js's
+// colossusSlayer/behemothSlayer flags for the counter-play.
 
 import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 
@@ -357,6 +369,114 @@ export const ENEMY_CONFIG = {
     // Surge Attack (bible §A.3.8) — mirrors the player-side Titan's own
     // delayed ground-slam.
     surgeOnHit: { chance: 0.25, delayMs: 600, radius: 70 },
+    sprite: null,
+  },
+
+  // --- Wider enemy trait roster (bible §A.3.8) — see this file's own
+  // header and TRAIT_CONFIG.js for the mechanical rationale. Introduced no
+  // earlier than saga2 (see STAGE_CONFIG.js) — saga1 stays the original
+  // "no exotic traits yet" 5-enemy roster, matching how the reference game
+  // itself only introduces Zombie/Colossus/Behemoth-tier content well past
+  // its own opening chapters.
+
+  zombie: {
+    id: 'zombie',
+    displayName: 'Zombie',
+    role: 'zombie',
+    trait: 'zombie', // its own outlier trait (see TRAIT_CONFIG.js) — no matchup bonuses either way
+    // Identity: an ordinary-strength recurring nuisance whose real threat
+    // isn't its stats at all — it just won't stay dead. See
+    // reviveCount/reviveHpPercent below and GameScene's handleEnemyDeath.
+    threat: 10,
+    hp: 40,
+    damage: 8,
+    attackSpeed: 1, // dps 8 — interval 1000ms, split 35/65 below
+    foreswingMs: 350,
+    backswingMs: 650,
+    moveSpeed: 35,
+    radius: 14,
+    range: 14,
+    rechargeMs: 0,
+    knockbackCount: 2,
+    knockbackDistance: 10,
+    knockbackType: 'normal',
+    color: 0x556b2f,
+    label: 'Z',
+    special: { type: 'none' },
+    critChance: 0.05,
+    statusOnHit: NO_STATUS,
+    // Zombie (bible §A.3.8): revives twice at half its (unscaled) max HP
+    // unless the finishing blow comes from a zombieKiller unit (this
+    // build's `sniper`) — see GameScene.handleEnemyDeath.
+    reviveCount: 2,
+    reviveHpPercent: 0.5,
+    sprite: null,
+  },
+  colossus: {
+    id: 'colossus',
+    displayName: 'Colossus',
+    role: 'colossus',
+    trait: 'bug',
+    // Identity: a recurring "big, dangerous, but not a scripted boss"
+    // threat — tougher and harder-hitting than anything else short of an
+    // actual boss spawn, appearing multiple times through saga2/saga3
+    // rather than as a single one-off encounter.
+    threat: 22,
+    hp: 320,
+    damage: 35,
+    attackSpeed: 0.4, // dps 14 — interval 2500ms, split 35/65 below
+    foreswingMs: 875,
+    backswingMs: 1625,
+    moveSpeed: 20,
+    radius: 34,
+    range: 34,
+    rechargeMs: 0,
+    knockbackCount: 1,
+    knockbackDistance: 4,
+    knockbackType: 'normal',
+    color: 0x996633,
+    label: 'Co',
+    special: { type: 'aoe', radius: 50 },
+    critChance: 0.05,
+    statusOnHit: { type: STATUS_TYPES.STOP, chance: 0.15, durationMs: 800 },
+    // Colossus (bible §A.3.8): a superClass tag layered on top of its own
+    // normal `trait` above (still Bug for ordinary matchup purposes) — see
+    // TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES and UNIT_CONFIG.js's
+    // `guardian`, this build's Colossus Slayer.
+    superClass: 'colossus',
+    sprite: null,
+  },
+  behemoth: {
+    id: 'behemoth',
+    displayName: 'Behemoth',
+    role: 'behemoth',
+    trait: 'beast',
+    // Identity: the single toughest non-scripted-boss enemy in the game —
+    // reserved for the very end of saga3, sparingly, matching the bible's
+    // own Behemoth-tier content being a rare, dreaded endgame threat.
+    threat: 35,
+    hp: 500,
+    damage: 55,
+    attackSpeed: 0.35, // dps ~19 — interval ~2857ms, split 35/65 below
+    foreswingMs: 1000,
+    backswingMs: 1857,
+    moveSpeed: 18,
+    radius: 38,
+    range: 38,
+    rechargeMs: 0,
+    knockbackCount: 1,
+    knockbackDistance: 3,
+    knockbackType: 'immune', // a true juggernaut doesn't budge, same as this build's own `tank`
+    color: 0x330000,
+    label: 'Be',
+    special: { type: 'aoe', radius: 60 },
+    critChance: 0.05,
+    statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.2, durationMs: 2500 },
+    // Behemoth (bible §A.3.8): a superClass tag layered on top of its own
+    // normal `trait` above (still Beast for ordinary matchup purposes) —
+    // see TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES and UNIT_CONFIG.js's
+    // `titan`, this build's Behemoth Slayer.
+    superClass: 'behemoth',
     sprite: null,
   },
 };

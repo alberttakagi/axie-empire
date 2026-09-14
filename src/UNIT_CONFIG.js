@@ -368,6 +368,10 @@ export const UNIT_CONFIG = {
     // Long Distance (bible §A.3.8): can't hit anything within 80px, but
     // reaches all the way out to 220px — the longest window in the roster.
     longDistance: { min: 80, max: 220 },
+    // Zombie Killer (bible §A.3.8): a precise finishing shot that denies a
+    // Zombie-trait enemy its revive when this unit lands the killing blow
+    // — see ENEMY_CONFIG.js's `zombie` entry and GameScene.handleEnemyDeath.
+    zombieKiller: true,
     sprite: null,
   },
   guardian: {
@@ -403,6 +407,10 @@ export const UNIT_CONFIG = {
     // Barrier-Broken) before real damage gets through, layered on top of
     // its already-high HP.
     barrierMaxHp: 20,
+    // Colossus Slayer (bible §A.3.8): 1.6x damage dealt / 0.6x damage taken
+    // specifically against enemies carrying the Colossus superClass tag —
+    // see TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
+    colossusSlayer: true,
     sprite: null,
   },
   support: {
@@ -467,6 +475,11 @@ export const UNIT_CONFIG = {
     // Titan's own position, dealing the same damage as whatever hit
     // triggered it.
     surgeOnHit: { chance: 0.25, delayMs: 600, radius: 70 },
+    // Behemoth Slayer (bible §A.3.8): 2.5x damage dealt / 0.6x damage taken
+    // specifically against enemies carrying the Behemoth superClass tag —
+    // the roster's biggest unit countering the roster's biggest enemy
+    // class. See TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
+    behemothSlayer: true,
     sprite: null,
   },
 };

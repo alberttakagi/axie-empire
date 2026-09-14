@@ -482,6 +482,9 @@ export const STAGE_CONFIG = [
       { enemyId: 'aoe', statMultiplier: 1.5, spawnDelayMs: 13500 },
       { enemyId: 'sniper', statMultiplier: 1.5, spawnDelayMs: 16000 },
       { enemyId: 'support', statMultiplier: 1.2, spawnDelayMs: 18000 },
+      // Wider enemy trait roster (bible §A.3.8): Zombie's first appearance —
+      // fittingly, the one stage already themed around toxin/decay.
+      { enemyId: 'zombie', statMultiplier: 1, spawnDelayMs: 19500 },
     ],
   },
   {
@@ -531,6 +534,7 @@ export const STAGE_CONFIG = [
       { enemyId: 'guardian', statMultiplier: 1.1, spawnDelayMs: 15000 },
       { enemyId: 'sniper', statMultiplier: 1.7, spawnDelayMs: 17500 },
       { enemyId: 'support', statMultiplier: 1.5, spawnDelayMs: 19500 },
+      { enemyId: 'zombie', statMultiplier: 1.2, spawnDelayMs: 21500 },
     ],
   },
   {
@@ -558,6 +562,7 @@ export const STAGE_CONFIG = [
       { enemyId: 'sniper', statMultiplier: 1.7, spawnDelayMs: 16600 },
       { enemyId: 'guardian', statMultiplier: 1.2, spawnDelayMs: 19000 },
       { enemyId: 'tank', statMultiplier: 1.7, spawnDelayMs: 21400 },
+      { enemyId: 'zombie', statMultiplier: 1.3, spawnDelayMs: 23400 },
     ],
   },
   {
@@ -626,6 +631,7 @@ export const STAGE_CONFIG = [
       { enemyId: 'swarm', statMultiplier: 1.7, spawnDelayMs: 10000 },
       { enemyId: 'guardian', statMultiplier: 1.3, spawnDelayMs: 12000 },
       { enemyId: 'titan', statMultiplier: 1.1, spawnDelayMs: 14500 },
+      { enemyId: 'zombie', statMultiplier: 1.4, spawnDelayMs: 17000 },
     ],
   },
   {
@@ -649,6 +655,10 @@ export const STAGE_CONFIG = [
       { enemyId: 'sniper', statMultiplier: 1.8, spawnDelayMs: 12500 },
       { enemyId: 'titan', statMultiplier: 1.2, spawnDelayMs: 15000 },
       { enemyId: 'tank', statMultiplier: 1.8, spawnDelayMs: 17500 },
+      // Wider enemy trait roster (bible §A.3.8): Colossus's first
+      // appearance — a recurring "big, dangerous, not-quite-a-boss" threat
+      // from here through the rest of saga3.
+      { enemyId: 'colossus', statMultiplier: 1, spawnDelayMs: 20000 },
     ],
   },
   {
@@ -672,6 +682,7 @@ export const STAGE_CONFIG = [
       { enemyId: 'sniper', statMultiplier: 1.9, spawnDelayMs: 12500 },
       { enemyId: 'titan', statMultiplier: 1.3, spawnDelayMs: 15000 },
       { enemyId: 'aoe', statMultiplier: 1.9, spawnDelayMs: 17500 },
+      { enemyId: 'zombie', statMultiplier: 1.5, spawnDelayMs: 19500 },
     ],
   },
   {
@@ -721,6 +732,7 @@ export const STAGE_CONFIG = [
       { enemyId: 'swarm', statMultiplier: 2, spawnDelayMs: 12000 },
       { enemyId: 'guardian', statMultiplier: 1.6, spawnDelayMs: 14000 },
       { enemyId: 'titan', statMultiplier: 1.4, spawnDelayMs: 16500 },
+      { enemyId: 'colossus', statMultiplier: 1.1, spawnDelayMs: 19000 },
     ],
   },
   {
@@ -744,6 +756,7 @@ export const STAGE_CONFIG = [
       { enemyId: 'titan', statMultiplier: 1.5, spawnDelayMs: 13000 },
       { enemyId: 'aoe', statMultiplier: 2.1, spawnDelayMs: 15500 },
       { enemyId: 'titan', statMultiplier: 1.5, spawnDelayMs: 18000 },
+      { enemyId: 'colossus', statMultiplier: 1.2, spawnDelayMs: 20500 },
     ],
   },
   {
@@ -768,6 +781,8 @@ export const STAGE_CONFIG = [
       { enemyId: 'swarm', statMultiplier: 2.2, spawnDelayMs: 15000 },
       { enemyId: 'titan', statMultiplier: 1.6, spawnDelayMs: 17000 },
       { enemyId: 'tank', statMultiplier: 2.1, spawnDelayMs: 19000 },
+      { enemyId: 'zombie', statMultiplier: 1.6, spawnDelayMs: 21000 },
+      { enemyId: 'colossus', statMultiplier: 1.3, spawnDelayMs: 23500 },
     ],
   },
   {
@@ -794,6 +809,12 @@ export const STAGE_CONFIG = [
       { enemyId: 'guardian', statMultiplier: 1.9, spawnDelayMs: 15800 },
       { enemyId: 'titan', statMultiplier: 1.7, spawnDelayMs: 18000 },
       { enemyId: 'sniper', statMultiplier: 2.3, spawnDelayMs: 20200 },
+      { enemyId: 'colossus', statMultiplier: 1.4, spawnDelayMs: 22500 },
+      // Wider enemy trait roster (bible §A.3.8): Behemoth's first
+      // appearance — reserved for the last stretch before the campaign's
+      // final boss, matching how rare/dreaded the real game's own
+      // Behemoth-tier content is.
+      { enemyId: 'behemoth', statMultiplier: 1, spawnDelayMs: 25500 },
     ],
   },
   {
@@ -815,6 +836,8 @@ export const STAGE_CONFIG = [
       { enemyId: 'sniper', statMultiplier: 2.3, spawnDelayMs: 3000 },
       { enemyId: 'support', statMultiplier: 2.3, spawnDelayMs: 5500 },
       { enemyId: 'swarm', statMultiplier: 2.3, spawnDelayMs: 8000 },
+      { enemyId: 'colossus', statMultiplier: 1.5, spawnDelayMs: 10500 },
+      { enemyId: 'behemoth', statMultiplier: 1.1, spawnDelayMs: 14000 },
       // Base-HP%-triggered boss spawn (see stage10's own comment) — same
       // 99% trigger + isBoss shockwave, for the campaign's final boss.
       { enemyId: 'titan', statMultiplier: 12, baseHpPercentTrigger: 99, isBoss: true },
