@@ -1,44 +1,35 @@
-// Money economy knobs (formerly the "energy" system). Shared by both
-// endless and stage mode — stage mode overrides startingMoney/
-// moneyAccrualPerSec per stage via STAGE_CONFIG.js, everything else here
-// (kill bonus, cap-upgrade curve) is global across modes.
+// Money economy knobs. Every stage supplies its own level-1 income rate and
+// wallet cap (STAGE_CONFIG's moneyAccrualPerSec/startingMoney) — this file
+// only holds the knobs for the in-battle "Worker Cat" upgrade layered on top
+// of that per-stage baseline (confirmed against the bible as a real
+// reference mechanic, not an invented one — see bible §A.3.10/§A.7.1 and the
+// "Worker Cat" research notes: the real game lets you spend money mid-battle
+// to level a Worker Cat up to a hard cap, each level raising both its income
+// rate and the wallet cap it can hold).
 //
-// Currency switched from an invented "$" scale to yen, matching Battle
-// Cats' own denomination directly — unit costs in UNIT_CONFIG.js are now
-// literal real prices (no conversion factor needed), which is what
-// resolved the earlier confusion around comparing rebalanced costs against
-// an arbitrary dollar-scale cap.
+// Currency is yen, matching Battle Cats' own denomination directly — unit
+// costs in UNIT_CONFIG.js are literal real prices (no conversion factor
+// needed).
 
 export const MONEY_CONFIG = {
-  // Endless-mode defaults; stage mode uses STAGE_CONFIG's startingMoney instead.
-  //
-  // 1000 matches the real game's well-known "start every stage with 1000¥"
-  // convention directly (not derived/scaled — this is the actual value).
-  startingCap: 1000,
-  // Not a sourced real value (no exact datamined accrual rate found, same
-  // gap flagged during the earlier dollar-scale rebalance) — kept at the
-  // same relative pace as before: ~5% of the cap per second, so a fully
-  // spent wallet refills in ~20s, same feel as pre-conversion.
-  accrualPerSec: 50,
-
   // Killing an enemy grants enemy.config.threat * killBonusMultiplier yen.
   // `threat` itself isn't a real Battle Cats stat (see ENEMY_CONFIG.js) so
-  // this multiplier is still just reasoned proportionally: same ~11% of a
-  // basic unit's cost per basic-enemy kill as before the yen conversion.
+  // this multiplier is still just reasoned proportionally: ~11% of a basic
+  // unit's cost per basic-enemy kill.
   killBonusMultiplier: 3,
 
-  // "Upgrade Cap" button: first purchase costs capUpgradeBaseCost, each
-  // subsequent purchase costs capUpgradeCostMultiplier times the last one,
-  // and each purchase raises the cap by a flat capUpgradeAmount.
-  //
-  // This mechanic doesn't exist in the real game (it's our own pacing
-  // guardrail) so these stay reasoned, not sourced. capUpgradeBaseCost
-  // MUST stay below the lowest moneyCap it'll be checked against — money
-  // can never exceed moneyCap (both accrual and kill-bonus gains clamp to
-  // it in GameScene), so a cost at/above the cap is a permanent soft-lock.
-  // Set to 75% of startingCap (same margin used before), which also clears
-  // every per-stage cap in STAGE_CONFIG.js, including Hard tier's 800.
-  capUpgradeBaseCost: 750,
-  capUpgradeCostMultiplier: 1.5,
-  capUpgradeAmount: 500,
+  // Worker Cat: starts every battle at level 1 (using the stage's own
+  // moneyAccrualPerSec/startingMoney as level-1's income rate/wallet cap —
+  // see STAGE_CONFIG.js). Spending money mid-battle levels it up, capped at
+  // maxLevel (matches the real reference mechanic's own level-8 cap). Each
+  // level adds a flat amount to BOTH the income rate and the wallet cap —
+  // two separate levers a player is trading early income for.
+  workerCat: {
+    maxLevel: 8,
+    accrualPerLevel: 8, // flat ¥/sec added per level above 1
+    walletCapPerLevel: 150, // flat ¥ added to the wallet cap per level above 1
+    // Cost to go from level N to N+1 is baseUpgradeCost * N (matches the
+    // researched real formula: "level 1 cost × current level").
+    baseUpgradeCost: 150,
+  },
 };

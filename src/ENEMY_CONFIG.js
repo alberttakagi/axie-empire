@@ -2,20 +2,28 @@
 // (see that file for the full field reference), so difficulty later comes
 // from which enemy types a wave mixes in, not just flat stat scaling.
 //
-// Values below are base (tier 0) stats: GameScene applies WAVE_CONFIG's
-// per-tier hp/speed multipliers on top of these at spawn time.
+// Values below are base stats: STAGE_CONFIG's spawnScript applies each
+// entry's own statMultiplier to hp on top of these at spawn time.
 //
-// `threat` isn't spent by a player — it's a value weight a future wave
-// director can use to budget which enemies to mix into a wave (e.g. "tier 3
-// wave gets 12 threat points to spend"), same idea as player money cost but
-// for spawn-side balancing. It also doubles as the payout basis for a kill's
-// money bonus (see MONEY_CONFIG.killBonusMultiplier).
+// `threat` isn't spent by a player — it's a value weight used for spawn-side
+// balancing (which enemies a wave director could mix in) and doubles as the
+// payout basis for a kill's money bonus (see MONEY_CONFIG.killBonusMultiplier).
 //
 // `trait` is one of TRAIT_CONFIG.js's TRAITS — same matchup/flat-damage
 // system as UNIT_CONFIG.js, applied symmetrically in both directions.
 //
-// `knockback`/`knockbackType` — see UNIT_CONFIG.js for the full
-// explanation; same mechanic applies to enemies taking hits from units.
+// `foreswingMs`/`backswingMs`/`rechargeMs` don't matter for enemies the same
+// way they do for player units (enemies aren't "deployed" by a player, so
+// rechargeMs is unused on this side — kept for schema symmetry with
+// UNIT_CONFIG only), but foreswing/backswing still govern their attack
+// pacing and can still be interrupted by a knockback exactly like a player
+// unit's can.
+//
+// `knockbackCount`/`knockbackDistance`/`knockbackType` — see UNIT_CONFIG.js
+// for the full explanation; same HP-threshold "endurance" mechanic applies
+// to enemies taking hits from units (bible §A.3.5).
+//
+// `critChance` — see UNIT_CONFIG.js; enemies can crit player units too.
 //
 // `statusOnHit` — see STATUS_CONFIG.js. Every role but basic has one: tank
 // owns Stop, ranged owns Slow, fast and aoe both curse (differentiated by
@@ -35,15 +43,20 @@ export const ENEMY_CONFIG = {
     threat: 2,
     hp: 16,
     damage: 3,
-    attackSpeed: 1, // dps 3
+    attackSpeed: 1, // dps 3 — interval 1000ms, split 35/65 below
+    foreswingMs: 350,
+    backswingMs: 650,
     moveSpeed: 40,
     radius: 16,
     range: 16,
-    knockback: 12,
+    rechargeMs: 0, // unused on the enemy side, see file header
+    knockbackCount: 3,
+    knockbackDistance: 12,
     knockbackType: 'normal',
     color: 0xcc3333,
     label: 'B',
     special: { type: 'none' },
+    critChance: 0.05,
     statusOnHit: NO_STATUS,
     sprite: null,
   },
@@ -58,15 +71,20 @@ export const ENEMY_CONFIG = {
     threat: 6,
     hp: 22,
     damage: 4,
-    attackSpeed: 1.5, // dps 6
+    attackSpeed: 1.5, // dps 6 — interval ~667ms, split 35/65 below
+    foreswingMs: 233,
+    backswingMs: 434,
     moveSpeed: 115,
     radius: 12,
     range: 12,
-    knockback: 18,
+    rechargeMs: 0,
+    knockbackCount: 2,
+    knockbackDistance: 18,
     knockbackType: 'normal',
     color: 0xff6666,
     label: 'F',
     special: { type: 'none' },
+    critChance: 0.07,
     // Status-effect rollout: a quick harasser that curses on hit — shorter
     // duration than aoe's curse (fast attacks more often, so uptime stays
     // comparable rather than strictly better) but easy to land.
@@ -85,15 +103,20 @@ export const ENEMY_CONFIG = {
     threat: 4,
     hp: 150,
     damage: 1,
-    attackSpeed: 0.6, // dps 0.6
+    attackSpeed: 0.6, // dps 0.6 — interval ~1667ms, split 35/65 below
+    foreswingMs: 583,
+    backswingMs: 1084,
     moveSpeed: 32,
     radius: 26,
     range: 26,
-    knockback: 4,
-    knockbackType: 'immune', // a true wall doesn't budge, regardless of `knockback`
+    rechargeMs: 0,
+    knockbackCount: 1,
+    knockbackDistance: 4,
+    knockbackType: 'immune', // a true wall doesn't budge, regardless of the other knockback fields
     color: 0x993333,
     label: 'T',
     special: { type: 'none' },
+    critChance: 0,
     // Status-effect demo (STATUS_CONFIG.js): a heavy bruiser that can stun
     // whatever it lands a hit on — thematically a "you can't push it, but it
     // can freeze you" bruiser, since knockbackType 'immune' already means it
@@ -114,15 +137,20 @@ export const ENEMY_CONFIG = {
     threat: 7,
     hp: 20,
     damage: 6,
-    attackSpeed: 1, // dps 6
+    attackSpeed: 1, // dps 6 — interval 1000ms, split 35/65 below
+    foreswingMs: 350,
+    backswingMs: 650,
     moveSpeed: 30,
     radius: 13,
     range: 85,
-    knockback: 14,
+    rechargeMs: 0,
+    knockbackCount: 2,
+    knockbackDistance: 14,
     knockbackType: 'normal',
     color: 0xff9966,
     label: 'R',
     special: { type: 'none' },
+    critChance: 0.05,
     // Status-effect demo (STATUS_CONFIG.js): a debuffing sniper — halves the
     // target's move/attack speed for 1.5s on a hit, matching the genre trope
     // of a long-range unit that slows you down rather than hitting hardest.
@@ -140,15 +168,20 @@ export const ENEMY_CONFIG = {
     threat: 12,
     hp: 30,
     damage: 10,
-    attackSpeed: 0.4, // dps 4, ~1 attack every 2.5s
+    attackSpeed: 0.4, // dps 4 — interval 2500ms, split 35/65 below (~1 attack every 2.5s)
+    foreswingMs: 875,
+    backswingMs: 1625,
     moveSpeed: 34,
     radius: 16,
     range: 16,
-    knockback: 10,
+    rechargeMs: 0,
+    knockbackCount: 2,
+    knockbackDistance: 10,
     knockbackType: 'normal',
     color: 0xcc33cc,
     label: 'A',
     special: { type: 'aoe', radius: 50 },
+    critChance: 0.03,
     // Status-effect demo (STATUS_CONFIG.js): whatever it hits gets cursed —
     // a player unit's own special ability is suppressed, and landing this
     // on the player's base blocks the special-burst trigger for 3s, so

@@ -17,9 +17,6 @@ const CARD_HEIGHT = 64;
 const CARD_GAP = 8;
 const ROW_GAP = 12;
 
-const ENDLESS_BUTTON_WIDTH = 260;
-const ENDLESS_BUTTON_HEIGHT = 60;
-
 export default class StageSelectScene extends Phaser.Scene {
   constructor() {
     super('StageSelectScene');
@@ -44,7 +41,6 @@ export default class StageSelectScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.createStageGrid(progress);
-    this.createEndlessButton();
   }
 
   createStageGrid(progress) {
@@ -108,28 +104,6 @@ export default class StageSelectScene extends Phaser.Scene {
   }
 
   onStageSelected(stage) {
-    this.scene.start('GameScene', { mode: 'stage', stageId: stage.id });
-  }
-
-  createEndlessButton() {
-    const { width, height } = this.scale;
-    const x = width / 2;
-    const y = height - ENDLESS_BUTTON_HEIGHT / 2 - 24;
-
-    const rect = this.add
-      .rectangle(x, y, ENDLESS_BUTTON_WIDTH, ENDLESS_BUTTON_HEIGHT, 0x3366cc)
-      .setInteractive({ useHandCursor: true });
-
-    this.add
-      .text(x, y, 'Endless Mode', {
-        fontSize: '20px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    // Pass data explicitly (never omit it): Phaser's scene.start only overwrites
-    // a scene's stored data when given a truthy value, so an argument-less call
-    // here would silently resume whatever mode/stageId GameScene last ran with.
-    rect.on('pointerdown', () => this.scene.start('GameScene', { mode: 'endless' }));
+    this.scene.start('GameScene', { stageId: stage.id });
   }
 }

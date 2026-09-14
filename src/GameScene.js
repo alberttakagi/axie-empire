@@ -1,7 +1,6 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
-import { WAVE_CONFIG } from './WAVE_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { saveStageResult } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
@@ -10,7 +9,6 @@ import { STATUS_TYPES } from './STATUS_CONFIG.js';
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
-const BASE_MAX_HP = 100;
 
 const BUTTON_HEIGHT = 70;
 const BUTTON_WIDTH = 136;
@@ -20,49 +18,42 @@ const CAP_BUTTON_WIDTH = 150;
 const CAP_BUTTON_HEIGHT = 44;
 
 const SCORE_PER_KILL = 10;
-const HIGH_SCORE_KEY = 'axieSkirmishHighScore';
 
 const BASE_COLOR = 0x3366cc;
 const ENEMY_BASE_COLOR = 0x992222;
-// Endless mode has no win state, so destroying the enemy base there instead
-// grants a score bonus and respawns it tougher (stage mode just wins outright).
-const ENEMY_BASE_DESTROY_SCORE_BONUS = 200;
-const ENEMY_BASE_RESPAWN_HP_MULTIPLIER = 1.5;
 
-// Stage mode's curated spawnScript is just the opening wave: once it's done,
-// spawning continues via the same endless tier-scaled spawner (below) so
-// enemies never stop coming — only destroying the enemy base wins the stage.
-const STAGE_SCRIPT_TO_ENDLESS_HANDOFF_MS = 2000;
-
-// How long a knockback slide takes to play out. A hit sets a defender's
-// knockbackMs to this and computes a velocity (its `knockback` distance /
+// How long a knockback slide takes to play out. A stagger sets a defender's
+// knockbackMs to this and computes a velocity (its `knockbackDistance` /
 // this duration); every frame while knockbackMs > 0 it slides and cannot
 // act at all (no attacking, no seeking a new target) — a real timed state,
-// not an instant teleport.
+// not an instant teleport. See resolveKnockback/startKnockbackSlide for how
+// staggers are actually triggered (bible §A.3.5's HP-threshold model, not a
+// per-hit chance/certainty).
 const KNOCKBACK_DURATION_MS = 200;
 
 // Status-effect visual cues — priority order when more than one is active:
-// stop (fully frozen) beats curse beats slow, so the most disruptive state
-// is always what's visible. Cleared back to the entity's own config.color
-// once every timer runs out (see tickStatusEffects).
+// stop (fully frozen) beats curse beats slow beats weaken, so the most
+// disruptive/visible state wins. Cleared back to the entity's own
+// config.color once every timer runs out (see tickStatusEffects).
 const STATUS_STOP_COLOR = 0x556677;
 const STATUS_CURSE_COLOR = 0x9933cc;
 const STATUS_SLOW_COLOR = 0x88ccff;
+const STATUS_WEAKEN_COLOR = 0xcc8844;
 
 // Curse tint for the player's base itself (see baseCurseMs) — takes
 // priority over the special-ready gold tint, since a cursed base can't
 // fire its burst regardless of meter charge.
 const BASE_CURSE_COLOR = 0x663399;
 
-// Special meter: fills from total damage dealt BY PLAYER UNITS ONLY (enemy
-// damage never charges it). Once full, the player's base turns gold and
-// becomes clickable — tapping it fires a flat burst against every living
-// enemy on screen plus the enemy base, then resets to 0. A "crowd clear +
-// tower chip" moment more than a boss-killer, deliberately bypassing the
-// trait/matchup system entirely (there's no single attacker to assign a
-// trait to for a screen-wide effect), and skipping knockback for the same
-// reason.
+// Special meter (this build's Cat Cannon equivalent, bible §A.3.9): fills
+// PASSIVELY OVER TIME, independent of combat performance — not from damage
+// dealt. Once full, the player's base turns gold and becomes clickable —
+// tapping it fires a flat burst against every living enemy on screen plus
+// the enemy base (with knockback, matching the bible), then resets to 0.
+// Deliberately bypasses the trait/matchup system (there's no single
+// attacker to assign a trait to for a screen-wide effect).
 const SPECIAL_METER_MAX = 200;
+const SPECIAL_CHARGE_PER_SEC = 10; // fills from empty in 20s
 const SPECIAL_BURST_DAMAGE = 30;
 const SPECIAL_BURST_BASE_DAMAGE = 25;
 const SPECIAL_BAR_WIDTH = 140;
@@ -78,29 +69,36 @@ export default class GameScene extends Phaser.Scene {
   create(data) {
     const { width, height } = this.scale;
 
-    this.mode = data && data.mode === 'stage' ? 'stage' : 'endless';
-    this.stage = this.mode === 'stage' ? STAGE_CONFIG.find((s) => s.id === data.stageId) : null;
+    this.stage = STAGE_CONFIG.find((s) => s.id === data.stageId);
 
-    this.moneyCap = this.stage ? this.stage.startingMoney : MONEY_CONFIG.startingCap;
-    this.moneyAccrualPerSec = this.stage ? this.stage.moneyAccrualPerSec : MONEY_CONFIG.accrualPerSec;
-    this.capUpgradeCost = MONEY_CONFIG.capUpgradeBaseCost;
+    // Worker Cat: an in-battle levelable economy building (bible §A.3.10/
+    // §A.7.1 — confirmed real reference mechanic, not invented). Starts
+    // every battle at level 1, using the stage's own moneyAccrualPerSec/
+    // startingMoney as level-1's income rate/wallet cap; see
+    // getMoneyAccrualPerSec/getWalletCap. Capped at MONEY_CONFIG.workerCat.maxLevel.
+    this.workerCatLevel = 1;
+    this.workerCatUpgradeCost = MONEY_CONFIG.workerCat.baseUpgradeCost * this.workerCatLevel;
 
     this.laneY = height * LANE_Y_RATIO;
     this.baseX = BASE_WIDTH / 2;
-    this.baseHp = this.stage ? this.stage.baseHp : BASE_MAX_HP;
+    this.baseHp = this.stage.baseHp;
     this.enemyBaseX = width - BASE_WIDTH / 2;
-    this.enemyBaseMaxHp = this.stage ? this.stage.enemyBaseHp : BASE_MAX_HP;
+    this.enemyBaseMaxHp = this.stage.enemyBaseHp;
     this.enemyBaseHp = this.enemyBaseMaxHp;
     this.enemies = [];
     this.playerUnits = [];
-    this.money = this.moneyCap;
+    this.money = this.getWalletCap();
     this.enemiesKilled = 0;
-    this.bonusScore = 0;
     this.specialMeter = 0;
     this.baseCurseMs = 0; // curse landed directly on the player's base — blocks triggerSpecialBurst
     this.enemyBaseCurseMs = 0; // mirror on the enemy base — currently a no-op, nothing to suppress there yet
     this.elapsedMs = 0;
     this.isGameOver = false;
+
+    // Per-unit-type redeploy cooldown (bible §A.3.2/§A.3.7) — global floor
+    // is 2000ms across every UNIT_CONFIG entry; see trySpawnUnit/update.
+    this.unitCooldowns = {};
+    for (const key of Object.keys(UNIT_CONFIG)) this.unitCooldowns[key] = 0;
 
     this.add.rectangle(width / 2, this.laneY, width, 80, 0x2a2a2a);
 
@@ -128,12 +126,12 @@ export default class GameScene extends Phaser.Scene {
       color: '#ffffff',
     });
 
-    this.capText = this.add.text(16, 40, '', {
+    this.workerCatStatusText = this.add.text(16, 40, '', {
       fontSize: '13px',
       color: '#aaaaaa',
     });
 
-    this.createCapUpgradeButton();
+    this.createWorkerCatButton();
 
     this.scoreText = this.add
       .text(width - 16, 16, '', {
@@ -153,12 +151,7 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.createSpawnButtons();
-
-    if (this.mode === 'stage') {
-      this.scheduleStageScript();
-    } else {
-      this.scheduleNextWave();
-    }
+    this.scheduleStageScript();
   }
 
   scheduleStageScript() {
@@ -168,36 +161,6 @@ export default class GameScene extends Phaser.Scene {
         this.spawnScriptedEnemy(entry);
       });
     }
-
-    const lastEntry = this.stage.spawnScript[this.stage.spawnScript.length - 1];
-    this.time.delayedCall(lastEntry.spawnDelayMs + STAGE_SCRIPT_TO_ENDLESS_HANDOFF_MS, () => {
-      if (this.isGameOver) return;
-      this.scheduleNextWave();
-    });
-  }
-
-  getTier() {
-    return Math.floor(this.elapsedMs / WAVE_CONFIG.tierDurationMs);
-  }
-
-  scheduleNextWave() {
-    if (this.isGameOver) return;
-
-    const tier = this.getTier();
-    const burstSize = 1 + Math.floor(tier / WAVE_CONFIG.burstTierStep);
-    const roles = Object.keys(ENEMY_CONFIG).filter(
-      (role) => tier >= (WAVE_CONFIG.roleUnlockTier[role] ?? 0),
-    );
-    for (let i = 0; i < burstSize; i += 1) {
-      const role = roles[Math.floor(Math.random() * roles.length)];
-      this.time.delayedCall(i * 250, () => this.spawnEnemy(role));
-    }
-
-    const delay = Math.max(
-      WAVE_CONFIG.minSpawnIntervalMs,
-      WAVE_CONFIG.baseSpawnIntervalMs - tier * WAVE_CONFIG.spawnIntervalStepMs,
-    );
-    this.time.delayedCall(delay, () => this.scheduleNextWave());
   }
 
   createSpawnButtons() {
@@ -230,13 +193,21 @@ export default class GameScene extends Phaser.Scene {
         })
         .setOrigin(0.5);
 
+      // Recharge cooldown overlay (bible §A.3.2/§A.10.4's "cooldown fill" on
+      // a unit's deploy icon) — a dark wipe that shrinks from full button
+      // height to 0 as unitCooldowns[key] counts down; see updateSpawnButtons.
+      const cooldownOverlay = this.add
+        .rectangle(x, y - BUTTON_HEIGHT / 2, BUTTON_WIDTH, 0, 0x000000)
+        .setOrigin(0.5, 0)
+        .setAlpha(0.6);
+
       rect.on('pointerdown', () => this.trySpawnUnit(key));
 
-      return { key, config, rect, labelText, costText };
+      return { key, config, rect, labelText, costText, cooldownOverlay };
     });
   }
 
-  createCapUpgradeButton() {
+  createWorkerCatButton() {
     const x = 16 + CAP_BUTTON_WIDTH / 2;
     const y = 76;
 
@@ -245,7 +216,7 @@ export default class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     const labelText = this.add
-      .text(x, y - 10, 'Upgrade Cap', {
+      .text(x, y - 10, '', {
         fontSize: '13px',
         color: '#ffffff',
       })
@@ -258,9 +229,9 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    rect.on('pointerdown', () => this.trySpawnCapUpgrade());
+    rect.on('pointerdown', () => this.tryUpgradeWorkerCat());
 
-    this.capUpgradeButton = { rect, labelText, costText };
+    this.workerCatButton = { rect, labelText, costText };
   }
 
   createSpecialMeter() {
@@ -282,23 +253,36 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
   }
 
+  // Level-1 values come from the stage itself; each Worker Cat level above 1
+  // adds a flat amount on top (see MONEY_CONFIG.workerCat).
+  getMoneyAccrualPerSec() {
+    return this.stage.moneyAccrualPerSec + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.accrualPerLevel;
+  }
+
+  getWalletCap() {
+    return this.stage.startingMoney + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.walletCapPerLevel;
+  }
+
   trySpawnUnit(key) {
     if (this.isGameOver) return;
+    if (this.unitCooldowns[key] > 0) return;
 
     const config = UNIT_CONFIG[key];
     if (this.money < config.cost) return;
 
     this.money -= config.cost;
+    this.unitCooldowns[key] = config.rechargeMs;
     this.spawnUnit(key);
   }
 
-  trySpawnCapUpgrade() {
+  tryUpgradeWorkerCat() {
     if (this.isGameOver) return;
-    if (this.money < this.capUpgradeCost) return;
+    if (this.workerCatLevel >= MONEY_CONFIG.workerCat.maxLevel) return;
+    if (this.money < this.workerCatUpgradeCost) return;
 
-    this.money -= this.capUpgradeCost;
-    this.moneyCap += MONEY_CONFIG.capUpgradeAmount;
-    this.capUpgradeCost *= MONEY_CONFIG.capUpgradeCostMultiplier;
+    this.money -= this.workerCatUpgradeCost;
+    this.workerCatLevel += 1;
+    this.workerCatUpgradeCost = MONEY_CONFIG.workerCat.baseUpgradeCost * this.workerCatLevel;
   }
 
   spawnUnit(type) {
@@ -311,40 +295,12 @@ export default class GameScene extends Phaser.Scene {
       color: '#000000',
     }).setOrigin(0.5);
 
-    this.playerUnits.push({
-      type,
-      config,
-      shape,
-      label,
-      hp: config.hp,
-      attackAccumulatorMs: 0,
-      knockbackMs: 0,
-      knockbackVelocity: 0,
-      slowMs: 0,
-      slowMultiplier: 1,
-      stopMs: 0,
-      curseMs: 0,
-      target: null,
-    });
+    this.playerUnits.push(this.makeEntityState(type, config, shape, label));
   }
 
-  spawnEnemy(type) {
-    if (this.isGameOver) return;
-
-    const base = ENEMY_CONFIG[type];
-    const tier = this.getTier();
-    const config = {
-      ...base,
-      hp: Math.round(base.hp * (1 + tier * WAVE_CONFIG.hpMultiplierPerTier)),
-      moveSpeed: base.moveSpeed * (1 + tier * WAVE_CONFIG.speedMultiplierPerTier),
-    };
-
-    this.createEnemy(type, config);
-  }
-
-  // Stage mode: fixed script instead of endless's random/tier-scaled roll.
-  // Only hp is scaled (by the script entry's own statMultiplier) — no
-  // WAVE_CONFIG tier scaling applies here, per STAGE_CONFIG.js's contract.
+  // Stage mode: fixed script — no randomness, no tier-based auto-scaling.
+  // Only hp is scaled (by the script entry's own statMultiplier) — per
+  // STAGE_CONFIG.js's contract.
   spawnScriptedEnemy(entry) {
     const base = ENEMY_CONFIG[entry.enemyId];
     const config = {
@@ -364,21 +320,37 @@ export default class GameScene extends Phaser.Scene {
       color: '#ffffff',
     }).setOrigin(0.5);
 
-    this.enemies.push({
+    this.enemies.push(this.makeEntityState(type, config, shape, label));
+  }
+
+  // Shared initial-state shape for both player units and enemies (bible
+  // Part C's Unit/Enemy schemas share the same combat-relevant fields).
+  makeEntityState(type, config, shape, label) {
+    return {
       type,
       config,
       shape,
       label,
       hp: config.hp,
-      attackAccumulatorMs: 0,
+      // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
+      // tickCombatPhase. null/0 means "not yet started a windup."
+      attackPhase: null,
+      phaseMs: 0,
+      // Knockback slide state (see tickKnockback) plus the HP-threshold
+      // "endurance" bookkeeping that decides WHEN a stagger triggers (bible
+      // §A.3.5) — see resolveKnockback.
       knockbackMs: 0,
       knockbackVelocity: 0,
+      knockbacksUsed: 0,
+      hpAtLastKnockback: config.hp,
       slowMs: 0,
       slowMultiplier: 1,
       stopMs: 0,
+      weakenMs: 0,
+      weakenMultiplier: 1,
       curseMs: 0,
       target: null,
-    });
+    };
   }
 
   // Can `attacker` hit `target` from their current distance? Melee roles set
@@ -393,13 +365,21 @@ export default class GameScene extends Phaser.Scene {
 
     this.elapsedMs += deltaMs;
 
-    this.money = Math.min(this.moneyCap, this.money + (this.moneyAccrualPerSec * deltaMs) / 1000);
+    for (const key of Object.keys(this.unitCooldowns)) {
+      this.unitCooldowns[key] = Math.max(0, this.unitCooldowns[key] - deltaMs);
+    }
+
+    this.money = Math.min(this.getWalletCap(), this.money + (this.getMoneyAccrualPerSec() * deltaMs) / 1000);
     this.moneyText.setText(`¥${Math.round(this.money).toLocaleString()}`);
-    this.capText.setText(`Cap: ¥${Math.round(this.moneyCap).toLocaleString()}`);
+    this.workerCatStatusText.setText(`Worker Cat Lv${this.workerCatLevel} — Cap: ¥${Math.round(this.getWalletCap()).toLocaleString()}`);
     this.updateSpawnButtons();
-    this.updateCapUpgradeButton();
+    this.updateWorkerCatButton();
     this.baseCurseMs = Math.max(0, this.baseCurseMs - deltaMs);
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
+
+    // Special meter charges passively over time (bible §A.3.9's Cat Cannon),
+    // independent of combat performance.
+    this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_CHARGE_PER_SEC * deltaMs) / 1000);
     this.specialBarFill.setSize(SPECIAL_BAR_WIDTH * Math.min(1, this.specialMeter / SPECIAL_METER_MAX), SPECIAL_BAR_HEIGHT);
     this.base.fillColor =
       this.baseCurseMs > 0
@@ -417,26 +397,36 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getScore() {
-    return Math.floor(this.elapsedMs / 1000) + this.enemiesKilled * SCORE_PER_KILL + this.bonusScore;
+    return Math.floor(this.elapsedMs / 1000) + this.enemiesKilled * SCORE_PER_KILL;
   }
 
   updateSpawnButtons() {
     for (const button of this.spawnButtons) {
       const affordable = this.money >= button.config.cost;
-      button.rect.setAlpha(affordable ? 1 : 0.4);
-      button.labelText.setAlpha(affordable ? 1 : 0.4);
-      button.costText.setAlpha(affordable ? 1 : 0.4);
+      const alpha = affordable ? 1 : 0.4;
+
+      button.rect.setAlpha(alpha);
+      button.labelText.setAlpha(alpha);
+      button.costText.setAlpha(alpha);
+
+      const remaining = this.unitCooldowns[button.key] || 0;
+      const frac = button.config.rechargeMs ? remaining / button.config.rechargeMs : 0;
+      button.cooldownOverlay.height = BUTTON_HEIGHT * frac;
     }
   }
 
-  updateCapUpgradeButton() {
-    const button = this.capUpgradeButton;
-    button.costText.setText(`¥${Math.round(this.capUpgradeCost).toLocaleString()}`);
+  updateWorkerCatButton() {
+    const button = this.workerCatButton;
+    const maxed = this.workerCatLevel >= MONEY_CONFIG.workerCat.maxLevel;
 
-    const affordable = this.money >= this.capUpgradeCost;
-    button.rect.setAlpha(affordable ? 1 : 0.4);
-    button.labelText.setAlpha(affordable ? 1 : 0.4);
-    button.costText.setAlpha(affordable ? 1 : 0.4);
+    button.labelText.setText(`Worker Cat Lv${this.workerCatLevel}`);
+    button.costText.setText(maxed ? 'MAX' : `¥${Math.round(this.workerCatUpgradeCost).toLocaleString()}`);
+
+    const affordable = !maxed && this.money >= this.workerCatUpgradeCost;
+    const alpha = maxed ? 0.5 : affordable ? 1 : 0.4;
+    button.rect.setAlpha(alpha);
+    button.labelText.setAlpha(alpha);
+    button.costText.setAlpha(alpha);
   }
 
   updatePlayerUnits(deltaMs) {
@@ -456,8 +446,9 @@ export default class GameScene extends Phaser.Scene {
       if (unit.stopMs > 0) continue; // frozen: no attack, no movement, no target-seeking
 
       if (unit.target === 'enemyBase') {
-        this.tickAttack(unit, deltaMs, () => {
-          this.damageEnemyBase(unit.config.damage);
+        this.tickCombatPhase(unit, deltaMs, () => {
+          const weakenMultiplier = unit.weakenMs > 0 ? unit.weakenMultiplier : 1;
+          this.damageEnemyBase(unit.config.damage * weakenMultiplier);
           this.applyStatusEffectToEnemyBase(unit);
         });
         continue;
@@ -476,9 +467,8 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (unit.target && unit.target !== 'enemyBase') {
-        this.tickAttack(unit, deltaMs, () => {
-          const dmg = this.dealDamage(unit, unit.target, this.enemies);
-          this.chargeSpecialMeter(dmg);
+        this.tickCombatPhase(unit, deltaMs, () => {
+          this.dealDamage(unit, unit.target, this.enemies);
         });
       } else if (!unit.target) {
         const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * deltaMs) / 1000;
@@ -506,8 +496,9 @@ export default class GameScene extends Phaser.Scene {
       if (enemy.stopMs > 0) continue; // frozen: no attack, no movement, no target-seeking
 
       if (enemy.target === 'base') {
-        this.tickAttack(enemy, deltaMs, () => {
-          this.damageBase(enemy.config.damage);
+        this.tickCombatPhase(enemy, deltaMs, () => {
+          const weakenMultiplier = enemy.weakenMs > 0 ? enemy.weakenMultiplier : 1;
+          this.damageBase(enemy.config.damage * weakenMultiplier);
           this.applyStatusEffectToBase(enemy);
         });
         continue;
@@ -530,7 +521,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (enemy.target && enemy.target !== 'base') {
-        this.tickAttack(enemy, deltaMs, () => this.dealDamage(enemy, enemy.target, this.playerUnits));
+        this.tickCombatPhase(enemy, deltaMs, () => this.dealDamage(enemy, enemy.target, this.playerUnits));
       } else if (!enemy.target) {
         const moveStep = (enemy.config.moveSpeed * enemy.slowMultiplier * deltaMs) / 1000;
         enemy.shape.x -= moveStep;
@@ -544,16 +535,28 @@ export default class GameScene extends Phaser.Scene {
   onEnemyKilled(enemy) {
     this.enemiesKilled += 1;
     const bonus = enemy.config.threat * MONEY_CONFIG.killBonusMultiplier;
-    this.money = Math.min(this.moneyCap, this.money + bonus);
+    this.money = Math.min(this.getWalletCap(), this.money + bonus);
   }
 
-  tickAttack(attacker, deltaMs, onHit) {
-    attacker.attackAccumulatorMs += deltaMs;
-    const effectiveAttackSpeed = attacker.config.attackSpeed * attacker.slowMultiplier;
-    const attackIntervalMs = 1000 / effectiveAttackSpeed;
-    if (attacker.attackAccumulatorMs >= attackIntervalMs) {
-      attacker.attackAccumulatorMs -= attackIntervalMs;
-      onHit();
+  // Advances one attacker's foreswing/backswing attack cycle (bible §A.3.4,
+  // simplified to two phases — see UNIT_CONFIG.js's file header for the
+  // derivation from attackSpeed). `onHit` fires exactly once, at the moment
+  // foreswing completes — NOT at the start of the attack — so a unit that's
+  // knocked back mid-foreswing (startKnockbackSlide resets attackPhase/
+  // phaseMs) deals no damage at all for that cycle: the windup is simply
+  // wasted, matching the bible's interruption rule (§A.3.4).
+  tickCombatPhase(attacker, deltaMs, onHit) {
+    attacker.phaseMs -= deltaMs * attacker.slowMultiplier;
+
+    while (attacker.phaseMs <= 0) {
+      if (attacker.attackPhase === 'windup') {
+        onHit();
+        attacker.attackPhase = 'backswing';
+        attacker.phaseMs += attacker.config.backswingMs;
+      } else {
+        attacker.attackPhase = 'windup';
+        attacker.phaseMs += attacker.config.foreswingMs;
+      }
     }
   }
 
@@ -573,7 +576,7 @@ export default class GameScene extends Phaser.Scene {
         if (entity.hp > 0 && Math.abs(entity.shape.x - originX) <= special.radius) {
           const dmg = this.computeDamage(attacker, entity);
           entity.hp -= dmg;
-          this.applyKnockback(attacker, entity);
+          this.resolveKnockback(attacker, entity);
           this.applyStatusEffect(attacker, entity);
           totalDamage += dmg;
         }
@@ -581,30 +584,53 @@ export default class GameScene extends Phaser.Scene {
     } else {
       totalDamage = this.computeDamage(attacker, primaryTarget);
       primaryTarget.hp -= totalDamage;
-      this.applyKnockback(attacker, primaryTarget);
+      this.resolveKnockback(attacker, primaryTarget);
       this.applyStatusEffect(attacker, primaryTarget);
     }
 
     return totalDamage;
   }
 
-  // Starts a timed knockback slide on `defender`, away from `attacker`.
-  // Distance comes from defender's own `knockback` stat; duration is the
-  // same fixed KNOCKBACK_DURATION_MS for everyone. While active (see
-  // tickKnockback), the defender can't attack or seek a target at all —
-  // that's what makes this "interrupt the attack" rather than just a
-  // visual push. 'immune' knockbackType skips this entirely: a true wall
-  // doesn't budge no matter how hard it's hit. Bases have no shape.x to
-  // shove, so this is never called for damageBase/damageEnemyBase.
-  applyKnockback(attacker, defender) {
+  // Resolves the bible's HP-threshold "endurance" knockback model (§A.3.5):
+  // endurance = max HP / knockbackCount. Every time defender's cumulative
+  // damage since its last stagger crosses another multiple of that
+  // endurance, it's shoved backward once (see startKnockbackSlide) instead
+  // of just losing HP silently — and it can never be staggered past its own
+  // death (a defender already at 0 HP this hit just dies, matching the
+  // bible's "the next qualifying hit kills it outright rather than knocking
+  // it back again" rule once every threshold has been used up).
+  resolveKnockback(attacker, defender) {
     if (defender.config.knockbackType === 'immune') return;
+    if (defender.hp <= 0) return;
 
-    const knockback = defender.config.knockback;
-    if (!knockback) return;
+    const count = defender.config.knockbackCount;
+    if (!count) return;
+
+    const endurance = defender.config.hp / count;
+
+    while (defender.hpAtLastKnockback - defender.hp >= endurance && defender.knockbacksUsed < count) {
+      defender.hpAtLastKnockback -= endurance;
+      defender.knockbacksUsed += 1;
+      this.startKnockbackSlide(attacker, defender);
+    }
+  }
+
+  // Starts a timed knockback slide on `defender`, away from `attacker`, and
+  // cancels any attack windup currently in progress (bible's interruption
+  // rule — a unit shoved mid-foreswing wastes that attack entirely and must
+  // restart its whole cycle once it stops sliding). Distance comes from
+  // defender's own `knockbackDistance` stat; duration is the same fixed
+  // KNOCKBACK_DURATION_MS for everyone. Bases have no shape.x to shove, so
+  // this is never called for damageBase/damageEnemyBase.
+  startKnockbackSlide(attacker, defender) {
+    const distance = defender.config.knockbackDistance;
+    if (!distance) return;
 
     const direction = Math.sign(defender.shape.x - attacker.shape.x) || 1;
-    defender.knockbackVelocity = (direction * knockback) / KNOCKBACK_DURATION_MS;
+    defender.knockbackVelocity = (direction * distance) / KNOCKBACK_DURATION_MS;
     defender.knockbackMs = KNOCKBACK_DURATION_MS;
+    defender.attackPhase = null;
+    defender.phaseMs = 0;
   }
 
   // Slides an entity mid-knockback and counts down its remaining time.
@@ -637,6 +663,10 @@ export default class GameScene extends Phaser.Scene {
       case STATUS_TYPES.STOP:
         defender.stopMs = status.durationMs;
         break;
+      case STATUS_TYPES.WEAKEN:
+        defender.weakenMs = status.durationMs;
+        defender.weakenMultiplier = status.multiplier;
+        break;
       case STATUS_TYPES.CURSE:
         defender.curseMs = status.durationMs;
         break;
@@ -644,9 +674,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // Same roll as applyStatusEffect, but for an attacker whose target is the
-  // player's base directly (see updatePlayerUnits's 'enemyBase' — wait, this
-  // one is the enemy-hits-player-base case). Only CURSE has anywhere to land
-  // here (bases don't move or attack, so slow/stop have nothing to affect) —
+  // player's base directly. Only CURSE has anywhere to land here (bases
+  // don't move or attack, so slow/stop/weaken have nothing to affect) —
   // curses this.baseCurseMs, which blocks tryTriggerSpecialBurst.
   applyStatusEffectToBase(attacker) {
     const status = attacker.config.statusOnHit;
@@ -666,11 +695,12 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseCurseMs = status.durationMs;
   }
 
-  // Ticks all three status timers down and drives the entity's tint —
-  // stop (fully frozen) beats curse beats slow, so the most disruptive
-  // active state is always what's visible; restores config.color once
-  // every timer has run out. Called for every living unit/enemy every
-  // frame, independent of whether they're also mid-knockback.
+  // Ticks all four status timers down and drives the entity's tint — stop
+  // (fully frozen) beats curse beats slow beats weaken, so the most
+  // disruptive/visible active state is always what's shown; restores
+  // config.color once every timer has run out. Called for every living
+  // unit/enemy every frame, independent of whether they're also
+  // mid-knockback.
   tickStatusEffects(entity, deltaMs) {
     if (entity.slowMs > 0) {
       entity.slowMs = Math.max(0, entity.slowMs - deltaMs);
@@ -678,34 +708,41 @@ export default class GameScene extends Phaser.Scene {
     }
     if (entity.stopMs > 0) entity.stopMs = Math.max(0, entity.stopMs - deltaMs);
     if (entity.curseMs > 0) entity.curseMs = Math.max(0, entity.curseMs - deltaMs);
+    if (entity.weakenMs > 0) {
+      entity.weakenMs = Math.max(0, entity.weakenMs - deltaMs);
+      if (entity.weakenMs === 0) entity.weakenMultiplier = 1;
+    }
 
     if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;
     else if (entity.curseMs > 0) entity.shape.fillColor = STATUS_CURSE_COLOR;
     else if (entity.slowMs > 0) entity.shape.fillColor = STATUS_SLOW_COLOR;
+    else if (entity.weakenMs > 0) entity.shape.fillColor = STATUS_WEAKEN_COLOR;
     else entity.shape.fillColor = entity.config.color;
   }
 
-  // Resolves one hit's damage against `defender`'s trait. The flat-damage
-  // trait always short-circuits here (see TRAIT_CONFIG.js) — it ignores
-  // the attacker's damage stat and any matchup/resist multiplier entirely,
-  // which is what makes attack speed (not raw damage) the deciding stat
-  // against it. Otherwise, MATCHUP_BONUSES ("attacker strong against
-  // defender") and RESIST_BONUSES ("defender resists attacker") are two
-  // independent multipliers stacked together, not one combined table.
+  // Resolves one hit's damage against `defender`'s trait, including this
+  // attacker's own Critical Hit roll and Weaken debuff (if any is currently
+  // active on it). Critical Hit is uniquely the one thing that bypasses the
+  // flat-damage-vs-alloy rule (bible §A.3.6), so it's rolled and checked
+  // FIRST — if it fires against an alloy defender, the flat-damage
+  // short-circuit is skipped entirely and damage is computed normally
+  // (alloy has no MATCHUP_BONUSES/RESIST_BONUSES entries either way, so
+  // that normal computation already reduces to plain attacker damage,
+  // doubled by the crit). Weaken multiplies the ATTACKER's outgoing damage
+  // (bible §A.3.8 — Weaken touches attack power only, never movement).
   computeDamage(attacker, defender) {
-    if (defender.config.trait === FLAT_DAMAGE_TRAIT) {
+    const isCrit = Math.random() < (attacker.config.critChance || 0);
+
+    if (defender.config.trait === FLAT_DAMAGE_TRAIT && !isCrit) {
       return FLAT_DAMAGE_AMOUNT;
     }
 
     const strongBonus = MATCHUP_BONUSES[attacker.config.trait]?.[defender.config.trait] ?? 1;
     const resistMultiplier = RESIST_BONUSES[defender.config.trait]?.[attacker.config.trait] ?? 1;
-    return attacker.config.damage * strongBonus * resistMultiplier;
-  }
+    const weakenMultiplier = attacker.weakenMs > 0 ? attacker.weakenMultiplier : 1;
+    const critMultiplier = isCrit ? 2 : 1;
 
-  chargeSpecialMeter(damageDealt) {
-    if (this.isGameOver) return;
-
-    this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + damageDealt);
+    return attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier;
   }
 
   // Player-triggered: tapping the base only does something once the meter
@@ -720,17 +757,22 @@ export default class GameScene extends Phaser.Scene {
     this.triggerSpecialBurst();
   }
 
-  // Flat damage to every living enemy plus a chip of enemy-base damage,
-  // then resets to 0. Enemy kills route through the normal removeDead/
-  // onEnemyKilled path so they still pay out money and count toward score
-  // like any other kill; the base damage goes through damageEnemyBase so it
-  // still triggers a normal win/respawn if it finishes the base off.
+  // Flat damage + knockback to every living enemy plus a chip of enemy-base
+  // damage, then resets to 0. Enemy kills route through the normal
+  // removeDead/onEnemyKilled path so they still pay out money and count
+  // toward score like any other kill; the base damage goes through
+  // damageEnemyBase so it still triggers a normal win if it finishes the
+  // base off. Knockback here is unconditional (not the HP-threshold
+  // "endurance" gate combat hits use) — the burst is a special, guaranteed
+  // effect, matching the bible's Cat Cannon including knockback (§A.3.9).
   triggerSpecialBurst() {
     this.specialMeter = 0;
 
+    const syntheticAttacker = { shape: { x: this.baseX } };
     for (const enemy of this.enemies) {
       if (enemy.hp > 0) {
         enemy.hp -= SPECIAL_BURST_DAMAGE;
+        if (enemy.hp > 0) this.startKnockbackSlide(syntheticAttacker, enemy);
       }
     }
     this.removeDead(this.enemies, (enemy) => this.onEnemyKilled(enemy));
@@ -767,47 +809,20 @@ export default class GameScene extends Phaser.Scene {
 
     this.enemyBaseHp = Math.max(0, this.enemyBaseHp - amount);
     if (this.enemyBaseHp <= 0) {
-      if (this.mode === 'stage') {
-        this.winStage();
-      } else {
-        this.destroyEnemyBaseEndless();
-      }
+      this.winStage();
     }
-  }
-
-  // Endless has no win state, so razing the enemy base instead pays out a
-  // big score bonus and brings it back tougher than before.
-  destroyEnemyBaseEndless() {
-    this.bonusScore += ENEMY_BASE_DESTROY_SCORE_BONUS;
-    this.enemyBaseMaxHp = Math.round(this.enemyBaseMaxHp * ENEMY_BASE_RESPAWN_HP_MULTIPLIER);
-    this.enemyBaseHp = this.enemyBaseMaxHp;
   }
 
   endGame() {
     this.isGameOver = true;
 
     const finalScore = this.getScore();
-    const lines = ['GAME OVER', `Score: ${finalScore}`];
-
-    // Endless mode's high score is a separate, endless-only concern from
-    // stage mode's per-stage best score (tracked below via StageProgress).
-    if (this.mode === 'endless') {
-      const previousHighScore = Number(localStorage.getItem(HIGH_SCORE_KEY) || 0);
-      const isNewHighScore = finalScore > previousHighScore;
-      if (isNewHighScore) {
-        localStorage.setItem(HIGH_SCORE_KEY, String(finalScore));
-      }
-      const highScore = isNewHighScore ? finalScore : previousHighScore;
-      lines.push(isNewHighScore ? 'New high score!' : `High score: ${highScore}`);
-    } else {
-      // A loss can still raise a stage's best score; it never marks it cleared.
-      saveStageResult(this.stage.id, finalScore, false);
-    }
-
-    this.showEndScreen(lines);
+    // A loss can still raise a stage's best score; it never marks it cleared.
+    saveStageResult(this.stage.id, finalScore, false);
+    this.showEndScreen(['GAME OVER', `Score: ${finalScore}`]);
   }
 
-  // Stage mode's only win trigger: destroying the enemy base (see damageEnemyBase).
+  // The only win trigger: destroying the enemy base (see damageEnemyBase).
   winStage() {
     this.isGameOver = true;
 

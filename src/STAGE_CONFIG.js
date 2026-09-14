@@ -1,7 +1,11 @@
-// Stage-mode roster: 10 curated opening waves. spawnScript is only the start
-// of the fight — once it's exhausted, GameScene hands off into the same
-// tier-scaled endless spawner it uses elsewhere, so enemies never stop
-// coming. The only way to clear a stage is destroying its enemy base.
+// Stage roster: 10 curated stages. spawnScript is each stage's COMPLETE wave
+// list (no more hand-off into an endless/tier-scaled spawner once it's
+// exhausted — Endless Mode and its shared spawner were removed; every enemy
+// a stage will ever throw at the player is listed explicitly below, matching
+// the bible's model of a stage as a finite, scripted encounter — §A.6.5).
+// The only way to clear a stage is destroying its enemy base; if every
+// scripted enemy is dead and the base isn't, the player just has to keep
+// chipping at it with whatever's left on the field.
 //
 // Each stage:
 //   id            stable key, also the localStorage progress key.
@@ -9,16 +13,14 @@
 //   difficulty    'Easy' | 'Normal' | 'Hard' | 'Boss' — just a label + the
 //                 select-screen's accent color, doesn't affect gameplay math.
 //   startingMoney, moneyAccrualPerSec, baseHp
-//                 same knobs endless mode uses (MONEY_CONFIG.startingCap/
-//                 accrualPerSec, BASE_MAX_HP in GameScene), set per-stage
-//                 instead of fixed globally. startingMoney also acts as this
-//                 stage's starting money cap (same convention endless uses).
-//                 All 10 stages' values were rescaled to yen alongside
-//                 MONEY_CONFIG.startingCap's switch to 1000 (matching Battle
-//                 Cats' real "start each stage with 1000" convention),
-//                 keeping each difficulty tier's same relative ratio to that
-//                 base as before the conversion (Easy 1.2x, Normal 1x, Hard
-//                 0.8x, Boss 1x).
+//                 startingMoney doubles as this stage's level-1 Worker Cat
+//                 wallet cap and moneyAccrualPerSec as its level-1 income
+//                 rate (see MONEY_CONFIG.js's workerCat block and
+//                 GameScene's getWalletCap/getMoneyAccrualPerSec — Worker
+//                 Cat levels add flat increments on top of these per-stage
+//                 baselines). Values are yen, matching Battle Cats' real
+//                 "start each stage with 1000" convention (Easy 1.2x,
+//                 Normal 1x, Hard 0.8x, Boss 1x of that base).
 //   enemyBaseHp   the enemy tower's max HP — independent of baseHp (the
 //                 player's own base) so it can climb with the difficulty
 //                 curve instead of following the player-forgiveness curve.
