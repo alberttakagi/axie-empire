@@ -8,6 +8,9 @@ import { FLAT_DAMAGE_TRAIT, FLAT_DAMAGE_AMOUNT, MATCHUP_BONUSES, RESIST_BONUSES 
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
 import { loadPlayerProgress, getUnitProgress, grantStageRewards } from './PlayerProgress.js';
+import { getBonusPercent, rollTreasureForStage } from './Treasure.js';
+
+const TREASURE_TIER_NAMES = ['', 'Bronze', 'Silver', 'Gold'];
 
 // Stage-clear XP reward decay (bible §A.5.1 — repeat clears taper toward a
 // floor rather than paying full XP forever): each previous clear of this
@@ -293,9 +296,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // Level-1 values come from the stage itself; each Worker Cat level above 1
-  // adds a flat amount on top (see MONEY_CONFIG.workerCat).
+  // adds a flat amount on top (see MONEY_CONFIG.workerCat), then the
+  // account-wide Treasure income bonus (bible §A.6.3, "Energy Drink")
+  // multiplies the whole thing.
   getMoneyAccrualPerSec() {
-    return this.stage.moneyAccrualPerSec + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.accrualPerLevel;
+    const base = this.stage.moneyAccrualPerSec + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.accrualPerLevel;
+    return base * (1 + getBonusPercent('moneyIncomePercent') / 100);
   }
 
   getWalletCap() {
@@ -316,9 +322,16 @@ export default class GameScene extends Phaser.Scene {
     // rechargeMultiplier — bible §A.4.4), so the cooldown uses the
     // effective config, computed once here rather than twice.
     const effectiveConfig = getEffectiveUnitConfig(key);
+    // Account-wide Treasure HP bonus (bible §A.6.3, "Legendary Cat Shield")
+    // — layered on top of the unit's own level/evolution stats, not part
+    // of UnitStats.js's per-unit formula, since it's a GLOBAL modifier
+    // rather than something specific to this one unit's progression.
+    const hpBonusMultiplier = 1 + getBonusPercent('unitHpPercent') / 100;
+    const finalConfig = { ...effectiveConfig, hp: Math.round(effectiveConfig.hp * hpBonusMultiplier) };
+
     this.money -= baseConfig.cost;
     this.unitCooldowns[key] = effectiveConfig.rechargeMs;
-    this.spawnUnit(key, effectiveConfig);
+    this.spawnUnit(key, finalConfig);
   }
 
   tryUpgradeWorkerCat() {
@@ -1063,10 +1076,12 @@ export default class GameScene extends Phaser.Scene {
       growthCharmChance: GROWTH_CHARM_DROP_CHANCE,
     });
     saveStageResult(this.stage.id, finalScore, true);
+    const treasureResult = rollTreasureForStage(this.stage.id);
 
     const lines = ['STAGE CLEAR', `Score: ${finalScore}`, `+${xpReward.toLocaleString()} XP`];
     if (rewards.evoShardsGranted) lines.push('+1 Evo Shard!');
     if (rewards.growthCharmsGranted) lines.push('+1 Growth Charm!');
+    if (treasureResult.improved) lines.push(`${TREASURE_TIER_NAMES[treasureResult.tier]} Treasure!`);
     this.showEndScreen(lines);
   }
 

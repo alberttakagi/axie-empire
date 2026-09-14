@@ -38,6 +38,10 @@
 //                 getXpReward for the exact decay formula. This is the
 //                 meta-progression XP (PlayerProgress.js), unrelated to
 //                 the in-battle money economy above.
+//   energyCost    stamina/Energy (bible §A.9, JP-confirmed term 統率力) spent
+//                 to ENTER this stage at all — deducted (and entry blocked
+//                 if insufficient) by StageSelectScene before GameScene ever
+//                 starts; see Energy.js. Never refunded on a loss.
 //   Clearing a stage = reducing its enemy base's HP to 0 (see GameScene's
 //   damageEnemyBase/winStage).
 
@@ -47,6 +51,7 @@ export const STAGE_CONFIG = [
     displayName: 'Training Grounds',
     difficulty: 'Easy',
     baseXp: 1000,
+    energyCost: 5,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -65,6 +70,7 @@ export const STAGE_CONFIG = [
     displayName: 'Basic Skirmish',
     difficulty: 'Easy',
     baseXp: 1200,
+    energyCost: 6,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -85,6 +91,7 @@ export const STAGE_CONFIG = [
     displayName: 'Fast Rush',
     difficulty: 'Easy',
     baseXp: 1400,
+    energyCost: 7,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
@@ -106,6 +113,7 @@ export const STAGE_CONFIG = [
     displayName: 'Ranged Threat',
     difficulty: 'Normal',
     baseXp: 2000,
+    energyCost: 8,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -127,6 +135,7 @@ export const STAGE_CONFIG = [
     displayName: 'Armor Up',
     difficulty: 'Normal',
     baseXp: 2500,
+    energyCost: 9,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -148,6 +157,7 @@ export const STAGE_CONFIG = [
     displayName: 'Combined Arms',
     difficulty: 'Normal',
     baseXp: 3000,
+    energyCost: 10,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
@@ -170,6 +180,7 @@ export const STAGE_CONFIG = [
     displayName: 'All-Out Assault',
     difficulty: 'Hard',
     baseXp: 4000,
+    energyCost: 12,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -192,6 +203,7 @@ export const STAGE_CONFIG = [
     displayName: 'Pressure Point',
     difficulty: 'Hard',
     baseXp: 5000,
+    energyCost: 14,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -215,6 +227,7 @@ export const STAGE_CONFIG = [
     displayName: 'Gauntlet',
     difficulty: 'Hard',
     baseXp: 6000,
+    energyCost: 16,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
@@ -240,6 +253,7 @@ export const STAGE_CONFIG = [
     displayName: 'The Overlord',
     difficulty: 'Boss',
     baseXp: 12000,
+    energyCost: 25,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
