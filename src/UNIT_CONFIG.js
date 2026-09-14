@@ -66,10 +66,51 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 //                   or 'immune' (never moves at all when hit, regardless of
 //                   the other two fields' values).
 //   statusOnHit     see STATUS_CONFIG.js — an on-hit chance to inflict Slow/
-//                   Stop/Weaken/Curse on whatever this unit hits. NO_STATUS
-//                   (the default) means it never does. Mirrors ENEMY_CONFIG.js's
-//                   role-to-ability mapping: tank/Stop, ranged/Slow,
-//                   fast+aoe/Curse, basic stays ability-less.
+//                   Stop/Weaken/Curse/Warp on whatever this unit hits.
+//                   NO_STATUS (the default) means it never does. Mirrors
+//                   ENEMY_CONFIG.js's role-to-ability mapping: tank/Stop,
+//                   ranged/Slow, fast+aoe/Curse, basic stays ability-less
+//                   (ENEMY ranged trades its Slow for Warp instead — see
+//                   ENEMY_CONFIG.js — since Warp is conventionally an
+//                   enemy-only affliction in the reference game).
+//   longDistance    { min, max } (bible §A.3.8) — this unit's attack has an
+//                   explicit blind spot (can't hit anything closer than
+//                   `min`) but reaches out to `max`, which also becomes its
+//                   effective stopping/detection distance in place of
+//                   `range` (see GameScene's getMaxRange). Omitted = normal
+//                   fixed-range behavior. Omni Strike is just this with
+//                   `min: 0` (no blind spot), conventionally paired with an
+//                   Area special.
+//   toxicOnHit      { chance, percent } (bible §A.3.8, Toxic/Poison) —
+//                   independent of statusOnHit, so it can stack with
+//                   whatever status ability this unit already has: on a
+//                   successful roll, adds bonus damage equal to `percent`
+//                   of the DEFENDER's own max HP, bypassing the
+//                   Metal/alloy flat-damage cap. Suppressed by Curse.
+//   waveOnHit       { radius } (bible §A.3.8, Wave Attack) — also
+//                   independent of statusOnHit/special: after the primary
+//                   hit resolves, sweeps outward from THIS unit's own
+//                   position (not the target's) toward the enemy side,
+//                   hitting every other living entity within `radius` with
+//                   the same damage/knockback/status pipeline. Never
+//                   affects Bases; suppressed by Curse; blocked (and
+//                   itself deals no damage) by a `waveImmune` defender,
+//                   which also stops the sweep from reaching anyone past it.
+//   waveImmune      true = this entity takes no Wave Attack damage and
+//                   blocks a wave from reaching anything positioned beyond
+//                   it (bible's "Wave Shield").
+//   warpImmune      true = Warp status (see statusOnHit above) always
+//                   fails against this entity outright.
+//   barrierMaxHp    this entity has a Barrier shield (bible §A.3.8):
+//                   incoming damage is absorbed by this pool first (fully
+//                   blocking knockback/status effects on any hit that's
+//                   completely absorbed) before any overflow reaches real
+//                   HP. Omitted/0 = no barrier.
+//   barrierBreakerChance 0-1 chance per landed hit that this unit's attack
+//                   instantly destroys the target's Barrier outright
+//                   (bible's "Barrier Breaker") — the SAME hit's full
+//                   damage then still applies to real HP normally, rather
+//                   than being absorbed.
 //   color/label     placeholder shape fill + single-letter text label.
 //   sprite          reskin hook, unused until real art is added.
 
@@ -130,6 +171,10 @@ export const UNIT_CONFIG = {
     // Status-effect rollout, mirroring ENEMY_CONFIG's fast entry: a quick
     // harasser that curses on hit — shorter duration than aoe's curse.
     statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.2, durationMs: 1500 },
+    // Wave Attack (bible §A.3.8): every hit also sweeps a shockwave ahead of
+    // this unit, catching whatever else is nearby — fits its "quick skirmisher"
+    // identity as a way to punish enemies clustering up behind its target.
+    waveOnHit: { radius: 60 },
     sprite: null,
   },
   tank: {
@@ -160,6 +205,13 @@ export const UNIT_CONFIG = {
     // Status-effect rollout, mirroring ENEMY_CONFIG's tank entry: an
     // immovable bruiser that can also freeze whatever it hits.
     statusOnHit: { type: STATUS_TYPES.STOP, chance: 0.15, durationMs: 800 },
+    // An anchored heavy unit is a natural fit for "can't be teleported" —
+    // pairs with its existing knockback immunity as "nothing moves this thing."
+    warpImmune: true,
+    // Barrier Breaker (bible §A.3.8): every hit that lands on a Barrier-bearing
+    // target shatters it outright, then still deals full damage that hit —
+    // fits "heavy hitter that shrugs off shields" even at Tank's low DPS.
+    barrierBreakerChance: 1.0,
     sprite: null,
   },
   ranged: {
@@ -195,6 +247,10 @@ export const UNIT_CONFIG = {
     // Status-effect rollout, mirroring ENEMY_CONFIG's ranged entry: a
     // debuffing sniper that halves the target's move/attack speed on hit.
     statusOnHit: { type: STATUS_TYPES.SLOW, chance: 0.3, durationMs: 1500, multiplier: 0.5 },
+    // Long Distance (bible §A.3.8): can't hit anything within 40px of
+    // itself, but reaches out to 140px — fits the "sniper" archetype of
+    // being useless up close but dangerous from afar.
+    longDistance: { min: 40, max: 140 },
     sprite: null,
   },
   aoe: {
@@ -231,6 +287,9 @@ export const UNIT_CONFIG = {
     // whatever it hits — including landing on an enemy aoe and shutting
     // down its own splash right back.
     statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.25, durationMs: 3000 },
+    // Toxic/Poison (bible §A.3.8): a corrosive splash also chips bonus
+    // damage off whatever it hits, scaled to that target's own max HP.
+    toxicOnHit: { chance: 0.3, percent: 0.1 },
     sprite: null,
   },
 };

@@ -365,6 +365,17 @@ export default class GameScene extends Phaser.Scene {
       weakenMs: 0,
       weakenMultiplier: 1,
       curseMs: 0,
+      // Warp state (bible §A.3.8) — while warpMs > 0 the entity is fully
+      // removed from play (invisible, untargetable, no AI at all, same as
+      // Stop but with visibility toggled too) — see tickStatusEffects and
+      // the warpMs guards in updatePlayerUnits/updateEnemies. warpOffset is
+      // the signed distance applied once warpMs reaches 0.
+      warpMs: 0,
+      warpOffset: 0,
+      // Barrier shield (bible §A.3.8) — starts full if this config has one;
+      // 0/undefined configs never enter the barrier-absorption branch at
+      // all, see applyDamageAndEffects.
+      barrierHp: config.barrierMaxHp || 0,
       target: null,
     };
   }
@@ -372,8 +383,25 @@ export default class GameScene extends Phaser.Scene {
   // Can `attacker` hit `target` from their current distance? Melee roles set
   // `range` equal to their own radius, so this reduces to plain contact; a
   // bigger `range` lets ranged/AoE roles engage before physically touching.
+  // Long Distance units (bible §A.3.8) replace this with an explicit
+  // min/max window instead of the usual "anything within range" check — see
+  // getMaxRange for how their stopping/detection distance is also affected.
   inRange(attacker, target) {
-    return Math.abs(attacker.shape.x - target.shape.x) <= attacker.config.range + target.config.radius;
+    const distance = Math.abs(attacker.shape.x - target.shape.x);
+    const maxReach = this.getMaxRange(attacker.config) + target.config.radius;
+
+    if (attacker.config.longDistance) {
+      return distance >= attacker.config.longDistance.min && distance <= maxReach;
+    }
+    return distance <= maxReach;
+  }
+
+  // The distance at which a unit stops advancing and starts attacking (also
+  // used for the "close enough to hit the base" checks). Long Distance units
+  // use their extended max reach here instead of the plain `range` stat,
+  // since their real detection distance is further out than a normal unit's.
+  getMaxRange(config) {
+    return config.longDistance ? config.longDistance.max : config.range;
   }
 
   update(time, deltaMs) {
@@ -476,7 +504,7 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (unit.stopMs > 0) continue; // frozen: no attack, no movement, no target-seeking
+      if (unit.stopMs > 0 || unit.warpMs > 0) continue; // frozen/warped: no attack, no movement, no target-seeking
 
       if (unit.target === 'enemyBase') {
         this.tickCombatPhase(unit, deltaMs, () => {
@@ -487,15 +515,16 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (unit.target && (unit.target.hp <= 0 || !this.inRange(unit, unit.target))) {
+      if (unit.target && (unit.target.hp <= 0 || unit.target.warpMs > 0 || !this.inRange(unit, unit.target))) {
         unit.target = null;
       }
 
       if (!unit.target) {
-        unit.target = this.enemies.find((enemy) => enemy.hp > 0 && this.inRange(unit, enemy)) || null;
+        unit.target =
+          this.enemies.find((enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && this.inRange(unit, enemy)) || null;
       }
 
-      if (!unit.target && this.enemyBaseX - unit.shape.x <= enemyBaseReachDistance + unit.config.range) {
+      if (!unit.target && this.enemyBaseX - unit.shape.x <= enemyBaseReachDistance + this.getMaxRange(unit.config)) {
         unit.target = 'enemyBase';
       }
 
@@ -526,7 +555,7 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (enemy.stopMs > 0) continue; // frozen: no attack, no movement, no target-seeking
+      if (enemy.stopMs > 0 || enemy.warpMs > 0) continue; // frozen/warped: no attack, no movement, no target-seeking
 
       if (enemy.target === 'base') {
         this.tickCombatPhase(enemy, deltaMs, () => {
@@ -537,7 +566,7 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (enemy.target && enemy.target.hp <= 0) {
+      if (enemy.target && (enemy.target.hp <= 0 || enemy.target.warpMs > 0)) {
         enemy.target = null;
       }
       if (enemy.target && !this.inRange(enemy, enemy.target)) {
@@ -546,10 +575,10 @@ export default class GameScene extends Phaser.Scene {
 
       if (!enemy.target) {
         enemy.target =
-          this.playerUnits.find((unit) => unit.hp > 0 && this.inRange(enemy, unit)) || null;
+          this.playerUnits.find((unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit)) || null;
       }
 
-      if (!enemy.target && enemy.shape.x - this.baseX <= baseReachDistance + enemy.config.range) {
+      if (!enemy.target && enemy.shape.x - this.baseX <= baseReachDistance + this.getMaxRange(enemy.config)) {
         enemy.target = 'base';
       }
 
@@ -595,7 +624,11 @@ export default class GameScene extends Phaser.Scene {
 
   // Applies one attack's damage to `primaryTarget`. If the attacker's
   // `special` is an AoE ability, every living entity in `targetPool` within
-  // `special.radius` of the primary target's position is hit too.
+  // `special.radius` of the primary target's position is hit too. A
+  // separate, independent Wave Attack sweep (see applyWaveAttack) always
+  // runs afterward regardless of `special`, since Wave Attack isn't a
+  // `special.type` — it's its own optional field that can coexist with
+  // whatever attack shape the unit already has (bible §A.3.8).
   dealDamage(attacker, primaryTarget, targetPool) {
     const special = attacker.config.special;
     // A cursed attacker's special ability is suppressed — an aoe attacker
@@ -607,21 +640,99 @@ export default class GameScene extends Phaser.Scene {
       const originX = primaryTarget.shape.x;
       for (const entity of targetPool) {
         if (entity.hp > 0 && Math.abs(entity.shape.x - originX) <= special.radius) {
-          const dmg = this.computeDamage(attacker, entity);
-          entity.hp -= dmg;
-          this.resolveKnockback(attacker, entity);
-          this.applyStatusEffect(attacker, entity);
-          totalDamage += dmg;
+          totalDamage += this.applyDamageAndEffects(attacker, entity);
         }
       }
     } else {
-      totalDamage = this.computeDamage(attacker, primaryTarget);
-      primaryTarget.hp -= totalDamage;
-      this.resolveKnockback(attacker, primaryTarget);
-      this.applyStatusEffect(attacker, primaryTarget);
+      totalDamage = this.applyDamageAndEffects(attacker, primaryTarget);
+    }
+
+    this.applyWaveAttack(attacker, targetPool, primaryTarget);
+
+    return totalDamage;
+  }
+
+  // The shared per-hit pipeline: raw damage (crit/weaken/matchup, via
+  // computeDamage) plus any Toxic bonus, then Barrier absorption (if the
+  // defender has a shield), and finally knockback + status effects — but
+  // ONLY for whatever portion of the hit actually reached real HP. A hit
+  // fully absorbed by a Barrier deals no knockback/status at all, matching
+  // the bible's "the shell absorbs the hit" framing (§A.3.8). Returns the
+  // total damage computed (barrier-absorbed or not) for score/UI purposes.
+  applyDamageAndEffects(attacker, entity) {
+    const totalDamage = this.computeDamage(attacker, entity) + this.computeToxicBonus(attacker, entity);
+    let appliedToHp = totalDamage;
+
+    if (entity.barrierHp > 0) {
+      const barrierBroken =
+        attacker.config.barrierBreakerChance && Math.random() < attacker.config.barrierBreakerChance;
+
+      if (barrierBroken) {
+        // Barrier Breaker (bible §A.3.8): the shield shatters outright, and
+        // this SAME hit's full damage still reaches HP normally — it isn't
+        // absorbed at all this time.
+        entity.barrierHp = 0;
+      } else {
+        const absorbed = Math.min(entity.barrierHp, totalDamage);
+        entity.barrierHp -= absorbed;
+        appliedToHp = totalDamage - absorbed;
+      }
+    }
+
+    entity.hp -= appliedToHp;
+
+    if (appliedToHp > 0) {
+      this.resolveKnockback(attacker, entity);
+      this.applyStatusEffect(attacker, entity);
     }
 
     return totalDamage;
+  }
+
+  // Toxic/Poison (bible §A.3.8): a chance-based bonus equal to a % of the
+  // DEFENDER's own max HP, added on top of normal damage — computed
+  // independently of computeDamage's trait resolution, which is what lets
+  // it bypass the Metal/alloy flat-damage cap (a non-crit hit on an alloy
+  // defender still only deals FLAT_DAMAGE_AMOUNT via computeDamage, but the
+  // toxic bonus is added on top of that regardless). Suppressed by Curse,
+  // same as every other special ability.
+  computeToxicBonus(attacker, defender) {
+    const toxic = attacker.config.toxicOnHit;
+    if (!toxic) return 0;
+    if (attacker.curseMs > 0) return 0;
+    if (Math.random() > toxic.chance) return 0;
+
+    return defender.config.hp * toxic.percent;
+  }
+
+  // Wave Attack (bible §A.3.8): after the primary hit resolves, sweeps
+  // outward from the ATTACKER's own position (not the primary target's)
+  // toward the enemy side, hitting every OTHER living entity within
+  // `waveOnHit.radius` with the same full damage/knockback/status pipeline.
+  // Never affects Bases (targetPool only ever contains live units/enemies,
+  // never a base). A `waveImmune` defender takes no damage from the wave
+  // AND blocks it from reaching anyone further along the sweep — "Wave
+  // Shield" per the bible.
+  applyWaveAttack(attacker, targetPool, primaryTarget) {
+    const wave = attacker.config.waveOnHit;
+    if (!wave) return;
+    if (attacker.curseMs > 0) return; // suppressed, same as special.type:'aoe'
+
+    const direction = targetPool === this.enemies ? 1 : -1;
+    const originX = attacker.shape.x;
+
+    const candidates = targetPool
+      .filter((entity) => entity.hp > 0 && entity !== primaryTarget)
+      .filter((entity) => {
+        const delta = (entity.shape.x - originX) * direction;
+        return delta >= 0 && delta <= wave.radius;
+      })
+      .sort((a, b) => Math.abs(a.shape.x - originX) - Math.abs(b.shape.x - originX));
+
+    for (const entity of candidates) {
+      if (entity.config.waveImmune) break; // shields itself AND blocks the sweep beyond it
+      this.applyDamageAndEffects(attacker, entity);
+    }
   }
 
   // Resolves the bible's HP-threshold "endurance" knockback model (§A.3.5):
@@ -703,6 +814,23 @@ export default class GameScene extends Phaser.Scene {
       case STATUS_TYPES.CURSE:
         defender.curseMs = status.durationMs;
         break;
+      case STATUS_TYPES.WARP:
+        if (defender.config.warpImmune) return; // negated outright — nothing happens
+        // Direction (forward/backward) and magnitude are both randomized
+        // once, at the moment of the proc — see tickStatusEffects for where
+        // this offset actually gets applied (once warpMs runs out).
+        {
+          const { minDistance, maxDistance } = status;
+          const distance = minDistance + Math.random() * (maxDistance - minDistance);
+          const direction = Math.random() < 0.5 ? -1 : 1;
+          defender.warpOffset = direction * distance;
+        }
+        defender.warpMs = status.durationMs;
+        // A warping entity vanishes mid-cycle — same interruption as a
+        // knockback: any in-progress windup is wasted.
+        defender.attackPhase = null;
+        defender.phaseMs = 0;
+        break;
     }
   }
 
@@ -728,12 +856,19 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseCurseMs = status.durationMs;
   }
 
-  // Ticks all four status timers down and drives the entity's tint — stop
-  // (fully frozen) beats curse beats slow beats weaken, so the most
+  // Ticks all status timers down and drives the entity's tint/visibility —
+  // stop (fully frozen) beats curse beats slow beats weaken, so the most
   // disruptive/visible active state is always what's shown; restores
   // config.color once every timer has run out. Called for every living
   // unit/enemy every frame, independent of whether they're also
   // mid-knockback.
+  //
+  // Warp is handled separately from the tint-priority chain below: rather
+  // than a color, a warping entity is simply made invisible for its whole
+  // duration (see the warpMs > 0 gate in updatePlayerUnits/updateEnemies —
+  // it skips all AI exactly like Stop) and repositioned by its stored
+  // warpOffset (bible §A.3.8) the instant warpMs reaches 0, becoming
+  // visible and active again.
   tickStatusEffects(entity, deltaMs) {
     if (entity.slowMs > 0) {
       entity.slowMs = Math.max(0, entity.slowMs - deltaMs);
@@ -744,6 +879,26 @@ export default class GameScene extends Phaser.Scene {
     if (entity.weakenMs > 0) {
       entity.weakenMs = Math.max(0, entity.weakenMs - deltaMs);
       if (entity.weakenMs === 0) entity.weakenMultiplier = 1;
+    }
+
+    if (entity.warpMs > 0) {
+      entity.warpMs = Math.max(0, entity.warpMs - deltaMs);
+      entity.shape.setVisible(false);
+      entity.label.setVisible(false);
+
+      if (entity.warpMs === 0) {
+        const { width } = this.scale;
+        entity.shape.x = Math.max(
+          entity.config.radius,
+          Math.min(width - entity.config.radius, entity.shape.x + entity.warpOffset),
+        );
+        entity.label.x = entity.shape.x;
+        entity.warpOffset = 0;
+        entity.shape.setVisible(true);
+        entity.label.setVisible(true);
+      } else {
+        return; // stays invisible — no point resolving a tint this frame
+      }
     }
 
     if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;

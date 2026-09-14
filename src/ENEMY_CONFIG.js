@@ -26,11 +26,18 @@
 // `critChance` — see UNIT_CONFIG.js; enemies can crit player units too.
 //
 // `statusOnHit` — see STATUS_CONFIG.js. Every role but basic has one: tank
-// owns Stop, ranged owns Slow, fast and aoe both curse (differentiated by
-// chance/duration — fast is frequent-but-short harassment, aoe is
-// rarer-but-long lockdown). basic stays ability-less on both sides as the
-// deliberate "no gimmick" baseline. UNIT_CONFIG.js mirrors this exact
-// role-to-ability mapping on the player side.
+// owns Stop, ranged owns Warp (see below — the player side's ranged keeps
+// Slow instead), fast and aoe both curse (differentiated by chance/duration
+// — fast is frequent-but-short harassment, aoe is rarer-but-long lockdown).
+// basic stays ability-less on both sides as the deliberate "no gimmick"
+// baseline. UNIT_CONFIG.js mirrors this exact role-to-ability mapping on
+// the player side, EXCEPT ranged: Warp is conventionally an enemy-only
+// affliction in the reference game, so only this enemy-side ranged carries
+// it — the player-side ranged keeps its own Slow instead of trading up.
+//
+// `longDistance`/`toxicOnHit`/`waveOnHit`/`waveImmune`/`warpImmune`/
+// `barrierMaxHp`/`barrierBreakerChance` — see UNIT_CONFIG.js for the full
+// field reference; same mechanics apply symmetrically to enemies.
 
 import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 
@@ -89,6 +96,9 @@ export const ENEMY_CONFIG = {
     // duration than aoe's curse (fast attacks more often, so uptime stays
     // comparable rather than strictly better) but easy to land.
     statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.2, durationMs: 1500 },
+    // Wave Attack (bible §A.3.8): mirrors the player-side fast unit's own
+    // shockwave-on-hit.
+    waveOnHit: { radius: 60 },
     sprite: null,
   },
   tank: {
@@ -122,6 +132,12 @@ export const ENEMY_CONFIG = {
     // can freeze you" bruiser, since knockbackType 'immune' already means it
     // can't be shoved itself.
     statusOnHit: { type: STATUS_TYPES.STOP, chance: 0.15, durationMs: 800 },
+    // Same "nothing moves this thing" logic as the player-side tank.
+    warpImmune: true,
+    // Barrier (bible §A.3.8): this enemy has a shell that must be cracked
+    // (or Barrier-Broken — see the player-side tank's barrierBreakerChance)
+    // before real damage gets through, reinforcing its "hard to kill" role.
+    barrierMaxHp: 30,
     sprite: null,
   },
   ranged: {
@@ -151,10 +167,20 @@ export const ENEMY_CONFIG = {
     label: 'R',
     special: { type: 'none' },
     critChance: 0.05,
-    // Status-effect demo (STATUS_CONFIG.js): a debuffing sniper — halves the
-    // target's move/attack speed for 1.5s on a hit, matching the genre trope
-    // of a long-range unit that slows you down rather than hitting hardest.
-    statusOnHit: { type: STATUS_TYPES.SLOW, chance: 0.3, durationMs: 1500, multiplier: 0.5 },
+    // Warp (bible §A.3.8), not Slow — this is the deliberate asymmetry with
+    // the player-side ranged unit (see file header): a sniper that
+    // occasionally teleports a player unit out of position entirely,
+    // rather than merely slowing it.
+    statusOnHit: {
+      type: STATUS_TYPES.WARP,
+      chance: 0.2,
+      durationMs: 1500,
+      minDistance: 60,
+      maxDistance: 160,
+    },
+    // Long Distance (bible §A.3.8): mirrors the player-side ranged unit's
+    // own blind-spot-but-long-reach shape.
+    longDistance: { min: 40, max: 140 },
     sprite: null,
   },
   aoe: {
