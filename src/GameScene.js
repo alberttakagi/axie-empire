@@ -958,7 +958,31 @@ export default class GameScene extends Phaser.Scene {
   // UnitStats.js — computed once by trySpawnUnit rather than recomputed here.
   spawnUnit(type, config) {
     const x = this.baseX + BASE_WIDTH / 2 + config.radius;
-    const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#000000', true);
+    const unitProgress = getUnitProgress(loadPlayerProgress(), type);
+    const evolutionStage = unitProgress.evolutionStage;
+
+    // Part evolution (see PartEvolution.js): a purely cosmetic, level-driven
+    // progression independent of the evoShard-driven evolutionStage above —
+    // reaching level 10 swaps the unit to its real, official evolved
+    // ("awakened") art (UNIT_CONFIG.js's `sprite.evolved`) where one exists.
+    // That's the only actual evolved-look asset available per unit (see
+    // that file's comment on why it isn't 6 separate stages), so every
+    // milestone past the first (level 20-60) instead layers an escalating
+    // golden glow on top of that same evolved sprite to keep signaling
+    // further progress. A unit with no real evolved art at all (hasRealEvolvedArt
+    // false — currently just Titan) never "spends" a milestone on an art
+    // swap, so its glow starts counting from the very first milestone
+    // instead of the second.
+    const evolvedPartCount = getEvolvedPartCount(unitProgress.level);
+    const hasRealEvolvedArt = !!config.sprite?.evolved;
+    const isEvolved = evolvedPartCount > 0 && hasRealEvolvedArt;
+    const glowSteps = hasRealEvolvedArt ? Math.max(0, evolvedPartCount - 1) : evolvedPartCount;
+
+    const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#000000', true, 1, isEvolved);
+
+    if (spriteImage && glowSteps > 0) {
+      spriteImage.postFX.addGlow(0xffdd33, 1 + glowSteps * 0.7, 0, false, 0.1, 12);
+    }
 
     // Evolution-stage visual cue: a circle placeholder gets a stroked ring
     // around itself; a sprite (whose silhouette/size differs per pose, so a
@@ -967,23 +991,6 @@ export default class GameScene extends Phaser.Scene {
     // points as `label` (see tickKnockback/tickStatusEffects/removeDead and
     // the unit-movement branch below) and destroyed alongside it.
     let evolutionBadge = null;
-    const unitProgress = getUnitProgress(loadPlayerProgress(), type);
-    const evolutionStage = unitProgress.evolutionStage;
-
-    // Part evolution (see PartEvolution.js): a purely cosmetic, level-driven
-    // progression independent of the evoShard-driven evolutionStage above —
-    // one of the unit's 6 Axie body parts "evolves" every 10 levels. The
-    // specific evolved-part art for each Starter's ACTUAL parts isn't
-    // available (see that file's comment on why), so for now this shows as
-    // a golden glow whose strength scales with how many parts have evolved,
-    // rather than swapped-in mismatched substitute art.
-    if (spriteImage) {
-      const evolvedPartCount = getEvolvedPartCount(unitProgress.level);
-      if (evolvedPartCount > 0) {
-        spriteImage.postFX.addGlow(0xffdd33, 1 + evolvedPartCount * 0.7, 0, false, 0.1, 12);
-      }
-    }
-
     if (evolutionStage > 0) {
       if (spriteImage) {
         evolutionBadge = this.add
@@ -998,7 +1005,9 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    this.playerUnits.push(this.makeEntityState(type, config, shape, label, spriteImage, true, 1, evolutionBadge));
+    this.playerUnits.push(
+      this.makeEntityState(type, config, shape, label, spriteImage, true, 1, evolutionBadge, isEvolved),
+    );
   }
 
   // Builds this entity's visual: real sprite art if its config gave it one
@@ -1020,10 +1029,15 @@ export default class GameScene extends Phaser.Scene {
   // texture swap without needing to be re-applied.
   // `visualScaleMultiplier` (default 1) is a pure display multiplier on top
   // of the usual radius-based fit — see BOSS_VISUAL_SCALE_MULTIPLIER.
-  createEntityVisual(x, config, labelColor, isPlayerSide, visualScaleMultiplier = 1) {
+  // `isEvolved` (player units only — see spawnUnit) selects the unit's real
+  // evolved ("awakened") texture set instead of its base one, when
+  // `config.sprite.evolved` exists — see UNIT_CONFIG.js's field comment and
+  // PartEvolution.js.
+  createEntityVisual(x, config, labelColor, isPlayerSide, visualScaleMultiplier = 1, isEvolved = false) {
     if (config.sprite) {
       const prefix = isPlayerSide ? 'unit' : 'enemy';
-      const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}_idle`);
+      const evolvedTag = isEvolved && config.sprite.evolved ? '_evolved' : '';
+      const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}${evolvedTag}_idle`);
       sprite.setFlipX(isPlayerSide);
       this.fitSpriteToRadius(sprite, config.radius, visualScaleMultiplier);
       return { shape: sprite, label: null, spriteImage: sprite };
@@ -1127,6 +1141,7 @@ export default class GameScene extends Phaser.Scene {
     isPlayerSide = false,
     visualScaleMultiplier = 1,
     evolutionBadge = null,
+    isEvolved = false,
   ) {
     return {
       type,
@@ -1142,12 +1157,17 @@ export default class GameScene extends Phaser.Scene {
       // visualScaleMultiplier likewise lets setEntityPose re-apply a boss's
       // size bump (see BOSS_VISUAL_SCALE_MULTIPLIER) on every pose swap,
       // since fitSpriteToRadius would otherwise reset it to the normal size.
+      // isEvolved (player units only) is the same idea for the real evolved
+      // texture set — see createEntityVisual/UNIT_CONFIG.js's
+      // `sprite.evolved` field — fixed for the unit's whole time on the
+      // field, since level doesn't change mid-battle.
       // evolutionBadge (player units only — see spawnUnit) is synced/
       // destroyed at the exact same points as `label`.
       spriteImage,
       evolutionBadge,
       isPlayerSide,
       visualScaleMultiplier,
+      isEvolved,
       currentPose: spriteImage ? 'idle' : null,
       hp: config.hp,
       // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
@@ -1500,7 +1520,8 @@ export default class GameScene extends Phaser.Scene {
     if (!entity.spriteImage || entity.currentPose === pose) return;
     entity.currentPose = pose;
     const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
-    entity.spriteImage.setTexture(`${prefix}_${entity.config.id}_${pose}`);
+    const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
+    entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`);
     this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
   }
 

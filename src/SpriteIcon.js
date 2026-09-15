@@ -12,9 +12,11 @@
 // (Phaser's texture cache is shared across all scenes in the Game).
 
 // Loads every entry's idle/attack/hit textures into `scene`'s texture
-// cache. Guarded by textures.exists so calling this from more than one
-// scene's preload() (e.g. both GameScene and LoadoutScene) never re-fetches
-// an already-cached texture.
+// cache, plus its optional real evolved ("awakened") set if it has one
+// (see UNIT_CONFIG.js's `sprite.evolved` field) — keyed
+// '<prefix>_<id>_evolved_<pose>'. Guarded by textures.exists so calling
+// this from more than one scene's preload() (e.g. both GameScene and
+// LoadoutScene) never re-fetches an already-cached texture.
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   for (const config of Object.values(roster)) {
@@ -22,6 +24,11 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
     for (const pose of ['idle', 'attack', 'hit']) {
       const key = `${prefix}_${config.id}_${pose}`;
       if (!scene.textures.exists(key)) scene.load.image(key, config.sprite[pose]);
+    }
+    if (!config.sprite.evolved) continue;
+    for (const pose of ['idle', 'attack', 'hit']) {
+      const key = `${prefix}_${config.id}_evolved_${pose}`;
+      if (!scene.textures.exists(key)) scene.load.image(key, config.sprite.evolved[pose]);
     }
   }
 }
