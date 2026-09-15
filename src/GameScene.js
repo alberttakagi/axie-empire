@@ -102,6 +102,18 @@ const CONTINUE_GEM_COSTS = [5, 10, 20];
 const EVOLUTION_RING_COLOR = [null, 0xffffff, 0xffdd33]; // index = evolutionStage
 const EVOLUTION_RING_WIDTH = [0, 2, 3];
 
+// Sprite sizing (see fitSpriteToRadius): a straight `radius * multiplier`
+// made the smallest-radius units (Swarm/Sniper/Fast, radius 10-12) read as
+// tiny while the biggest (Titan/Tank, radius 26-30) dominated the lane —
+// the 3x spread in gameplay radius is a much bigger visual spread than any
+// of these character designs can carry. A floor plus a gentler per-radius
+// slope keeps "bigger stat = bigger sprite" while compressing that range:
+// smallest unit reads at SPRITE_MIN_DIAMETER, biggest (titan, radius 30) at
+// only ~1.5x that instead of ~3x.
+const SPRITE_MIN_DIAMETER = 44;
+const SPRITE_MIN_RADIUS = 10; // swarm — the smallest unit's radius
+const SPRITE_SIZE_SLOPE = 1.1; // px of extra diameter per point of radius above the min
+
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
 
@@ -194,6 +206,27 @@ const SPECIAL_FLASH_DURATION_MS = 250;
 export default class GameScene extends Phaser.Scene {
   constructor() {
     super('GameScene');
+  }
+
+  // Real sprite art — Starter Axies for UNIT_CONFIG, PvE Chimeras for
+  // ENEMY_CONFIG (see each file's `sprite` field) — loaded once per texture
+  // key. Guarded by textures.exists since this scene restarts fresh for
+  // every battle and Phaser would otherwise re-fetch (and warn about)
+  // already-cached textures each time. Keys are prefixed 'unit_'/'enemy_'
+  // rather than bare `${config.id}` because UNIT_CONFIG and ENEMY_CONFIG
+  // share several literal id values (e.g. both have 'tank', 'basic',
+  // 'ranged') — see createEntityVisual/setEntityPose, which build/read the
+  // exact same prefixed keys.
+  preload() {
+    for (const [prefix, roster] of [['unit', UNIT_CONFIG], ['enemy', ENEMY_CONFIG]]) {
+      for (const config of Object.values(roster)) {
+        if (!config.sprite) continue;
+        for (const pose of ['idle', 'attack', 'hit']) {
+          const key = `${prefix}_${config.id}_${pose}`;
+          if (!this.textures.exists(key)) this.load.image(key, config.sprite[pose]);
+        }
+      }
+    }
   }
 
   create(data) {
@@ -318,7 +351,7 @@ export default class GameScene extends Phaser.Scene {
     // growing rightward keeps it fully on-screen regardless of digit count.
     this.baseHpText = this.add
       .text(2, this.laneY - 70, '', {
-        fontSize: '18px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
         color: '#ffffff',
       })
       .setOrigin(0, 0.5);
@@ -328,7 +361,7 @@ export default class GameScene extends Phaser.Scene {
     // canvas's right edge.
     this.enemyBaseHpText = this.add
       .text(width - 2, this.laneY - 70, '', {
-        fontSize: '18px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
         color: '#ffffff',
       })
       .setOrigin(1, 0.5);
@@ -339,7 +372,7 @@ export default class GameScene extends Phaser.Scene {
     // alongside it.
     this.createPauseButton();
     this.add.text(46, 16, this.stage.displayName, {
-      fontSize: '18px',
+      fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
       color: '#ffdd33',
     });
 
@@ -348,7 +381,7 @@ export default class GameScene extends Phaser.Scene {
     // separate top-left money text + small "Cap: ¥Y" line).
     this.walletText = this.add
       .text(width - 16, 16, '', {
-        fontSize: '20px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '20px',
         color: '#ffffff',
       })
       .setOrigin(1, 0);
@@ -359,7 +392,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.gameOverText = this.add
       .text(width / 2, height / 2, '', {
-        fontSize: '32px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '32px',
         color: '#ffffff',
         align: 'center',
       })
@@ -368,7 +401,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode === 'dojo') {
       this.dojoTimeRemainingMs = DOJO_CONFIG.timeLimitMs;
       this.dojoTimerText = this.add
-        .text(width / 2, 16, '', { fontSize: '16px', color: '#ffdd33' })
+        .text(width / 2, 16, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffdd33' })
         .setOrigin(0.5, 0);
     } else {
       // Battle Items (bible §A.8) only make sense against a real stage
@@ -496,7 +529,7 @@ export default class GameScene extends Phaser.Scene {
 
       const labelText = this.add
         .text(x, y - 14, config.displayName, {
-          fontSize: isCompact ? '10px' : '13px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '10px' : '13px',
           color: '#ffffff',
           align: 'center',
           wordWrap: { width: buttonWidth - 6 },
@@ -505,7 +538,7 @@ export default class GameScene extends Phaser.Scene {
 
       const costText = this.add
         .text(x, y + 14, `${Math.round(config.cost).toLocaleString()}円`, {
-          fontSize: isCompact ? '9px' : '11px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
           color: '#ffffff',
         })
         .setOrigin(0.5);
@@ -531,7 +564,7 @@ export default class GameScene extends Phaser.Scene {
   // instead of its own top-level button.
   createPauseButton() {
     const rect = this.add.circle(24, 16, 14, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(24, 16, '⏸', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(24, 16, '⏸', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
     rect.on('pointerdown', () => this.showSettingsPopup());
   }
 
@@ -552,37 +585,37 @@ export default class GameScene extends Phaser.Scene {
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
     objects.push(this.add.rectangle(width / 2, panelY, 340, 200, 0x333333).setStrokeStyle(2, 0xffdd33));
-    objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontSize: '20px', color: '#ffffff' }).setOrigin(0.5));
+    objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5));
 
     const closeButton = this.add
       .rectangle(width / 2 + 155, panelY - 85, 28, 28, 0xcc3333)
       .setInteractive({ useHandCursor: true });
     objects.push(
       closeButton,
-      this.add.text(width / 2 + 155, panelY - 85, 'X', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
+      this.add.text(width / 2 + 155, panelY - 85, 'X', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
     );
     closeButton.on('pointerdown', () => this.hideSettingsPopup());
 
     const sfxLabel = this.add
-      .text(width / 2 - 130, panelY - 35, 'SFX Volume', { fontSize: '14px', color: '#ffffff' })
+      .text(width / 2 - 130, panelY - 35, 'SFX Volume', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' })
       .setOrigin(0, 0.5);
     const sfxButton = this.add
       .rectangle(width / 2 + 100, panelY - 35, 100, 32, 0x3388cc)
       .setInteractive({ useHandCursor: true });
     const sfxText = this.add
-      .text(width / 2 + 100, panelY - 35, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()], { fontSize: '13px', color: '#ffffff' })
+      .text(width / 2 + 100, panelY - 35, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()], { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' })
       .setOrigin(0.5);
     sfxButton.on('pointerdown', () => sfxText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]));
     objects.push(sfxLabel, sfxButton, sfxText);
 
     const bgmLabel = this.add
-      .text(width / 2 - 130, panelY + 5, 'BGM Volume', { fontSize: '14px', color: '#ffffff' })
+      .text(width / 2 - 130, panelY + 5, 'BGM Volume', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' })
       .setOrigin(0, 0.5);
     const bgmButton = this.add
       .rectangle(width / 2 + 100, panelY + 5, 100, 32, 0x33aa66)
       .setInteractive({ useHandCursor: true });
     const bgmText = this.add
-      .text(width / 2 + 100, panelY + 5, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()], { fontSize: '13px', color: '#ffffff' })
+      .text(width / 2 + 100, panelY + 5, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()], { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' })
       .setOrigin(0.5);
     bgmButton.on('pointerdown', () => bgmText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]));
     objects.push(bgmLabel, bgmButton, bgmText);
@@ -592,7 +625,7 @@ export default class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     objects.push(
       retreatButton,
-      this.add.text(width / 2, panelY + 65, 'Retreat', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5),
+      this.add.text(width / 2, panelY + 65, 'Retreat', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5),
     );
     // Hands off to the existing Yes/No confirm rather than retreating
     // immediately — same "don't throw away a live run on one accidental
@@ -633,13 +666,13 @@ export default class GameScene extends Phaser.Scene {
       const rect = this.add.rectangle(x, y, itemWidth, 34, config.color).setInteractive({ useHandCursor: true });
       const label = this.add
         .text(x, y - 8, config.displayName, {
-          fontSize: '8px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '8px',
           color: '#000000',
           align: 'center',
           wordWrap: { width: itemWidth - 6 },
         })
         .setOrigin(0.5);
-      const countText = this.add.text(x, y + 9, '', { fontSize: '9px', color: '#000000' }).setOrigin(0.5);
+      const countText = this.add.text(x, y + 9, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '9px', color: '#000000' }).setOrigin(0.5);
 
       rect.on('pointerdown', () => this.useBattleItem(id));
 
@@ -681,7 +714,7 @@ export default class GameScene extends Phaser.Scene {
     objects.push(
       this.add
         .text(width / 2, height / 2 - 40, 'Quit this battle?\nProgress in this run will be lost.', {
-          fontSize: '18px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
           color: '#ffffff',
           align: 'center',
         })
@@ -692,12 +725,12 @@ export default class GameScene extends Phaser.Scene {
     const yesButton = this.add
       .rectangle(width / 2 - 80, buttonY, 130, 48, 0xcc3333)
       .setInteractive({ useHandCursor: true });
-    objects.push(yesButton, this.add.text(width / 2 - 80, buttonY, 'Quit', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
+    objects.push(yesButton, this.add.text(width / 2 - 80, buttonY, 'Quit', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
 
     const noButton = this.add
       .rectangle(width / 2 + 80, buttonY, 130, 48, 0x444444)
       .setInteractive({ useHandCursor: true });
-    objects.push(noButton, this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
+    objects.push(noButton, this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
 
     // Dojo wasn't reached via Stage Select at all (HomeScene launches it
     // directly), but unlike the post-battle Menu button, quitting mid-battle
@@ -726,14 +759,14 @@ export default class GameScene extends Phaser.Scene {
 
     const labelText = this.add
       .text(x, y - 10, '', {
-        fontSize: '13px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
 
     const costText = this.add
       .text(x, y + 10, '', {
-        fontSize: '12px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
@@ -757,7 +790,7 @@ export default class GameScene extends Phaser.Scene {
     this.cannonChargeGraphics = this.add.graphics();
     this.add
       .text(this.cannonX, this.cannonY, 'RUNE\nCANNON', {
-        fontSize: '10px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#ffffff',
         align: 'center',
       })
@@ -777,7 +810,7 @@ export default class GameScene extends Phaser.Scene {
     const y = 45;
 
     this.speedUpButton = this.add.rectangle(x, y, 68, 24, 0x555566).setInteractive({ useHandCursor: true });
-    this.speedUpText = this.add.text(x, y, '1x SPEED', { fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
+    this.speedUpText = this.add.text(x, y, '1x SPEED', { fontFamily: 'Rowdies, sans-serif', fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
     this.speedUpButton.on('pointerdown', () => this.toggleSpeedUp());
   }
 
@@ -875,7 +908,7 @@ export default class GameScene extends Phaser.Scene {
 
     const { width, height } = this.scale;
     this.restrictionMessageText = this.add
-      .text(width / 2, height - 90, text, { fontSize: '13px', color: '#ff6666' })
+      .text(width / 2, height - 90, text, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ff6666' })
       .setOrigin(0.5);
 
     this.time.delayedCall(1500, () => {
@@ -900,21 +933,64 @@ export default class GameScene extends Phaser.Scene {
   // UnitStats.js — computed once by trySpawnUnit rather than recomputed here.
   spawnUnit(type, config) {
     const x = this.baseX + BASE_WIDTH / 2 + config.radius;
+    const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#000000', true);
+
+    // Evolution-stage visual cue: an evolved/True Form unit gets a stroked
+    // ring around its placeholder shape. Sprite-art units don't have this
+    // yet (a ring drawn separately from the sprite would need its own
+    // position-sync at every movement/knockback/warp site) — deferred; the
+    // evolution stage is still visible on the roster/loadout screens.
+    if (!spriteImage) {
+      const evolutionStage = getUnitProgress(loadPlayerProgress(), type).evolutionStage;
+      if (evolutionStage > 0) {
+        shape.setStrokeStyle(EVOLUTION_RING_WIDTH[evolutionStage], EVOLUTION_RING_COLOR[evolutionStage]);
+      }
+    }
+
+    this.playerUnits.push(this.makeEntityState(type, config, shape, label, spriteImage, true));
+  }
+
+  // Builds this entity's visual: real sprite art if its config gave it one
+  // (Starter Axies for units, PvE Chimeras for enemies — see UNIT_CONFIG.js/
+  // ENEMY_CONFIG.js's `sprite` field), otherwise the original colored-
+  // circle-plus-letter placeholder (only used now if a future roster entry
+  // ships with sprite: null). Both forms expose the same `.x`/`.setVisible`
+  // surface so all the position/movement code elsewhere never needs to know
+  // which one it has.
+  //
+  // `isPlayerSide` controls both the texture-key prefix (see preload's
+  // comment on why unit/enemy keys can't share a bare `config.id`) and
+  // facing: every pose was rendered facing screen-left (see
+  // tools/sprite-gen) — that's already correct for an enemy (which walks/
+  // attacks leftward, toward the player base) but backwards for a player
+  // unit (which walks/attacks rightward), so only player-side sprites get
+  // flipped horizontally. setFlipX is a property of the Image object
+  // itself, not the texture, so it survives every later setEntityPose
+  // texture swap without needing to be re-applied.
+  createEntityVisual(x, config, labelColor, isPlayerSide) {
+    if (config.sprite) {
+      const prefix = isPlayerSide ? 'unit' : 'enemy';
+      const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}_idle`);
+      sprite.setFlipX(isPlayerSide);
+      this.fitSpriteToRadius(sprite, config.radius);
+      return { shape: sprite, label: null, spriteImage: sprite };
+    }
 
     const shape = this.add.circle(x, this.laneY, config.radius, config.color);
-    // Evolution-stage visual cue (no sprites yet — see UNIT_CONFIG.js's
-    // `sprite` field): an evolved/True Form unit gets a stroked ring around
-    // its placeholder shape instead of new art.
-    const evolutionStage = getUnitProgress(loadPlayerProgress(), type).evolutionStage;
-    if (evolutionStage > 0) {
-      shape.setStrokeStyle(EVOLUTION_RING_WIDTH[evolutionStage], EVOLUTION_RING_COLOR[evolutionStage]);
-    }
     const label = this.add.text(x, this.laneY, config.label, {
-      fontSize: '16px',
-      color: '#000000',
+      fontFamily: 'Rowdies, sans-serif', fontSize: '16px',
+      color: labelColor,
     }).setOrigin(0.5);
+    return { shape, label, spriteImage: null };
+  }
 
-    this.playerUnits.push(this.makeEntityState(type, config, shape, label));
+  // Scales a freshly-textured sprite so every unit reads at a sensible,
+  // consistent on-screen size — see SPRITE_MIN_DIAMETER/SPRITE_SIZE_SLOPE's
+  // comment for why this is a floor-plus-gentle-slope rather than a plain
+  // multiple of `radius`.
+  fitSpriteToRadius(sprite, radius) {
+    const targetSize = SPRITE_MIN_DIAMETER + Math.max(0, radius - SPRITE_MIN_RADIUS) * SPRITE_SIZE_SLOPE;
+    sprite.setScale(targetSize / Math.max(sprite.width, sprite.height));
   }
 
   // Stage mode: fixed script — no randomness, no tier-based auto-scaling.
@@ -953,7 +1029,7 @@ export default class GameScene extends Phaser.Scene {
   showBossWarning() {
     const { width, height } = this.scale;
     const text = this.add
-      .text(width / 2, height / 2 - 60, 'BOSS!', { fontSize: '40px', color: '#ff3333', fontStyle: 'bold' })
+      .text(width / 2, height / 2 - 60, 'BOSS!', { fontFamily: 'Rowdies, sans-serif', fontSize: '40px', color: '#ff3333', fontStyle: 'bold' })
       .setOrigin(0.5)
       .setAlpha(0);
 
@@ -980,24 +1056,28 @@ export default class GameScene extends Phaser.Scene {
 
   createEnemy(type, config) {
     const x = this.enemyBaseX - BASE_WIDTH / 2 - config.radius;
+    const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#ffffff', false);
 
-    const shape = this.add.circle(x, this.laneY, config.radius, config.color);
-    const label = this.add.text(x, this.laneY, config.label, {
-      fontSize: '16px',
-      color: '#ffffff',
-    }).setOrigin(0.5);
-
-    this.enemies.push(this.makeEntityState(type, config, shape, label));
+    this.enemies.push(this.makeEntityState(type, config, shape, label, spriteImage));
   }
 
   // Shared initial-state shape for both player units and enemies (bible
   // Part C's Unit/Enemy schemas share the same combat-relevant fields).
-  makeEntityState(type, config, shape, label) {
+  makeEntityState(type, config, shape, label, spriteImage = null, isPlayerSide = false) {
     return {
       type,
       config,
       shape,
       label,
+      // Real sprite art (see createEntityVisual) or null for a circle
+      // placeholder — currentPose tracks which of idle/attack/hit texture
+      // is currently showing so setEntityPose can skip redundant
+      // setTexture calls. See updateEntityPoses/getDesiredPose/setEntityPose.
+      // isPlayerSide is only needed here so setEntityPose can rebuild the
+      // same 'unit_'/'enemy_' prefixed texture key createEntityVisual used.
+      spriteImage,
+      isPlayerSide,
+      currentPose: spriteImage ? 'idle' : null,
       hp: config.hp,
       // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
       // tickCombatPhase. null/0 means "not yet started a windup."
@@ -1104,6 +1184,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
+    this.updateEntityPoses();
 
     // Sparring Grounds' base is invincible (see damageBase/damageEnemyBase),
     // so its HP is always Infinity — shown as "∞/∞" rather than a literal
@@ -1228,7 +1309,7 @@ export default class GameScene extends Phaser.Scene {
       } else if (!unit.target) {
         const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * deltaMs) / 1000;
         unit.shape.x = Math.min(width - unit.config.radius, unit.shape.x + moveStep);
-        unit.label.x = unit.shape.x;
+        if (unit.label) unit.label.x = unit.shape.x;
       }
     }
 
@@ -1280,7 +1361,7 @@ export default class GameScene extends Phaser.Scene {
       } else if (!enemy.target) {
         const moveStep = (enemy.config.moveSpeed * enemy.slowMultiplier * deltaMs) / 1000;
         enemy.shape.x -= moveStep;
-        enemy.label.x = enemy.shape.x;
+        if (enemy.label) enemy.label.x = enemy.shape.x;
       }
     }
 
@@ -1318,6 +1399,36 @@ export default class GameScene extends Phaser.Scene {
     // Accounting Base Upgrade (bible §A.7.1) — % more money per kill.
     const bonus = enemy.config.threat * MONEY_CONFIG.killBonusMultiplier * (1 + this.accountingBonusPercent / 100);
     this.money = Math.min(this.getWalletCap(), this.money + bonus);
+  }
+
+  // Pose swap ("make the movements more interesting... when knocked back,
+  // they can have a surprised look"): a standalone pass over both rosters,
+  // run every frame after updatePlayerUnits/updateEnemies have resolved this
+  // frame's knockback/attack-phase state, rather than threaded into that
+  // branchy per-unit logic (several of its paths `continue` before reaching
+  // the end of the loop body). Entities without a sprite (every enemy today
+  // — see UNIT_CONFIG.js's `sprite` field) are silently no-ops here.
+  updateEntityPoses() {
+    for (const unit of this.playerUnits) this.setEntityPose(unit, this.getDesiredPose(unit));
+    for (const enemy of this.enemies) this.setEntityPose(enemy, this.getDesiredPose(enemy));
+  }
+
+  // hit (dazed/surprised) beats attack (mid-swing) beats idle — a dead
+  // entity is left on whatever pose it last had; removeDead destroys it
+  // this same frame regardless.
+  getDesiredPose(entity) {
+    if (entity.hp <= 0) return entity.currentPose;
+    if (entity.knockbackMs > 0) return 'hit';
+    if (entity.attackPhase === 'windup') return 'attack';
+    return 'idle';
+  }
+
+  setEntityPose(entity, pose) {
+    if (!entity.spriteImage || entity.currentPose === pose) return;
+    entity.currentPose = pose;
+    const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
+    entity.spriteImage.setTexture(`${prefix}_${entity.config.id}_${pose}`);
+    this.fitSpriteToRadius(entity.spriteImage, entity.config.radius);
   }
 
   // Advances one attacker's foreswing/backswing attack cycle (bible §A.3.4,
@@ -1566,7 +1677,7 @@ export default class GameScene extends Phaser.Scene {
     const { width } = this.scale;
     const step = entity.knockbackVelocity * Math.min(deltaMs, entity.knockbackMs);
     entity.shape.x = Math.max(entity.config.radius, Math.min(width - entity.config.radius, entity.shape.x + step));
-    entity.label.x = entity.shape.x;
+    if (entity.label) entity.label.x = entity.shape.x;
 
     entity.knockbackMs = Math.max(0, entity.knockbackMs - deltaMs);
   }
@@ -1666,7 +1777,7 @@ export default class GameScene extends Phaser.Scene {
     if (entity.warpMs > 0) {
       entity.warpMs = Math.max(0, entity.warpMs - deltaMs);
       entity.shape.setVisible(false);
-      entity.label.setVisible(false);
+      if (entity.label) entity.label.setVisible(false);
 
       if (entity.warpMs === 0) {
         const { width } = this.scale;
@@ -1674,21 +1785,34 @@ export default class GameScene extends Phaser.Scene {
           entity.config.radius,
           Math.min(width - entity.config.radius, entity.shape.x + entity.warpOffset),
         );
-        entity.label.x = entity.shape.x;
+        if (entity.label) entity.label.x = entity.shape.x;
         entity.warpOffset = 0;
         entity.shape.setVisible(true);
-        entity.label.setVisible(true);
+        if (entity.label) entity.label.setVisible(true);
       } else {
         return; // stays invisible — no point resolving a tint this frame
       }
     }
 
-    if (entity.dodgeMs > 0) entity.shape.fillColor = STATUS_DODGE_COLOR;
-    else if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;
-    else if (entity.curseMs > 0) entity.shape.fillColor = STATUS_CURSE_COLOR;
-    else if (entity.slowMs > 0) entity.shape.fillColor = STATUS_SLOW_COLOR;
-    else if (entity.weakenMs > 0) entity.shape.fillColor = STATUS_WEAKEN_COLOR;
-    else entity.shape.fillColor = entity.config.color;
+    // Status tint: a circle placeholder recolors its fill; a sprite-art
+    // entity (see UNIT_CONFIG.js's `sprite` field) tints its texture instead
+    // — Image doesn't have `fillColor`, and setTint/clearTint is the sprite
+    // equivalent of "recolor, then restore to normal."
+    if (entity.spriteImage) {
+      if (entity.dodgeMs > 0) entity.spriteImage.setTint(STATUS_DODGE_COLOR);
+      else if (entity.stopMs > 0) entity.spriteImage.setTint(STATUS_STOP_COLOR);
+      else if (entity.curseMs > 0) entity.spriteImage.setTint(STATUS_CURSE_COLOR);
+      else if (entity.slowMs > 0) entity.spriteImage.setTint(STATUS_SLOW_COLOR);
+      else if (entity.weakenMs > 0) entity.spriteImage.setTint(STATUS_WEAKEN_COLOR);
+      else entity.spriteImage.clearTint();
+    } else {
+      if (entity.dodgeMs > 0) entity.shape.fillColor = STATUS_DODGE_COLOR;
+      else if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;
+      else if (entity.curseMs > 0) entity.shape.fillColor = STATUS_CURSE_COLOR;
+      else if (entity.slowMs > 0) entity.shape.fillColor = STATUS_SLOW_COLOR;
+      else if (entity.weakenMs > 0) entity.shape.fillColor = STATUS_WEAKEN_COLOR;
+      else entity.shape.fillColor = entity.config.color;
+    }
   }
 
   // Resolves one hit's damage against `defender`'s trait, including this
@@ -1792,7 +1916,7 @@ export default class GameScene extends Phaser.Scene {
       if (list[i].hp <= 0) {
         const entity = list[i];
         entity.shape.destroy();
-        entity.label.destroy();
+        if (entity.label) entity.label.destroy();
         list.splice(i, 1);
         if (onKill) onKill(entity);
       }
@@ -1832,7 +1956,7 @@ export default class GameScene extends Phaser.Scene {
     objects.push(
       this.add
         .text(width / 2, height / 2 - 50, `Your base was destroyed!\nContinue for ${cost} Gems?`, {
-          fontSize: '18px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
           color: '#ffffff',
           align: 'center',
         })
@@ -1846,7 +1970,7 @@ export default class GameScene extends Phaser.Scene {
     objects.push(
       continueButton,
       this.add
-        .text(width / 2 - 90, buttonY, `Continue\n${cost} Gems`, { fontSize: '14px', color: '#000000', align: 'center' })
+        .text(width / 2 - 90, buttonY, `Continue\n${cost} Gems`, { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#000000', align: 'center' })
         .setOrigin(0.5),
     );
 
@@ -1855,7 +1979,7 @@ export default class GameScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     objects.push(
       declineButton,
-      this.add.text(width / 2 + 90, buttonY, 'No Thanks', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
+      this.add.text(width / 2 + 90, buttonY, 'No Thanks', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
     );
 
     continueButton.on('pointerdown', () => {
@@ -2014,7 +2138,7 @@ export default class GameScene extends Phaser.Scene {
       const textColor = label === 'Next Stage' ? '#000000' : '#ffffff';
 
       const button = this.add.rectangle(x, buttonY, buttonWidth, 60, color).setInteractive({ useHandCursor: true });
-      this.add.text(x, buttonY, label, { fontSize: '20px', color: textColor }).setOrigin(0.5);
+      this.add.text(x, buttonY, label, { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: textColor }).setOrigin(0.5);
 
       if (label === 'Restart') {
         button.on('pointerdown', () => this.scene.restart());

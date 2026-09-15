@@ -1,0 +1,19 @@
+{
+  "name": "sprite-gen",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite --port 5180"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@axieinfinity/mixer": "^1.4.9",
+    "pixi-spine": "^4.0.3",
+    "pixi.js": "^7.2.4",
+    "vite": "^5.4.0"
+  }
+}
