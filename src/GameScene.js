@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
+import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
@@ -209,24 +210,15 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // Real sprite art — Starter Axies for UNIT_CONFIG, PvE Chimeras for
-  // ENEMY_CONFIG (see each file's `sprite` field) — loaded once per texture
-  // key. Guarded by textures.exists since this scene restarts fresh for
-  // every battle and Phaser would otherwise re-fetch (and warn about)
-  // already-cached textures each time. Keys are prefixed 'unit_'/'enemy_'
-  // rather than bare `${config.id}` because UNIT_CONFIG and ENEMY_CONFIG
-  // share several literal id values (e.g. both have 'tank', 'basic',
-  // 'ranged') — see createEntityVisual/setEntityPose, which build/read the
-  // exact same prefixed keys.
+  // ENEMY_CONFIG (see each file's `sprite` field and SpriteIcon.js) —
+  // loaded once per texture key. Guarded by textures.exists (inside
+  // preloadSpriteRoster) since this scene restarts fresh for every battle
+  // and Phaser would otherwise re-fetch (and warn about) already-cached
+  // textures each time; also shared with any other scene (e.g.
+  // LoadoutScene) that preloads the same roster for its own portraits.
   preload() {
-    for (const [prefix, roster] of [['unit', UNIT_CONFIG], ['enemy', ENEMY_CONFIG]]) {
-      for (const config of Object.values(roster)) {
-        if (!config.sprite) continue;
-        for (const pose of ['idle', 'attack', 'hit']) {
-          const key = `${prefix}_${config.id}_${pose}`;
-          if (!this.textures.exists(key)) this.load.image(key, config.sprite[pose]);
-        }
-      }
-    }
+    preloadSpriteRoster(this, UNIT_CONFIG, true);
+    preloadSpriteRoster(this, ENEMY_CONFIG, false);
   }
 
   create(data) {
@@ -527,8 +519,18 @@ export default class GameScene extends Phaser.Scene {
         .rectangle(x, y, buttonWidth, BUTTON_HEIGHT, config.color)
         .setInteractive({ useHandCursor: true });
 
+      // Portrait icon (bible's "cooldown fill on a unit's deploy icon"
+      // framing implies real per-unit art on these buttons, matching the
+      // reference game) — sits in the button's middle, with the name/cost
+      // text squeezed to the top/bottom edges to make room. Falls back to
+      // the original centered-text-only layout for any unit with no
+      // sprite (none currently, but keeps this robust to a future entry).
+      const icon = addUnitIcon(this, x, y - 2, config, BUTTON_HEIGHT - 22);
+      const labelY = icon ? y - BUTTON_HEIGHT / 2 + 9 : y - 14;
+      const costY = icon ? y + BUTTON_HEIGHT / 2 - 9 : y + 14;
+
       const labelText = this.add
-        .text(x, y - 14, config.displayName, {
+        .text(x, labelY, config.displayName, {
           fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '10px' : '13px',
           color: '#ffffff',
           align: 'center',
@@ -537,7 +539,7 @@ export default class GameScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       const costText = this.add
-        .text(x, y + 14, `${Math.round(config.cost).toLocaleString()}円`, {
+        .text(x, costY, `${Math.round(config.cost).toLocaleString()}円`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
           color: '#ffffff',
         })
@@ -553,7 +555,7 @@ export default class GameScene extends Phaser.Scene {
 
       rect.on('pointerdown', () => this.trySpawnUnit(key));
 
-      return { key, config, rect, labelText, costText, cooldownOverlay };
+      return { key, config, rect, icon, labelText, costText, cooldownOverlay };
     });
   }
 
@@ -1217,6 +1219,7 @@ export default class GameScene extends Phaser.Scene {
       const alpha = affordable ? 1 : 0.4;
 
       button.rect.setAlpha(alpha);
+      if (button.icon) button.icon.setAlpha(alpha);
       button.labelText.setAlpha(alpha);
       button.costText.setAlpha(alpha);
 

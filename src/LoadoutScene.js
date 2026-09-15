@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
+import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { getUnitProgress, loadPlayerProgress } from './PlayerProgress.js';
 import {
@@ -29,6 +30,14 @@ const ROW_GAP = 118;
 export default class LoadoutScene extends Phaser.Scene {
   constructor() {
     super('LoadoutScene');
+  }
+
+  // Same roster art GameScene battles use (see SpriteIcon.js) — loaded
+  // here too since a player can reach this screen without ever having
+  // started GameScene yet, and Phaser's texture cache is per-load, not
+  // pre-populated just because another scene also uses the same keys.
+  preload() {
+    preloadSpriteRoster(this, UNIT_CONFIG, true);
   }
 
   create() {
@@ -183,22 +192,31 @@ export default class LoadoutScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
 
     const label = this.add
-      .text(x, y - 30, config.displayName, {
+      .text(x, y - CARD_HEIGHT / 2 + 11, config.displayName, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
         color: '#000000',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
       .setOrigin(0.5);
+
+    // Portrait icon, squeezed between the name and the level/status text —
+    // see SpriteIcon.js. levelLabel moves down next to statusLabel to make
+    // room (both now share the card's bottom edge instead of levelLabel
+    // sitting dead-center).
+    const icon = addUnitIcon(this, x, y - 4, config, CARD_HEIGHT - 46);
+
     const levelLabel = this.add
-      .text(x, y, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
+      .text(x, y + CARD_HEIGHT / 2 - 22, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
       .setOrigin(0.5);
     const statusLabel = this.add
-      .text(x, y + 30, isSelected ? 'IN FORMATION' : 'benched', {
+      .text(x, y + CARD_HEIGHT / 2 - 9, isSelected ? 'IN FORMATION' : 'benched', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: isSelected ? '#003300' : '#000000',
       })
       .setOrigin(0.5);
+
+    if (icon) icon.setAlpha(isSelected ? 1 : 0.3);
 
     // Pin (bible §A.10.3) — its own small badge in the card's corner, with
     // its own independent hit area; stopPropagation keeps a pin tap from
@@ -219,7 +237,9 @@ export default class LoadoutScene extends Phaser.Scene {
 
     card.on('pointerdown', () => this.toggleUnit(type));
 
-    this.cardContainer.add([card, label, levelLabel, statusLabel, pinBadge, pinLabel]);
+    const objects = [card, label, levelLabel, statusLabel, pinBadge, pinLabel];
+    if (icon) objects.splice(2, 0, icon); // between the name and the level/status text, in front of the card
+    this.cardContainer.add(objects);
   }
 
   toggleUnit(type) {
