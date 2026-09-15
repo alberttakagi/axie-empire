@@ -115,6 +115,15 @@ const SPRITE_MIN_DIAMETER = 44;
 const SPRITE_MIN_RADIUS = 10; // swarm — the smallest unit's radius
 const SPRITE_SIZE_SLOPE = 1.1; // px of extra diameter per point of radius above the min
 
+// A scripted boss (STAGE_CONFIG entries with isBoss: true) is otherwise
+// pixel-identical to its normal namesake enemy aside from a big hp
+// multiplier — the shockwave/warning flash at the moment it spawns is a
+// one-time announcement, not an ongoing visual cue for the rest of the
+// fight. A straightforward size bump (visual only — its actual gameplay
+// radius/hitbox is untouched, so this doesn't change combat/spacing at
+// all) keeps it reading as "the big one" for as long as it's alive.
+const BOSS_VISUAL_SCALE_MULTIPLIER = 1.6;
+
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
 
@@ -969,12 +978,14 @@ export default class GameScene extends Phaser.Scene {
   // flipped horizontally. setFlipX is a property of the Image object
   // itself, not the texture, so it survives every later setEntityPose
   // texture swap without needing to be re-applied.
-  createEntityVisual(x, config, labelColor, isPlayerSide) {
+  // `visualScaleMultiplier` (default 1) is a pure display multiplier on top
+  // of the usual radius-based fit — see BOSS_VISUAL_SCALE_MULTIPLIER.
+  createEntityVisual(x, config, labelColor, isPlayerSide, visualScaleMultiplier = 1) {
     if (config.sprite) {
       const prefix = isPlayerSide ? 'unit' : 'enemy';
       const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}_idle`);
       sprite.setFlipX(isPlayerSide);
-      this.fitSpriteToRadius(sprite, config.radius);
+      this.fitSpriteToRadius(sprite, config.radius, visualScaleMultiplier);
       return { shape: sprite, label: null, spriteImage: sprite };
     }
 
@@ -990,8 +1001,9 @@ export default class GameScene extends Phaser.Scene {
   // consistent on-screen size — see SPRITE_MIN_DIAMETER/SPRITE_SIZE_SLOPE's
   // comment for why this is a floor-plus-gentle-slope rather than a plain
   // multiple of `radius`.
-  fitSpriteToRadius(sprite, radius) {
-    const targetSize = SPRITE_MIN_DIAMETER + Math.max(0, radius - SPRITE_MIN_RADIUS) * SPRITE_SIZE_SLOPE;
+  fitSpriteToRadius(sprite, radius, visualScaleMultiplier = 1) {
+    const targetSize =
+      (SPRITE_MIN_DIAMETER + Math.max(0, radius - SPRITE_MIN_RADIUS) * SPRITE_SIZE_SLOPE) * visualScaleMultiplier;
     sprite.setScale(targetSize / Math.max(sprite.width, sprite.height));
   }
 
@@ -1005,7 +1017,7 @@ export default class GameScene extends Phaser.Scene {
       hp: Math.round(base.hp * entry.statMultiplier),
     };
 
-    this.createEnemy(entry.enemyId, config);
+    this.createEnemy(entry.enemyId, config, entry.isBoss);
 
     if (entry.isBoss) this.triggerBossShockwave();
   }
@@ -1056,16 +1068,17 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  createEnemy(type, config) {
+  createEnemy(type, config, isBoss = false) {
     const x = this.enemyBaseX - BASE_WIDTH / 2 - config.radius;
-    const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#ffffff', false);
+    const visualScaleMultiplier = isBoss ? BOSS_VISUAL_SCALE_MULTIPLIER : 1;
+    const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#ffffff', false, visualScaleMultiplier);
 
-    this.enemies.push(this.makeEntityState(type, config, shape, label, spriteImage));
+    this.enemies.push(this.makeEntityState(type, config, shape, label, spriteImage, false, visualScaleMultiplier));
   }
 
   // Shared initial-state shape for both player units and enemies (bible
   // Part C's Unit/Enemy schemas share the same combat-relevant fields).
-  makeEntityState(type, config, shape, label, spriteImage = null, isPlayerSide = false) {
+  makeEntityState(type, config, shape, label, spriteImage = null, isPlayerSide = false, visualScaleMultiplier = 1) {
     return {
       type,
       config,
@@ -1077,8 +1090,12 @@ export default class GameScene extends Phaser.Scene {
       // setTexture calls. See updateEntityPoses/getDesiredPose/setEntityPose.
       // isPlayerSide is only needed here so setEntityPose can rebuild the
       // same 'unit_'/'enemy_' prefixed texture key createEntityVisual used.
+      // visualScaleMultiplier likewise lets setEntityPose re-apply a boss's
+      // size bump (see BOSS_VISUAL_SCALE_MULTIPLIER) on every pose swap,
+      // since fitSpriteToRadius would otherwise reset it to the normal size.
       spriteImage,
       isPlayerSide,
+      visualScaleMultiplier,
       currentPose: spriteImage ? 'idle' : null,
       hp: config.hp,
       // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
@@ -1431,7 +1448,7 @@ export default class GameScene extends Phaser.Scene {
     entity.currentPose = pose;
     const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
     entity.spriteImage.setTexture(`${prefix}_${entity.config.id}_${pose}`);
-    this.fitSpriteToRadius(entity.spriteImage, entity.config.radius);
+    this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
   }
 
   // Advances one attacker's foreswing/backswing attack cycle (bible §A.3.4,
