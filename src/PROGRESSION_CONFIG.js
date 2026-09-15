@@ -54,12 +54,18 @@
 //                     and shaves a little off redeploy time; a full roster
 //                     would author a bespoke ability diff per unit instead
 //                     of this uniform bump.
+//
+// Separate from the above: PartEvolution.js layers a purely cosmetic,
+// level-driven (not evoShard-driven) progression on top — one of a unit's
+// 6 Axie body parts "evolves" every 10 levels, in a fixed order, up to all
+// 6 by level 60 (baseLevelCap + maxExtraCap below). See that file for why
+// it's a glow effect rather than swapped-in evolved part art.
 
 export const PROGRESSION_CONFIG = {
   basic: {
     rarity: 'Normal',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.08,
     xpCostBase: 100,
     evolutions: [
@@ -78,8 +84,8 @@ export const PROGRESSION_CONFIG = {
   },
   fast: {
     rarity: 'Rare',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.06,
     xpCostBase: 1000,
     evolutions: [
@@ -98,8 +104,8 @@ export const PROGRESSION_CONFIG = {
   },
   tank: {
     rarity: 'Normal',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.08,
     xpCostBase: 200,
     evolutions: [
@@ -118,8 +124,8 @@ export const PROGRESSION_CONFIG = {
   },
   ranged: {
     rarity: 'Rare',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.07,
     xpCostBase: 800,
     evolutions: [
@@ -138,8 +144,8 @@ export const PROGRESSION_CONFIG = {
   },
   aoe: {
     rarity: 'Super Rare',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.05,
     xpCostBase: 1300,
     evolutions: [
@@ -162,8 +168,8 @@ export const PROGRESSION_CONFIG = {
   // as the original five, just keyed off each new unit's own rarity tier.
   swarm: {
     rarity: 'Normal',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.08,
     xpCostBase: 50,
     evolutions: [
@@ -182,8 +188,8 @@ export const PROGRESSION_CONFIG = {
   },
   sniper: {
     rarity: 'Rare',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.06,
     xpCostBase: 900,
     evolutions: [
@@ -202,8 +208,8 @@ export const PROGRESSION_CONFIG = {
   },
   guardian: {
     rarity: 'Normal',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.08,
     xpCostBase: 250,
     evolutions: [
@@ -222,8 +228,8 @@ export const PROGRESSION_CONFIG = {
   },
   support: {
     rarity: 'Rare',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.07,
     xpCostBase: 600,
     evolutions: [
@@ -242,8 +248,8 @@ export const PROGRESSION_CONFIG = {
   },
   titan: {
     rarity: 'Super Rare',
-    baseLevelCap: 10,
-    maxExtraCap: 10,
+    baseLevelCap: 30,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.05,
     xpCostBase: 1500,
     evolutions: [

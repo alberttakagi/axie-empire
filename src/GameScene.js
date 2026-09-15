@@ -28,6 +28,7 @@ import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treas
 import { loadLoadout } from './Loadout.js';
 import { trySpendEnergy } from './Energy.js';
 import { getComboBonusValue } from './Combo.js';
+import { getEvolvedPartCount } from './PartEvolution.js';
 import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
 import {
@@ -966,7 +967,23 @@ export default class GameScene extends Phaser.Scene {
     // points as `label` (see tickKnockback/tickStatusEffects/removeDead and
     // the unit-movement branch below) and destroyed alongside it.
     let evolutionBadge = null;
-    const evolutionStage = getUnitProgress(loadPlayerProgress(), type).evolutionStage;
+    const unitProgress = getUnitProgress(loadPlayerProgress(), type);
+    const evolutionStage = unitProgress.evolutionStage;
+
+    // Part evolution (see PartEvolution.js): a purely cosmetic, level-driven
+    // progression independent of the evoShard-driven evolutionStage above —
+    // one of the unit's 6 Axie body parts "evolves" every 10 levels. The
+    // specific evolved-part art for each Starter's ACTUAL parts isn't
+    // available (see that file's comment on why), so for now this shows as
+    // a golden glow whose strength scales with how many parts have evolved,
+    // rather than swapped-in mismatched substitute art.
+    if (spriteImage) {
+      const evolvedPartCount = getEvolvedPartCount(unitProgress.level);
+      if (evolvedPartCount > 0) {
+        spriteImage.postFX.addGlow(0xffdd33, 1 + evolvedPartCount * 0.7, 0, false, 0.1, 12);
+      }
+    }
+
     if (evolutionStage > 0) {
       if (spriteImage) {
         evolutionBadge = this.add

@@ -10,7 +10,14 @@
 import { Application, Assets, Texture } from 'pixi.js';
 import { Spine, TextureAtlas } from 'pixi-spine';
 import { AtlasAttachmentLoader, SkeletonJson, SkeletonBinary } from '@pixi-spine/runtime-3.8';
-import { initAxieMixer, getAxieSpineFromCombo, getAxieColorPartShift, getVariantAttachmentPath, genesStuff } from '@axieinfinity/mixer';
+import {
+  initAxieMixer,
+  getAxieSpineFromCombo,
+  getAxieColorPartShift,
+  getVariantAttachmentPath,
+  getAxieBodyStructure512,
+  genesStuff,
+} from '@axieinfinity/mixer';
 
 import GenesData from '@axieinfinity/mixer/dist/data/axie-2d-v3-stuff-genes.json';
 import SamplesData from '@axieinfinity/mixer/dist/data/axie-2d-v3-stuff-samples.json';
@@ -64,6 +71,93 @@ function buildPureClassCombo(characterClass, partValue) {
 
   return genesStuff.getAdultCombo(bodyStructure);
 }
+
+// Builds a combo matching one Starter Axie's REAL body, decoded straight
+// from its actual gene hex string (pve-starters.json's `genes` field —
+// the same authoritative source the Starter's own pre-baked Spine
+// skeleton was built from), with one chosen part's `stage` set to 1
+// instead of 0 — the mixer's own native "Lv2" part-evolution mechanic
+// (see AxiePartStructure.stage/AxiePartSample.skinsLv2 in
+// @axieinfinity/mixer's type defs): each part's gene data ships both a
+// base skin and a distinct "-lv2" skin, selected by this exact field.
+// (An earlier attempt hand-parsed pve-starters.json's descriptive
+// eyesId/earsId/etc. strings like "beast-eyes-03" into class+partValue —
+// those turned out to be a DIFFERENT id namespace than the generic
+// mixer's own partValue numbering and didn't reliably resolve via
+// genesStuff.findPart, hence decoding the real gene hex instead.)
+// `evolvedPartType` is one of 'Eyes'/'Mouth'/'Ears'/'Horn'/'Back'/'Tail',
+// or null for the unevolved baseline render.
+function buildStarterCombo(starterEntry, evolvedPartType) {
+  const bodyStructure = getAxieBodyStructure512(starterEntry.genes);
+  if (evolvedPartType) {
+    bodyStructure.parts[evolvedPartType].stage = 1;
+  }
+  return genesStuff.getAdultCombo(bodyStructure);
+}
+
+window.debugPureCombo = function debugPureCombo(characterClass, partValue) {
+  const combo = buildPureClassCombo(characterClass, partValue);
+  return Object.fromEntries(combo);
+};
+
+window.debugFindPart = function debugFindPart(partClass, partType, partValue) {
+  const sample = genesStuff.findPart(partClass, partType, partValue);
+  return sample ? { class: sample.class, partType: sample.partType, partValue: sample.partValue, skins: sample.skins, skinsLv2: sample.skinsLv2 } : null;
+};
+
+window.debugDecodedBodyStructure = function debugDecodedBodyStructure(geneString) {
+  return getAxieBodyStructure512(geneString);
+};
+
+window.debugStarterCombo = function debugStarterCombo(starterEntry, evolvedPartType) {
+  const combo = buildStarterCombo(starterEntry, evolvedPartType);
+  const comboObj = Object.fromEntries(combo);
+  const result = getAxieSpineFromCombo(combo, 0, false);
+  return { comboObj, error: result.error, hasSkeletonDataAsset: !!result.skeletonDataAsset, variant: result.variant };
+};
+
+// Debug: renders directly from a raw AxieBodyStructure (bypassing gene
+// decoding) — for testing the stage/skinsLv2 mechanic in isolation with
+// synthetic part values.
+window.renderFromBodyStructure = async function renderFromBodyStructure(bodyStructure, animationName = 'action/idle/normal') {
+  app.stage.removeChildren();
+  const combo = genesStuff.getAdultCombo(bodyStructure);
+  const { error, skeletonDataAsset, variant } = getAxieSpineFromCombo(combo, 0, false);
+  if (error) throw new Error(error);
+  const spine = await createAxieSpine(skeletonDataAsset, variant);
+  spine.position.set(256, 340);
+  spine.scale.set(0.55, 0.55);
+  if (spine.state.data.skeletonData.animations.some((a) => a.name === animationName)) {
+    spine.state.setAnimation(0, animationName, false);
+  }
+  app.stage.addChild(spine);
+  spine.update(0.016);
+  app.renderer.render(app.stage);
+  return app.renderer.extract.base64(app.stage);
+};
+
+window.renderStarterEvolvedPart = async function renderStarterEvolvedPart(
+  starterEntry,
+  evolvedPartType,
+  animationName = 'action/idle/normal',
+  colorVariant = 0,
+) {
+  app.stage.removeChildren();
+  const combo = buildStarterCombo(starterEntry, evolvedPartType);
+  const { error, skeletonDataAsset, variant } = getAxieSpineFromCombo(combo, colorVariant, false);
+  if (error) throw new Error(error);
+
+  const spine = await createAxieSpine(skeletonDataAsset, variant);
+  spine.position.set(256, 340);
+  spine.scale.set(0.55, 0.55);
+  if (spine.state.data.skeletonData.animations.some((a) => a.name === animationName)) {
+    spine.state.setAnimation(0, animationName, false);
+  }
+  app.stage.addChild(spine);
+  spine.update(0.016);
+  app.renderer.render(app.stage);
+  return app.renderer.extract.base64(app.stage);
+};
 
 async function createAxieSpine(skeletonDataAsset, variant) {
   const skinAttachments = skeletonDataAsset.skins[0].attachments;
@@ -228,6 +322,27 @@ async function loadStarterSkeletonData(axieId) {
 window.listStarterAnimations = async function listStarterAnimations(axieId) {
   const skeletonData = await loadStarterSkeletonData(axieId);
   return skeletonData.animations.map((a) => ({ name: a.name, duration: a.duration }));
+};
+
+// Debug: lists every slot name + its default (setup-pose) attachment name
+// for a Starter skeleton — to check whether body-part slots (eyes/ears/
+// horn/mouth/back/tail) expose more than one attachment each (which would
+// mean alternate/evolved-part art actually exists in this skeleton).
+window.debugStarterSlots = async function debugStarterSlots(axieId) {
+  const skeletonData = await loadStarterSkeletonData(axieId);
+  return skeletonData.slots.map((s) => ({ slot: s.name, attachment: s.attachmentName }));
+};
+
+// Debug: lists every region/attachment name defined in a Starter's atlas
+// page — a skeleton might reference only ONE per slot in its setup pose,
+// but the atlas page itself could still contain unused alternate regions.
+window.debugStarterAtlasRegions = async function debugStarterAtlasRegions(axieId) {
+  const basePath = `/starters/${axieId}`;
+  const atlasText = await fetch(`${basePath}/${axieId}.atlas`).then((r) => r.text());
+  return atlasText
+    .split('\n')
+    .filter((line) => line && !line.startsWith(' ') && !line.includes('.png') && !line.includes(':'))
+    .map((line) => line.trim());
 };
 
 // poseFraction: how far into the animation's duration to freeze the pose for
