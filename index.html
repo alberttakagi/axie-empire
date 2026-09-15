@@ -5,6 +5,17 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Axie Skirmish</title>
+    <!-- Rowdies: Axie Infinity's own real UI font (bible §A.10.8's "bold
+         rounded typography... reads as playful" note, now the literal
+         actual typeface rather than an approximation) — a free Google Font,
+         so no asset hosting/licensing of our own to manage. Phaser's own
+         Text objects (see GameScene.js etc.) reference it by family name;
+         loading it here via a real stylesheet link (not just @font-face)
+         is what makes it available to the browser's canvas text renderer
+         those Text objects draw through. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Rowdies:wght@300;400;700&display=swap" rel="stylesheet" />
     <style>
       html, body {
         margin: 0;

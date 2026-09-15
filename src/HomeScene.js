@@ -30,7 +30,7 @@ export default class HomeScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     this.add
-      .text(width / 2, 40, 'Axie Skirmish', { fontSize: '28px', color: '#ffffff' })
+      .text(width / 2, 40, 'Axie Skirmish', { fontFamily: 'Rowdies, sans-serif', fontSize: '28px', color: '#ffffff' })
       .setOrigin(0.5);
 
     this.createStatusBar();
@@ -40,7 +40,7 @@ export default class HomeScene extends Phaser.Scene {
     this.createSoundToggle();
 
     this.messageText = this.add
-      .text(width / 2, height - 20, '', { fontSize: '13px', color: '#ffdd33' })
+      .text(width / 2, height - 20, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffdd33' })
       .setOrigin(0.5);
   }
 
@@ -50,34 +50,34 @@ export default class HomeScene extends Phaser.Scene {
 
     this.add
       .text(16, 20, `XP: ${Math.floor(playerProgress.xp).toLocaleString()}`, {
-        fontSize: '13px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
         color: '#ffdd33',
       })
       .setOrigin(0, 0.5);
     this.add
-      .text(16, 40, `Energy: ${current}/${cap}`, { fontSize: '13px', color: '#66ccff' })
+      .text(16, 40, `Energy: ${current}/${cap}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#66ccff' })
       .setOrigin(0, 0.5);
 
     const treasureButton = this.add
       .rectangle(this.scale.width - 60, 24, 96, 32, 0xcc9933)
       .setInteractive({ useHandCursor: true });
-    this.add.text(this.scale.width - 60, 24, 'Treasure', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(this.scale.width - 60, 24, 'Treasure', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
     treasureButton.on('pointerdown', () => this.scene.start('TreasureScene'));
 
     const gachaButton = this.add
       .rectangle(this.scale.width - 164, 24, 96, 32, 0x33aacc)
       .setInteractive({ useHandCursor: true });
-    this.add.text(this.scale.width - 164, 24, 'Gacha', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(this.scale.width - 164, 24, 'Gacha', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
     gachaButton.on('pointerdown', () => this.scene.start('GachaScene'));
 
     this.add
-      .text(16, 60, `Gems: ${playerProgress.gems.toLocaleString()}`, { fontSize: '13px', color: '#66ddff' })
+      .text(16, 60, `Gems: ${playerProgress.gems.toLocaleString()}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#66ddff' })
       .setOrigin(0, 0.5);
 
     // User Rank (bible §A.7.4) — a plain, always-visible "number that only
     // goes up" progression signal; see UserRank.js for why it gates nothing.
     this.add
-      .text(16, 80, `Rank: ${getUserRank().toLocaleString()}`, { fontSize: '13px', color: '#cc99ff' })
+      .text(16, 80, `Rank: ${getUserRank().toLocaleString()}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#cc99ff' })
       .setOrigin(0, 0.5);
   }
 
@@ -100,7 +100,7 @@ export default class HomeScene extends Phaser.Scene {
       const rect = this.add
         .rectangle(centerX, y, PRIMARY_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT, button.color)
         .setInteractive({ useHandCursor: true });
-      this.add.text(centerX, y, button.label, { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
+      this.add.text(centerX, y, button.label, { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
       rect.on('pointerdown', () => this.scene.start(button.scene));
     });
   }
@@ -123,7 +123,7 @@ export default class HomeScene extends Phaser.Scene {
     const y = (stackBottom + iconRowTop) / 2;
 
     const rect = this.add.rectangle(x, y, 200, 36, 0x669933).setInteractive({ useHandCursor: true });
-    this.add.text(x, y, 'Sparring Grounds', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(x, y, 'Sparring Grounds', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     rect.on('pointerdown', () => this.scene.start('GameScene', { mode: 'dojo' }));
   }
 
@@ -139,7 +139,7 @@ export default class HomeScene extends Phaser.Scene {
     icons.forEach((icon) => {
       const rect = this.add.circle(icon.x, y, 26, 0x444444).setInteractive({ useHandCursor: true });
       this.add
-        .text(icon.x, y + 36, icon.label, { fontSize: '11px', color: '#aaaaaa' })
+        .text(icon.x, y + 36, icon.label, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#aaaaaa' })
         .setOrigin(0.5);
       rect.on('pointerdown', () => this.showComingSoon(icon.label));
     });
@@ -154,7 +154,7 @@ export default class HomeScene extends Phaser.Scene {
     const y = 24;
 
     this.soundToggle = this.add.circle(x, y, 16, 0x444444).setInteractive({ useHandCursor: true });
-    this.soundToggleText = this.add.text(x, y, isMuted() ? '🔇' : '🔊', { fontSize: '14px' }).setOrigin(0.5);
+    this.soundToggleText = this.add.text(x, y, isMuted() ? '🔇' : '🔊', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px' }).setOrigin(0.5);
     this.soundToggle.on('pointerdown', () => {
       const muted = !isMuted();
       setMuted(muted);

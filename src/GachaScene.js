@@ -22,14 +22,14 @@ export default class GachaScene extends Phaser.Scene {
   create() {
     const { width } = this.scale;
 
-    this.add.text(width / 2, 20, 'Gacha', { fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2, 20, 'Gacha', { fontFamily: 'Rowdies, sans-serif', fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
 
     const backButton = this.add.rectangle(50, 20, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     backButton.on('pointerdown', () => this.scene.start('HomeScene'));
 
     this.gemsText = this.add
-      .text(width - 16, 20, '', { fontSize: '14px', color: '#66ddff' })
+      .text(width - 16, 20, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#66ddff' })
       .setOrigin(1, 0.5);
 
     this.createRollButton(width / 2 - 130, `Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`, () => rollSingle());
@@ -40,7 +40,7 @@ export default class GachaScene extends Phaser.Scene {
     );
 
     this.resultText = this.add.text(width / 2, 200, '', {
-      fontSize: '12px',
+      fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
       color: '#ffdd33',
       align: 'center',
       wordWrap: { width: width - 80 },
@@ -52,7 +52,7 @@ export default class GachaScene extends Phaser.Scene {
   createRollButton(x, label, rollFn) {
     const y = 100;
     const rect = this.add.rectangle(x, y, 220, 60, 0x9933cc).setInteractive({ useHandCursor: true });
-    this.add.text(x, y, label, { fontSize: '14px', color: '#ffffff', align: 'center' }).setOrigin(0.5);
+    this.add.text(x, y, label, { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff', align: 'center' }).setOrigin(0.5);
 
     rect.on('pointerdown', () => {
       const result = rollFn();

@@ -24,15 +24,15 @@ export default class TreasureScene extends Phaser.Scene {
     this.page = 0;
     this.rowContainer = this.add.container(0, 0);
 
-    this.add.text(width / 2, 20, 'Treasure Sets', { fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2, 20, 'Treasure Sets', { fontFamily: 'Rowdies, sans-serif', fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
 
     const backButton = this.add.rectangle(50, 20, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Home', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 20, 'Home', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     backButton.on('pointerdown', () => this.scene.start('HomeScene'));
 
     const pagerY = 365;
     const prevButton = this.add.rectangle(width / 2 - 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2 - 90, pagerY, '< Prev', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2 - 90, pagerY, '< Prev', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
     prevButton.on('pointerdown', () => {
       if (this.page > 0) {
         this.page -= 1;
@@ -41,7 +41,7 @@ export default class TreasureScene extends Phaser.Scene {
     });
 
     const nextButton = this.add.rectangle(width / 2 + 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2 + 90, pagerY, 'Next >', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2 + 90, pagerY, 'Next >', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
     nextButton.on('pointerdown', () => {
       const totalPages = Math.ceil(getTreasureSummary().length / SETS_PER_PAGE);
       if (this.page < totalPages - 1) {
@@ -50,7 +50,7 @@ export default class TreasureScene extends Phaser.Scene {
       }
     });
 
-    this.pageText = this.add.text(width / 2, pagerY, '', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
 
     this.refresh();
   }
@@ -76,7 +76,7 @@ export default class TreasureScene extends Phaser.Scene {
     rowObjects.push(
       this.add
         .text(30, y, `${set.name}  —  ${Math.round(completion * 100)}% complete`, {
-          fontSize: '16px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '16px',
           color: '#ffffff',
         })
         .setOrigin(0, 0.5),
@@ -89,7 +89,7 @@ export default class TreasureScene extends Phaser.Scene {
     rowObjects.push(
       this.add
         .text(30, y + 24, `Bonus: ${bonusLabel}  (max +${set.bonus.valueAtMax}% at 100%)`, {
-          fontSize: '12px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
           color: '#ffdd33',
         })
         .setOrigin(0, 0.5),
@@ -104,7 +104,7 @@ export default class TreasureScene extends Phaser.Scene {
       rowObjects.push(
         this.add
           .text(x, dotY + 20, stage.displayName, {
-            fontSize: '10px',
+            fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
             color: '#aaaaaa',
             align: 'center',
             wordWrap: { width: 130 },
@@ -114,7 +114,7 @@ export default class TreasureScene extends Phaser.Scene {
       rowObjects.push(
         this.add
           .text(x, dotY - 22, TIER_NAMES[stageTier.tier], {
-            fontSize: '9px',
+            fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
             color: '#888888',
           })
           .setOrigin(0.5, 1),

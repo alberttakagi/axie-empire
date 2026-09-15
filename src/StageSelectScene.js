@@ -42,7 +42,7 @@ export default class StageSelectScene extends Phaser.Scene {
 
     this.add
       .text(width / 2, 24, 'Select Stage', {
-        fontSize: '22px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '22px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
@@ -54,7 +54,7 @@ export default class StageSelectScene extends Phaser.Scene {
 
   createBackButton() {
     const rect = this.add.rectangle(50, 24, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 24, 'Sagas', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 24, 'Sagas', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     rect.on('pointerdown', () => this.scene.start('SagaSelectScene'));
   }
 
@@ -67,7 +67,7 @@ export default class StageSelectScene extends Phaser.Scene {
     const { current, cap } = getEnergyState();
     this.add
       .text(width - 16, 24, `Energy: ${current}/${cap}`, {
-        fontSize: '13px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
         color: '#66ccff',
       })
       .setOrigin(1, 0.5);
@@ -102,7 +102,7 @@ export default class StageSelectScene extends Phaser.Scene {
 
       this.add
         .text(x, y - 24, `${localIndex + 1}. ${stage.displayName}`, {
-          fontSize: '10px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
           color: '#ffffff',
           align: 'center',
           wordWrap: { width: CARD_WIDTH - 8 },
@@ -112,7 +112,7 @@ export default class StageSelectScene extends Phaser.Scene {
 
       this.add
         .text(x, y - 6, `${stage.difficulty}  ·  E:${stage.energyCost}`, {
-          fontSize: '9px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
           color: '#000000',
         })
         .setOrigin(0.5)
@@ -126,7 +126,7 @@ export default class StageSelectScene extends Phaser.Scene {
 
       this.add
         .text(x, y + 14, statusLabel, {
-          fontSize: '10px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
           color: '#ffffff',
         })
         .setOrigin(0.5)
@@ -150,7 +150,7 @@ export default class StageSelectScene extends Phaser.Scene {
           .circle(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 6, 0xcc3333)
           .setStrokeStyle(1, 0xffffff);
         this.add
-          .text(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 'R', { fontSize: '8px', color: '#ffffff' })
+          .text(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 'R', { fontFamily: 'Rowdies, sans-serif', fontSize: '8px', color: '#ffffff' })
           .setOrigin(0.5);
       }
 
@@ -209,7 +209,7 @@ export default class StageSelectScene extends Phaser.Scene {
     const lines = [`${stage.displayName}`, 'Restriction Stage:', ...this.formatRestrictionLines(stage.restrictions)];
     objects.push(
       this.add
-        .text(width / 2, height / 2 - 50, lines.join('\n'), { fontSize: '14px', color: '#ffffff', align: 'center' })
+        .text(width / 2, height / 2 - 50, lines.join('\n'), { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff', align: 'center' })
         .setOrigin(0.5),
     );
 
@@ -219,7 +219,7 @@ export default class StageSelectScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     objects.push(
       enterButton,
-      this.add.text(width / 2 - 80, buttonY, 'Enter Stage', { fontSize: '13px', color: '#000000' }).setOrigin(0.5),
+      this.add.text(width / 2 - 80, buttonY, 'Enter Stage', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#000000' }).setOrigin(0.5),
     );
 
     const cancelButton = this.add
@@ -227,7 +227,7 @@ export default class StageSelectScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     objects.push(
       cancelButton,
-      this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5),
+      this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5),
     );
 
     enterButton.on('pointerdown', () => {
@@ -251,7 +251,7 @@ export default class StageSelectScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.insufficientEnergyText = this.add
       .text(width / 2, height - 20, 'Not enough Energy!', {
-        fontSize: '14px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
         color: '#ff6666',
       })
       .setOrigin(0.5);

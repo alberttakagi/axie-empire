@@ -24,13 +24,13 @@ export default class BaseUpgradeScene extends Phaser.Scene {
   create() {
     const { width } = this.scale;
 
-    this.add.text(width / 2, 20, 'Base Upgrades', { fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2, 20, 'Base Upgrades', { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
 
     const backButton = this.add.rectangle(50, 20, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     backButton.on('pointerdown', () => this.scene.start('UpgradeScene'));
 
-    this.xpText = this.add.text(width - 16, 20, '', { fontSize: '13px', color: '#ffdd33' }).setOrigin(1, 0.5);
+    this.xpText = this.add.text(width - 16, 20, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffdd33' }).setOrigin(1, 0.5);
 
     this.rowContainer = this.add.container(0, 0);
     this.refresh();
@@ -59,11 +59,11 @@ export default class BaseUpgradeScene extends Phaser.Scene {
     rowObjects.push(this.add.rectangle(width / 2, y, width - 32, ROW_HEIGHT - 8, 0x222222));
     rowObjects.push(
       this.add
-        .text(30, y - 12, `${config.label}  (Lv ${level}/${config.maxLevel})`, { fontSize: '14px', color: '#ffffff' })
+        .text(30, y - 12, `${config.label}  (Lv ${level}/${config.maxLevel})`, { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' })
         .setOrigin(0, 0.5),
     );
     rowObjects.push(
-      this.add.text(30, y + 10, config.description, { fontSize: '11px', color: '#aaaaaa' }).setOrigin(0, 0.5),
+      this.add.text(30, y + 10, config.description, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#aaaaaa' }).setOrigin(0, 0.5),
     );
 
     const buttonX = width - 130;
@@ -73,7 +73,7 @@ export default class BaseUpgradeScene extends Phaser.Scene {
       .setAlpha(atCap ? 0.4 : affordable ? 1 : 0.5);
     const label = this.add
       .text(buttonX, y, atCap ? 'MAX LEVEL' : `Upgrade\n${cost.toLocaleString()} XP`, {
-        fontSize: '11px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
         color: '#ffffff',
         align: 'center',
       })

@@ -44,7 +44,7 @@ export default class UpgradeScene extends Phaser.Scene {
 
     this.add
       .text(width / 2, 20, 'Upgrade', {
-        fontSize: '22px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '22px',
         color: '#ffffff',
       })
       .setOrigin(0.5);
@@ -52,13 +52,13 @@ export default class UpgradeScene extends Phaser.Scene {
     const backButton = this.add
       .rectangle(50, 20, 80, 32, 0x444444)
       .setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     backButton.on('pointerdown', () => this.scene.start('HomeScene'));
 
     const baseUpgradesButton = this.add
       .rectangle(175, 20, 150, 32, 0x336699)
       .setInteractive({ useHandCursor: true });
-    this.add.text(175, 20, 'Base Upgrades', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(175, 20, 'Base Upgrades', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
     baseUpgradesButton.on('pointerdown', () => this.scene.start('BaseUpgradeScene'));
 
     // Its own row below the header (not sharing a row with the centered
@@ -66,7 +66,7 @@ export default class UpgradeScene extends Phaser.Scene {
     // without overlapping it.
     this.currencyText = this.add
       .text(width - 16, 46, '', {
-        fontSize: '13px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
         color: '#ffdd33',
         align: 'right',
       })
@@ -78,7 +78,7 @@ export default class UpgradeScene extends Phaser.Scene {
     // row on any page, so they never fight the row grid for vertical space.
     const pagerY = ROW_START_Y + ROWS_PER_PAGE * ROW_HEIGHT + 10;
     const prevButton = this.add.rectangle(width / 2 - 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2 - 90, pagerY, '< Prev', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2 - 90, pagerY, '< Prev', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
     prevButton.on('pointerdown', () => {
       if (this.page > 0) {
         this.page -= 1;
@@ -87,7 +87,7 @@ export default class UpgradeScene extends Phaser.Scene {
     });
 
     const nextButton = this.add.rectangle(width / 2 + 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2 + 90, pagerY, 'Next >', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2 + 90, pagerY, 'Next >', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
     nextButton.on('pointerdown', () => {
       const totalPages = Math.ceil(Object.keys(UNIT_CONFIG).length / ROWS_PER_PAGE);
       if (this.page < totalPages - 1) {
@@ -96,7 +96,7 @@ export default class UpgradeScene extends Phaser.Scene {
       }
     });
 
-    this.pageText = this.add.text(width / 2, pagerY, '', { fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
 
     this.refresh();
   }
@@ -137,7 +137,7 @@ export default class UpgradeScene extends Phaser.Scene {
     rowObjects.push(
       this.add
         .text(48, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
-          fontSize: '13px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
           color: '#ffffff',
         })
         .setOrigin(0, 0.5),
@@ -145,7 +145,7 @@ export default class UpgradeScene extends Phaser.Scene {
     rowObjects.push(
       this.add
         .text(48, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
-          fontSize: '11px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
           color: '#aaaaaa',
         })
         .setOrigin(0, 0.5),
@@ -171,7 +171,7 @@ export default class UpgradeScene extends Phaser.Scene {
       .setAlpha(atCap ? 0.4 : affordable ? 1 : 0.5);
     const label = this.add
       .text(x, y, atCap ? 'MAX LEVEL' : `Level Up\n${cost.toLocaleString()} XP`, {
-        fontSize: '10px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#ffffff',
         align: 'center',
       })
@@ -194,7 +194,7 @@ export default class UpgradeScene extends Phaser.Scene {
       .setAlpha(affordable ? 1 : 0.4);
     const label = this.add
       .text(x, y, `Use Charm\n(${progress.growthCharms} held)`, {
-        fontSize: '10px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#ffffff',
         align: 'center',
       })
@@ -226,7 +226,7 @@ export default class UpgradeScene extends Phaser.Scene {
         eligible
           ? `Evolve: ${nextEvolution.name}\n${nextEvolution.xpCost.toLocaleString()} XP + ${nextEvolution.evoShardCost} Shards`
           : `Evolve: ${nextEvolution.name}\nNeeds Lv ${nextEvolution.unlockLevel}`,
-        { fontSize: '9px', color: '#ffffff', align: 'center' },
+        { fontFamily: 'Rowdies, sans-serif', fontSize: '9px', color: '#ffffff', align: 'center' },
       )
       .setOrigin(0.5);
 

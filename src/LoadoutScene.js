@@ -34,15 +34,15 @@ export default class LoadoutScene extends Phaser.Scene {
   create() {
     const { width } = this.scale;
 
-    this.add.text(width / 2, 16, 'Character Formation', { fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2, 16, 'Character Formation', { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
 
     const backButton = this.add.rectangle(50, 16, 80, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 16, 'Back', { fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 16, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
     backButton.on('pointerdown', () => this.scene.start('HomeScene'));
 
     this.add
       .text(width / 2, 60, `Tap a unit to include/exclude — max ${MAX_LOADOUT_SIZE} in Formation`, {
-        fontSize: '10px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#aaaaaa',
       })
       .setOrigin(0.5);
@@ -57,14 +57,14 @@ export default class LoadoutScene extends Phaser.Scene {
     // player can actually see which synergies their current Formation has
     // activated and why.
     this.add
-      .text(width / 2, 350, 'Active Squad Synergies:', { fontSize: '13px', color: '#ffdd33' })
+      .text(width / 2, 350, 'Active Squad Synergies:', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffdd33' })
       .setOrigin(0.5);
     this.synergyText = this.add
-      .text(width / 2, 370, '', { fontSize: '12px', color: '#ffffff', align: 'center', wordWrap: { width: width - 40 } })
+      .text(width / 2, 370, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff', align: 'center', wordWrap: { width: width - 40 } })
       .setOrigin(0.5);
 
     this.messageText = this.add
-      .text(width / 2, 394, '', { fontSize: '12px', color: '#ff6666' })
+      .text(width / 2, 394, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ff6666' })
       .setOrigin(0.5);
 
     // Formation cost summary (bible §A.10.3: "show... a running total-cost/
@@ -73,7 +73,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // effective cost, since cost itself never scales with level anyway —
     // see UNIT_CONFIG.js).
     this.totalCostText = this.add
-      .text(width / 2, 418, '', { fontSize: '12px', color: '#66ccff' })
+      .text(width / 2, 418, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#66ccff' })
       .setOrigin(0.5);
 
     this.renderSlotTabs();
@@ -106,7 +106,7 @@ export default class LoadoutScene extends Phaser.Scene {
         .rectangle(x, y, tabWidth, 26, isActive ? 0xffdd33 : 0x444444)
         .setInteractive({ useHandCursor: true });
       const label = this.add
-        .text(x, y, slot.name, { fontSize: '11px', color: isActive ? '#000000' : '#ffffff' })
+        .text(x, y, slot.name, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: isActive ? '#000000' : '#ffffff' })
         .setOrigin(0.5);
 
       rect.on('pointerdown', () => {
@@ -125,7 +125,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const autoEquipButton = this.add
       .rectangle(autoEquipX, y, autoEquipWidth, 26, 0x3388cc)
       .setInteractive({ useHandCursor: true });
-    const autoEquipLabel = this.add.text(autoEquipX, y, 'Auto-Equip', { fontSize: '11px', color: '#ffffff' }).setOrigin(0.5);
+    const autoEquipLabel = this.add.text(autoEquipX, y, 'Auto-Equip', { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5);
     autoEquipButton.on('pointerdown', () => {
       this.selected = new Set(autoEquipActiveSlot());
       this.renderCards();
@@ -184,18 +184,18 @@ export default class LoadoutScene extends Phaser.Scene {
 
     const label = this.add
       .text(x, y - 30, config.displayName, {
-        fontSize: '12px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
         color: '#000000',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
       .setOrigin(0.5);
     const levelLabel = this.add
-      .text(x, y, `Lv ${unitProgress.level}`, { fontSize: '11px', color: '#000000' })
+      .text(x, y, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
       .setOrigin(0.5);
     const statusLabel = this.add
       .text(x, y + 30, isSelected ? 'IN FORMATION' : 'benched', {
-        fontSize: '10px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: isSelected ? '#003300' : '#000000',
       })
       .setOrigin(0.5);
@@ -208,7 +208,7 @@ export default class LoadoutScene extends Phaser.Scene {
       .setStrokeStyle(1, 0xffffff)
       .setInteractive({ useHandCursor: true });
     const pinLabel = this.add
-      .text(x + CARD_WIDTH / 2 - 14, y - CARD_HEIGHT / 2 + 14, '📌', { fontSize: '10px' })
+      .text(x + CARD_WIDTH / 2 - 14, y - CARD_HEIGHT / 2 + 14, '📌', { fontFamily: 'Rowdies, sans-serif', fontSize: '10px' })
       .setOrigin(0.5);
 
     pinBadge.on('pointerdown', (pointer, localX, localY, event) => {

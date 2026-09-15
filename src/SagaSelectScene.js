@@ -22,10 +22,10 @@ export default class SagaSelectScene extends Phaser.Scene {
   create() {
     const { width } = this.scale;
 
-    this.add.text(width / 2, 24, 'Select Saga', { fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(width / 2, 24, 'Select Saga', { fontFamily: 'Rowdies, sans-serif', fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
 
     const homeButton = this.add.rectangle(50, 24, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 24, 'Home', { fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
+    this.add.text(50, 24, 'Home', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
     homeButton.on('pointerdown', () => this.scene.start('HomeScene'));
 
     this.renderSagaCards();
@@ -57,12 +57,12 @@ export default class SagaSelectScene extends Phaser.Scene {
       const rect = this.add.rectangle(startX, y, cardWidth, CARD_HEIGHT, fillColor).setAlpha(isUnlocked ? 1 : 0.6);
 
       this.add
-        .text(startX, y - 36, saga.displayName, { fontSize: '18px', color: '#ffffff' })
+        .text(startX, y - 36, saga.displayName, { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#ffffff' })
         .setOrigin(0.5)
         .setAlpha(isUnlocked ? 1 : 0.7);
       this.add
         .text(startX, y - 6, saga.description, {
-          fontSize: '11px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
           color: '#dddddd',
           align: 'center',
           wordWrap: { width: cardWidth - 40 },
@@ -71,7 +71,7 @@ export default class SagaSelectScene extends Phaser.Scene {
         .setAlpha(isUnlocked ? 1 : 0.7);
       this.add
         .text(startX, y + 34, isUnlocked ? `Cleared ${clearedCount}/${sagaStages.length}` : 'Locked', {
-          fontSize: '12px',
+          fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
           color: '#ffdd33',
         })
         .setOrigin(0.5)
