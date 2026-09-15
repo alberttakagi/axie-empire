@@ -155,7 +155,71 @@ export default class HomeScene extends Phaser.Scene {
       this.add
         .text(icon.x, y + 36, icon.label, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#aaaaaa' })
         .setOrigin(0.5);
-      rect.on('pointerdown', () => this.showComingSoon(icon.label));
+      rect.on('pointerdown', () => {
+        if (icon.label === 'Menu') this.showMenuPopup();
+        else this.showComingSoon(icon.label);
+      });
+    });
+  }
+
+  // Battle Cats reference: tapping Menu opens a small popup offering the
+  // にゃんこ図鑑/敵キャラ図鑑 guides (here: Unit Guide/Enemy Guide, both backed
+  // by CatalogScene) — a scaled-down version of the reference's own Menu
+  // popup, which also has several buttons (Treasure List, Cat Medals,
+  // Cat Club, Help) this build has no equivalent system for yet.
+  showMenuPopup() {
+    const { width, height } = this.scale;
+    const objects = [];
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setInteractive();
+    objects.push(overlay);
+
+    const panelWidth = 280;
+    const panelHeight = 180;
+    const panel = this.add.rectangle(width / 2, height / 2, panelWidth, panelHeight, 0xf5f0e0).setStrokeStyle(3, 0x996633);
+    objects.push(panel);
+
+    objects.push(
+      this.add
+        .text(width / 2, height / 2 - panelHeight / 2 + 22, 'Menu', { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#333333' })
+        .setOrigin(0.5),
+    );
+
+    const closeButton = this.add
+      .text(width / 2 + panelWidth / 2 - 18, height / 2 - panelHeight / 2 + 16, '✕', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '16px',
+        color: '#333333',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    objects.push(closeButton);
+
+    const guideButtons = [
+      { label: 'Unit Guide', rosterType: 'units' },
+      { label: 'Enemy Guide', rosterType: 'enemies' },
+    ];
+    guideButtons.forEach((guide, index) => {
+      const bx = width / 2 + (index === 0 ? -70 : 70);
+      const by = height / 2 + 10;
+      const rect = this.add.rectangle(bx, by, 120, 70, 0xffcc66).setStrokeStyle(2, 0x996633).setInteractive({ useHandCursor: true });
+      const label = this.add
+        .text(bx, by, guide.label, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#333333', align: 'center', wordWrap: { width: 100 } })
+        .setOrigin(0.5);
+      // stopPropagation: this button sits on top of the full-screen overlay
+      // below, which also listens for pointerdown to close the popup —
+      // without this, tapping a guide button would fire both handlers.
+      rect.on('pointerdown', (pointer, localX, localY, event) => {
+        event.stopPropagation();
+        this.scene.start('CatalogScene', { rosterType: guide.rosterType });
+      });
+      objects.push(rect, label);
+    });
+
+    const closePopup = () => objects.forEach((obj) => obj.destroy());
+    overlay.on('pointerdown', closePopup);
+    closeButton.on('pointerdown', (pointer, localX, localY, event) => {
+      event.stopPropagation();
+      closePopup();
     });
   }
 

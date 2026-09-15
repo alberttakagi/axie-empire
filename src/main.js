@@ -8,6 +8,7 @@ import TreasureScene from './TreasureScene.js';
 import LoadoutScene from './LoadoutScene.js';
 import BaseUpgradeScene from './BaseUpgradeScene.js';
 import GachaScene from './GachaScene.js';
+import CatalogScene from './CatalogScene.js';
 
 new Phaser.Game({
   type: Phaser.AUTO,
@@ -30,5 +31,6 @@ new Phaser.Game({
     LoadoutScene,
     BaseUpgradeScene,
     GachaScene,
+    CatalogScene,
   ],
 });
