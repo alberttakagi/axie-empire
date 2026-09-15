@@ -239,10 +239,21 @@ export default class LoadoutScene extends Phaser.Scene {
       .setStrokeStyle(isSelected ? 3 : 1, isSelected ? 0xffdd33 : 0x666666)
       .setInteractive({ useHandCursor: true });
 
+    // Character name first (e.g. "Buba") — this screen is about browsing/
+    // picking specific characters, not selecting a role mid-battle, so the
+    // real name leads; the role (displayName) follows underneath, smaller.
     const label = this.add
-      .text(x, y - CARD_HEIGHT / 2 + 11, config.displayName, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
+      .text(x, y - CARD_HEIGHT / 2 + 9, config.characterName, {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
         color: '#000000',
+        align: 'center',
+        wordWrap: { width: CARD_WIDTH - 8 },
+      })
+      .setOrigin(0.5);
+    const roleLabel = this.add
+      .text(x, y - CARD_HEIGHT / 2 + 21, `(${config.displayName})`, {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
+        color: '#222222',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
@@ -252,7 +263,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // see SpriteIcon.js. levelLabel moves down next to statusLabel to make
     // room (both now share the card's bottom edge instead of levelLabel
     // sitting dead-center).
-    const icon = addUnitIcon(this, x, y - 4, config, CARD_HEIGHT - 46);
+    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52);
 
     const levelLabel = this.add
       .text(x, y + CARD_HEIGHT / 2 - 22, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
@@ -287,8 +298,8 @@ export default class LoadoutScene extends Phaser.Scene {
     card.on('pointerover', () => this.showTooltip(type, x, y, isTopRow));
     card.on('pointerout', () => this.hideTooltip());
 
-    const objects = [card, label, levelLabel, statusLabel, pinBadge, pinLabel];
-    if (icon) objects.splice(2, 0, icon); // between the name and the level/status text, in front of the card
+    const objects = [card, label, roleLabel, levelLabel, statusLabel, pinBadge, pinLabel];
+    if (icon) objects.splice(3, 0, icon); // between the name and the level/status text, in front of the card
     this.cardContainer.add(objects);
   }
 

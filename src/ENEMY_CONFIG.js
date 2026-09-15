@@ -5,6 +5,11 @@
 // Values below are base stats: STAGE_CONFIG's spawnScript applies each
 // entry's own statMultiplier to hp on top of these at spawn time.
 //
+// `characterName` — the real PvE Chimera this enemy reskins (e.g.
+// "Werewolf") — same idea as UNIT_CONFIG.js's own field: shown ahead of
+// displayName wherever a screen is about browsing a specific character
+// (Enemy Guide) rather than identifying an in-battle threat by role.
+//
 // `sprite` — like UNIT_CONFIG.js's own field, but sourced from the Origins
 // Asset Kit's PvE "Chimeras" (monster/mob) skeletons instead of the Starter
 // Axies (see tools/sprite-gen/ and tools/axie-origins-asset-kit/LICENSE.md
@@ -70,6 +75,7 @@ export const ENEMY_CONFIG = {
   basic: {
     id: 'basic',
     displayName: 'Basic Melee',
+    characterName: "Slime", // the real PvE Chimera this enemy reskins
     role: 'basic',
     trait: 'beast',
     threat: 2,
@@ -95,6 +101,7 @@ export const ENEMY_CONFIG = {
   fast: {
     id: 'fast',
     displayName: 'Fast Melee',
+    characterName: "Gray Wolf", // the real PvE Chimera this enemy reskins
     role: 'fast',
     trait: 'bird',
     // Directional push only, mirroring the unit-side literal-ratio jump
@@ -129,6 +136,7 @@ export const ENEMY_CONFIG = {
   tank: {
     id: 'tank',
     displayName: 'Tank',
+    characterName: "Treant", // the real PvE Chimera this enemy reskins
     role: 'tank',
     trait: 'mech',
     // Pushed toward the real reference direction (enemy-side walls skew even
@@ -168,6 +176,7 @@ export const ENEMY_CONFIG = {
   ranged: {
     id: 'ranged',
     displayName: 'Ranged',
+    characterName: "Aquatic Slime", // the real PvE Chimera this enemy reskins
     role: 'ranged',
     trait: 'bug',
     // Directional push only (the tier-matched real reference for this
@@ -211,6 +220,7 @@ export const ENEMY_CONFIG = {
   aoe: {
     id: 'aoe',
     displayName: 'Special (AoE)',
+    characterName: "Dryad Mage", // the real PvE Chimera this enemy reskins
     role: 'aoe',
     trait: 'plant',
     // Directional push only (poor tier match — the real splash-attack
@@ -248,6 +258,7 @@ export const ENEMY_CONFIG = {
   swarm: {
     id: 'swarm',
     displayName: 'Swarmling',
+    characterName: "Forest Slime Fighter", // the real PvE Chimera this enemy reskins
     role: 'swarm',
     trait: 'beast',
     threat: 3,
@@ -277,6 +288,7 @@ export const ENEMY_CONFIG = {
   sniper: {
     id: 'sniper',
     displayName: 'Sniper',
+    characterName: "Dryad Ranger", // the real PvE Chimera this enemy reskins
     role: 'sniper',
     trait: 'bird',
     threat: 14,
@@ -305,6 +317,7 @@ export const ENEMY_CONFIG = {
   guardian: {
     id: 'guardian',
     displayName: 'Guardian',
+    characterName: "Flowering Treant", // the real PvE Chimera this enemy reskins
     role: 'guardian',
     trait: 'mech',
     threat: 10,
@@ -333,6 +346,7 @@ export const ENEMY_CONFIG = {
   support: {
     id: 'support',
     displayName: 'Support',
+    characterName: "Aquatic Flowering Slime", // the real PvE Chimera this enemy reskins
     role: 'support',
     trait: 'bug',
     threat: 9,
@@ -359,6 +373,7 @@ export const ENEMY_CONFIG = {
   titan: {
     id: 'titan',
     displayName: 'Titan',
+    characterName: "Daddy Bear", // the real PvE Chimera this enemy reskins
     role: 'titan',
     trait: 'plant',
     threat: 20,
@@ -395,6 +410,7 @@ export const ENEMY_CONFIG = {
   zombie: {
     id: 'zombie',
     displayName: 'Zombie',
+    characterName: "Old Slime", // the real PvE Chimera this enemy reskins
     role: 'zombie',
     trait: 'zombie', // its own outlier trait (see TRAIT_CONFIG.js) — no matchup bonuses either way
     // Identity: an ordinary-strength recurring nuisance whose real threat
@@ -428,6 +444,7 @@ export const ENEMY_CONFIG = {
   colossus: {
     id: 'colossus',
     displayName: 'Colossus',
+    characterName: "Alpha Wolf", // the real PvE Chimera this enemy reskins
     role: 'colossus',
     trait: 'bug',
     // Identity: a recurring "big, dangerous, but not a scripted boss"
@@ -462,6 +479,7 @@ export const ENEMY_CONFIG = {
   behemoth: {
     id: 'behemoth',
     displayName: 'Behemoth',
+    characterName: "Werewolf", // the real PvE Chimera this enemy reskins
     role: 'behemoth',
     trait: 'beast',
     // Identity: the single toughest non-scripted-boss enemy in the game —

@@ -11,7 +11,13 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 //
 // Field reference (kept aligned to the bible's Part C Unit schema, §A.3.2):
 //   id/displayName  reskin hooks — id is the stable lookup key, displayName is
-//                   the human-facing name shown on the spawn button.
+//                   the role name shown on the in-battle spawn button
+//                   (where a player picks by ROLE, not by character).
+//   characterName   the real Starter Axie this unit reskins (e.g. "Buba")
+//                   — shown ahead of displayName wherever a screen is about
+//                   browsing/inspecting a specific character rather than
+//                   picking a role mid-battle (Character Formation, Unit
+//                   Guide) — see LoadoutScene.js/CatalogScene.js.
 //   role            shared taxonomy with ENEMY_CONFIG.js (basic/fast/tank/ranged/aoe).
 //   trait           one of TRAIT_CONFIG.js's TRAITS — drives matchup bonuses
 //                    and the flat-damage-vs-mech rule; see that file.
@@ -140,6 +146,7 @@ export const UNIT_CONFIG = {
   basic: {
     id: 'basic',
     displayName: 'Basic Melee',
+    characterName: "Tripp", // the real Starter Axie this unit reskins
     role: 'basic',
     trait: 'beast',
     cost: 50, // literal real price of this archetype's basic-attacker reference
@@ -165,6 +172,7 @@ export const UNIT_CONFIG = {
   fast: {
     id: 'fast',
     displayName: 'Fast Melee',
+    characterName: "Buba", // the real Starter Axie this unit reskins
     role: 'fast',
     trait: 'bird',
     // Rebalanced against real reference ratios (fastest-mover archetype vs.
@@ -202,6 +210,7 @@ export const UNIT_CONFIG = {
   tank: {
     id: 'tank',
     displayName: 'Tank',
+    characterName: "Olek", // the real Starter Axie this unit reskins
     role: 'tank',
     trait: 'mech',
     // Rebalanced against real reference ratios (wall unit vs. basic attacker):
@@ -239,6 +248,7 @@ export const UNIT_CONFIG = {
   ranged: {
     id: 'ranged',
     displayName: 'Ranged',
+    characterName: "Puffy", // the real Starter Axie this unit reskins
     role: 'ranged',
     trait: 'bug',
     // Rebalanced against real reference ratios (ranged attacker vs. basic
@@ -278,6 +288,7 @@ export const UNIT_CONFIG = {
   aoe: {
     id: 'aoe',
     displayName: 'Special (AoE)',
+    characterName: "Noir", // the real Starter Axie this unit reskins
     role: 'aoe',
     trait: 'plant',
     // Rebalanced against real reference ratios (splash/area attacker vs.
@@ -328,6 +339,7 @@ export const UNIT_CONFIG = {
   swarm: {
     id: 'swarm',
     displayName: 'Swarm',
+    characterName: "Shillin", // the real Starter Axie this unit reskins
     role: 'swarm',
     trait: 'beast', // pairs with `basic`
     // Identity: the cheapest, fastest-recharging unit in the roster — meant
@@ -364,6 +376,7 @@ export const UNIT_CONFIG = {
   sniper: {
     id: 'sniper',
     displayName: 'Sniper',
+    characterName: "Momo", // the real Starter Axie this unit reskins
     role: 'sniper',
     trait: 'bird', // pairs with `fast`
     // Identity: the roster's glass cannon — huge single-hit damage, high
@@ -399,6 +412,7 @@ export const UNIT_CONFIG = {
   guardian: {
     id: 'guardian',
     displayName: 'Guardian',
+    characterName: "Xia", // the real Starter Axie this unit reskins
     role: 'guardian',
     trait: 'mech', // pairs with `tank`
     // Identity: the roster's other mech-trait defender — not knockback-
@@ -438,6 +452,7 @@ export const UNIT_CONFIG = {
   support: {
     id: 'support',
     displayName: 'Support',
+    characterName: "Mit", // the real Starter Axie this unit reskins
     role: 'support',
     trait: 'bug', // pairs with `ranged`
     // Identity: low direct damage, but a strong, reliable Weaken plus a
@@ -467,6 +482,7 @@ export const UNIT_CONFIG = {
   titan: {
     id: 'titan',
     displayName: 'Titan',
+    characterName: "Temujin", // the real Starter Axie this unit reskins
     role: 'titan',
     trait: 'plant', // pairs with `aoe`
     // Identity: the roster's top-end powerhouse — the single most

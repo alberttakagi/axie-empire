@@ -79,11 +79,23 @@ export default class CatalogScene extends Phaser.Scene {
       .rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, config.color)
       .setStrokeStyle(1, 0x666666)
       .setInteractive({ useHandCursor: true });
-    const icon = addUnitIcon(this, x, y - 8, config, CARD_HEIGHT - 30, this.isPlayerSide);
+    const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 48, this.isPlayerSide);
+    // Character name first (e.g. "Buba"), role second and smaller — this
+    // guide is about browsing specific characters, not picking a role.
+    // Label sits a bit higher than a single-line name needs, since a few
+    // longer names (e.g. "Aquatic Flowering Slime") wrap to two lines.
     const label = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 12, config.displayName, {
+      .text(x, y + CARD_HEIGHT / 2 - 24, config.characterName, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#000000',
+        align: 'center',
+        wordWrap: { width: CARD_WIDTH - 8 },
+      })
+      .setOrigin(0.5);
+    const roleLabel = this.add
+      .text(x, y + CARD_HEIGHT / 2 - 6, `(${config.displayName})`, {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '8px',
+        color: '#222222',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
@@ -91,7 +103,7 @@ export default class CatalogScene extends Phaser.Scene {
 
     card.on('pointerdown', () => this.showDetail(index));
 
-    const objects = [card, label];
+    const objects = [card, label, roleLabel];
     if (icon) objects.splice(1, 0, icon);
     this.contentContainer.add(objects);
   }
@@ -112,16 +124,24 @@ export default class CatalogScene extends Phaser.Scene {
       .setStrokeStyle(2, 0xffdd33);
 
     const icon = addUnitIcon(this, width / 2, 138, config, 100, this.isPlayerSide);
+    // Character name first (e.g. "Buba"), role second and smaller — same
+    // ordering as the grid card and Character Formation.
     const nameText = this.add
-      .text(width / 2, 202, `${config.displayName}  (${key})`, {
+      .text(width / 2, 198, config.characterName, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '16px',
         color: '#ffffff',
+      })
+      .setOrigin(0.5);
+    const roleText = this.add
+      .text(width / 2, 216, `(${config.displayName})`, {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
+        color: '#aaaaaa',
       })
       .setOrigin(0.5);
 
     const lines = describeUnit(config);
     const descText = this.add
-      .text(width / 2, 226, lines.map((line) => `• ${line}`).join('\n'), {
+      .text(width / 2, 236, lines.map((line) => `• ${line}`).join('\n'), {
         fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
         color: '#dddddd',
         align: 'left',
@@ -155,7 +175,7 @@ export default class CatalogScene extends Phaser.Scene {
       .setInteractive({ useHandCursor: true });
     closeButton.on('pointerdown', () => this.renderGrid());
 
-    const objects = [panel, nameText, descText, prevButton, nextButton, closeButton];
+    const objects = [panel, nameText, roleText, descText, prevButton, nextButton, closeButton];
     if (icon) objects.splice(1, 0, icon);
     this.contentContainer.add(objects);
   }
