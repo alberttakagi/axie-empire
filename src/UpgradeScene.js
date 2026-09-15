@@ -148,12 +148,16 @@ export default class UpgradeScene extends Phaser.Scene {
     const isEvolved = hasReachedPartEvolution(unitProgress.level);
     const rowObjects = [];
     rowObjects.push(this.add.rectangle(width / 2, y, width - ROW_WIDTH_MARGIN, ROW_HEIGHT - 8, 0x222222));
-    const icon = addUnitIcon(this, 38, y, base, ROW_HEIGHT - 16, true, isEvolved);
+    // Row's own background sits from x=16 to x=width-16 (ROW_WIDTH_MARGIN,
+    // split evenly) — icon centered well clear of that left edge so it
+    // never pokes outside the row, text following it likewise pulled in
+    // rather than leaving a dead gap between the icon and the name.
+    const icon = addUnitIcon(this, 54, y, base, ROW_HEIGHT - 22, true, isEvolved);
     if (icon) rowObjects.push(icon);
     else rowObjects.push(this.add.rectangle(30, y, 20, 20, base.color));
     rowObjects.push(
       this.add
-        .text(78, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
+        .text(92, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
           color: '#ffffff',
         })
@@ -161,7 +165,7 @@ export default class UpgradeScene extends Phaser.Scene {
     );
     rowObjects.push(
       this.add
-        .text(78, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
+        .text(92, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
           color: '#aaaaaa',
         })
