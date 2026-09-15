@@ -27,12 +27,13 @@ dist-ssr
 # the cloned Origins Asset Kit reference repo (tools/axie-origins-asset-kit/)
 # are dev-only build tools, not shipped game code — and the asset kit's own
 # LICENSE.md restricts redistribution outright. Only the final PNGs this
-# pipeline produces (copied into public/sprites/units/ and
-# public/sprites/enemies/, which ARE tracked) are meant to ship.
+# pipeline produces (copied into public/sprites/units/, public/sprites/
+# enemies/, and public/backgrounds/, which ARE tracked) are meant to ship.
 tools/axie-origins-asset-kit/
 tools/sprite-gen/node_modules/
 tools/sprite-gen/public/starters/
 tools/sprite-gen/public/pve-starters.json
 tools/sprite-gen/public/chimeras/
 tools/sprite-gen/public/pve-chimeras.json
+tools/sprite-gen/public/bg-source/
 tools/sprite-gen/output/
