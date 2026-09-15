@@ -99,13 +99,11 @@ const RANK_PER_FIRST_CLEAR = 5;
 // offers it — its own timer-based ending isn't a "loss" to continue past.
 const CONTINUE_GEM_COSTS = [5, 10, 20];
 
-// Evolution-stage visual cue: a circle-placeholder unit gets a stroked ring
-// (EVOLUTION_RING_COLOR, a Phaser numeric hex) around itself; a sprite unit
-// gets a small star badge floating above it instead (EVOLUTION_RING_COLOR_CSS,
-// the same colors as CSS hex strings for Phaser's Text — see spawnUnit).
-// Both arrays are index = evolutionStage (0 = not evolved, unused).
+// Evolution-stage visual cue: only the circle-placeholder fallback still
+// uses this (a stroked ring around itself) — a sprite unit relies on the
+// part-evolution glow alone (see spawnUnit). Index = evolutionStage
+// (0 = not evolved, unused).
 const EVOLUTION_RING_COLOR = [null, 0xffffff, 0xffdd33];
-const EVOLUTION_RING_COLOR_CSS = [null, '#ffffff', '#ffdd33'];
 const EVOLUTION_RING_WIDTH = [0, 2, 3];
 
 // Sprite sizing (see fitSpriteToRadius): a straight `radius * multiplier`
@@ -986,30 +984,15 @@ export default class GameScene extends Phaser.Scene {
       spriteImage.postFX.addGlow(0xffdd33, PART_EVOLUTION_GLOW_STRENGTH, 0, false, 0.1, 12);
     }
 
-    // Evolution-stage visual cue: a circle placeholder gets a stroked ring
-    // around itself; a sprite (whose silhouette/size differs per pose, so a
-    // ring drawn to match wouldn't fit consistently) instead gets a small
-    // star badge floating above it, synced to the same x-position-sync
-    // points as `label` (see tickKnockback/tickStatusEffects/removeDead and
-    // the unit-movement branch below) and destroyed alongside it.
-    let evolutionBadge = null;
-    if (evolutionStage > 0) {
-      if (spriteImage) {
-        evolutionBadge = this.add
-          .text(x, this.laneY - config.radius - 14, '★', {
-            fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
-            color: EVOLUTION_RING_COLOR_CSS[evolutionStage],
-          })
-          .setOrigin(0.5)
-          .setStroke('#000000', 3);
-      } else {
-        shape.setStrokeStyle(EVOLUTION_RING_WIDTH[evolutionStage], EVOLUTION_RING_COLOR[evolutionStage]);
-      }
+    // Evolution-stage visual cue: only the circle-placeholder fallback gets
+    // a stroked ring — a sprite unit relies on the part-evolution glow
+    // above alone (a separate star badge on top read as redundant/cluttered
+    // once both existed at once).
+    if (evolutionStage > 0 && !spriteImage) {
+      shape.setStrokeStyle(EVOLUTION_RING_WIDTH[evolutionStage], EVOLUTION_RING_COLOR[evolutionStage]);
     }
 
-    this.playerUnits.push(
-      this.makeEntityState(type, config, shape, label, spriteImage, true, 1, evolutionBadge, isEvolved),
-    );
+    this.playerUnits.push(this.makeEntityState(type, config, shape, label, spriteImage, true, 1, isEvolved));
   }
 
   // Builds this entity's visual: real sprite art if its config gave it one
@@ -1142,7 +1125,6 @@ export default class GameScene extends Phaser.Scene {
     spriteImage = null,
     isPlayerSide = false,
     visualScaleMultiplier = 1,
-    evolutionBadge = null,
     isEvolved = false,
   ) {
     return {
@@ -1163,10 +1145,7 @@ export default class GameScene extends Phaser.Scene {
       // texture set — see createEntityVisual/UNIT_CONFIG.js's
       // `sprite.evolved` field — fixed for the unit's whole time on the
       // field, since level doesn't change mid-battle.
-      // evolutionBadge (player units only — see spawnUnit) is synced/
-      // destroyed at the exact same points as `label`.
       spriteImage,
-      evolutionBadge,
       isPlayerSide,
       visualScaleMultiplier,
       isEvolved,
@@ -1404,7 +1383,6 @@ export default class GameScene extends Phaser.Scene {
         const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * deltaMs) / 1000;
         unit.shape.x = Math.min(width - unit.config.radius, unit.shape.x + moveStep);
         if (unit.label) unit.label.x = unit.shape.x;
-        if (unit.evolutionBadge) unit.evolutionBadge.x = unit.shape.x;
       }
     }
 
@@ -1774,7 +1752,6 @@ export default class GameScene extends Phaser.Scene {
     const step = entity.knockbackVelocity * Math.min(deltaMs, entity.knockbackMs);
     entity.shape.x = Math.max(entity.config.radius, Math.min(width - entity.config.radius, entity.shape.x + step));
     if (entity.label) entity.label.x = entity.shape.x;
-    if (entity.evolutionBadge) entity.evolutionBadge.x = entity.shape.x;
 
     entity.knockbackMs = Math.max(0, entity.knockbackMs - deltaMs);
   }
@@ -1875,7 +1852,6 @@ export default class GameScene extends Phaser.Scene {
       entity.warpMs = Math.max(0, entity.warpMs - deltaMs);
       entity.shape.setVisible(false);
       if (entity.label) entity.label.setVisible(false);
-      if (entity.evolutionBadge) entity.evolutionBadge.setVisible(false);
 
       if (entity.warpMs === 0) {
         const { width } = this.scale;
@@ -1884,11 +1860,9 @@ export default class GameScene extends Phaser.Scene {
           Math.min(width - entity.config.radius, entity.shape.x + entity.warpOffset),
         );
         if (entity.label) entity.label.x = entity.shape.x;
-        if (entity.evolutionBadge) entity.evolutionBadge.x = entity.shape.x;
         entity.warpOffset = 0;
         entity.shape.setVisible(true);
         if (entity.label) entity.label.setVisible(true);
-        if (entity.evolutionBadge) entity.evolutionBadge.setVisible(true);
       } else {
         return; // stays invisible — no point resolving a tint this frame
       }
@@ -2017,7 +1991,6 @@ export default class GameScene extends Phaser.Scene {
         const entity = list[i];
         entity.shape.destroy();
         if (entity.label) entity.label.destroy();
-        if (entity.evolutionBadge) entity.evolutionBadge.destroy();
         list.splice(i, 1);
         if (onKill) onKill(entity);
       }
