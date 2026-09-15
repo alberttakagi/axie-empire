@@ -15,6 +15,7 @@ import {
   autoEquipActiveSlot,
 } from './Loadout.js';
 import { getActiveCombos } from './Combo.js';
+import { describeUnit } from './UnitDescription.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
 // "manage my formation" screen reachable from the Home screen, rather than
@@ -85,10 +86,56 @@ export default class LoadoutScene extends Phaser.Scene {
       .text(width / 2, 418, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#66ccff' })
       .setOrigin(0.5);
 
+    this.createTooltip();
     this.renderSlotTabs();
     this.renderCards();
     this.refreshSynergies();
     this.refreshTotalCost();
+  }
+
+  // Hover-to-inspect (bible/Battle Cats reference: long-press or hover a
+  // unit to see its abilities and elemental matchups) — one shared
+  // tooltip reused across every card rather than one per card, created
+  // once here (outside cardContainer, which renderCards() wipes and
+  // rebuilds on every selection change) and repositioned/shown on demand.
+  createTooltip() {
+    this.tooltipContainer = this.add.container(0, 0).setDepth(1000).setVisible(false);
+    this.tooltipBg = this.add.rectangle(0, 0, 200, 40, 0x000000, 0.92).setStrokeStyle(1, 0xffdd33);
+    this.tooltipText = this.add
+      .text(0, 0, '', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
+        color: '#ffffff',
+        align: 'left',
+        wordWrap: { width: 220 },
+        lineSpacing: 5,
+      })
+      .setOrigin(0.5);
+    this.tooltipContainer.add([this.tooltipBg, this.tooltipText]);
+  }
+
+  // `isTopRow` flips the tooltip to sit below (top-row cards) or above
+  // (bottom-row cards) the hovered card, so it never runs off the canvas
+  // top/bottom edge; horizontal position is separately clamped to stay
+  // inside the canvas' left/right edges too.
+  showTooltip(type, x, y, isTopRow) {
+    const lines = describeUnit(UNIT_CONFIG[type]);
+    this.tooltipText.setText(lines.map((line) => `• ${line}`).join('\n'));
+
+    const padding = 10;
+    const bounds = this.tooltipText.getBounds();
+    this.tooltipBg.setSize(bounds.width + padding * 2, bounds.height + padding * 2);
+
+    const tooltipY = isTopRow
+      ? y + CARD_HEIGHT / 2 + this.tooltipBg.height / 2 + 8
+      : y - CARD_HEIGHT / 2 - this.tooltipBg.height / 2 - 8;
+    const clampedX = Phaser.Math.Clamp(x, this.tooltipBg.width / 2 + 6, this.scale.width - this.tooltipBg.width / 2 - 6);
+
+    this.tooltipContainer.setPosition(clampedX, tooltipY);
+    this.tooltipContainer.setVisible(true);
+  }
+
+  hideTooltip() {
+    this.tooltipContainer.setVisible(false);
   }
 
   // Multiple saved Formation slots + Auto-Equip (bible §A.10.3) — one row
@@ -159,6 +206,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
   renderCards() {
     this.cardContainer.removeAll(true);
+    this.hideTooltip(); // a rebuild destroys whatever card the pointer was over
 
     // Roster expansion (bible §A.4.1): the full owned roster no longer fits
     // in one row, so it wraps into rows of CARDS_PER_ROW — this is just a
@@ -174,11 +222,11 @@ export default class LoadoutScene extends Phaser.Scene {
       const col = index % CARDS_PER_ROW;
       const x = startX + col * (CARD_WIDTH + CARD_GAP);
       const y = startY + row * ROW_GAP;
-      this.renderCard(key, x, y);
+      this.renderCard(key, x, y, row === 0);
     });
   }
 
-  renderCard(type, x, y) {
+  renderCard(type, x, y, isTopRow) {
     const config = UNIT_CONFIG[type];
     const meta = PROGRESSION_CONFIG[type];
     const unitProgress = getUnitProgress(loadPlayerProgress(), type);
@@ -236,6 +284,8 @@ export default class LoadoutScene extends Phaser.Scene {
     });
 
     card.on('pointerdown', () => this.toggleUnit(type));
+    card.on('pointerover', () => this.showTooltip(type, x, y, isTopRow));
+    card.on('pointerout', () => this.hideTooltip());
 
     const objects = [card, label, levelLabel, statusLabel, pinBadge, pinLabel];
     if (icon) objects.splice(2, 0, icon); // between the name and the level/status text, in front of the card
