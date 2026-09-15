@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
+import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
@@ -150,16 +151,6 @@ const CAP_BUTTON_HEIGHT = 44;
 
 const SCORE_PER_KILL = 10;
 
-// Battle backdrop art (Origins Asset Kit's PvE/Backgrounds/story layer sets
-// — see tools/sprite-gen's one-off compositor script, not a repeatable
-// generator like the character pipeline, since these are hand-placed
-// layers rather than per-pose renders) — one per saga, so the scenery
-// itself visibly progresses alongside the stage roster
-// (STAGE_CONFIG.js's own saga1/2/3 grouping). Sparring Grounds (dojo mode)
-// has no `saga` of its own, so it and any future saga-less stage fall back
-// to saga1's.
-const SAGA_BACKGROUND_KEYS = { saga1: 'bg_saga1', saga2: 'bg_saga2', saga3: 'bg_saga3' };
-const DEFAULT_BACKGROUND_SAGA = 'saga1';
 
 const BASE_COLOR = 0x3366cc;
 const ENEMY_BASE_COLOR = 0x992222;
@@ -242,9 +233,7 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     preloadSpriteRoster(this, UNIT_CONFIG, true);
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
-    for (const key of Object.values(SAGA_BACKGROUND_KEYS)) {
-      if (!this.textures.exists(key)) this.load.image(key, `/backgrounds/${key}.png`);
-    }
+    preloadSagaBackgrounds(this);
   }
 
   create(data) {
@@ -359,12 +348,9 @@ export default class GameScene extends Phaser.Scene {
     this.unitCooldowns = {};
     for (const key of this.loadout) this.unitCooldowns[key] = 0;
 
-    // Battle backdrop (see SAGA_BACKGROUND_KEYS) — added before everything
-    // else so it sits behind the whole scene; stretched to cover the full
-    // canvas rather than cropped, since these are painterly scenes without
-    // straight lines that would make a slight stretch obvious.
-    const backgroundKey = SAGA_BACKGROUND_KEYS[this.stage.saga] || SAGA_BACKGROUND_KEYS[DEFAULT_BACKGROUND_SAGA];
-    this.add.image(width / 2, height / 2, backgroundKey).setDisplaySize(width, height);
+    // Battle backdrop (see Backdrop.js) — added before everything else so
+    // it sits behind the whole scene.
+    addSagaBackground(this, this.stage.saga);
 
     // Semi-transparent (rather than the old fully-opaque fill) so the
     // backdrop's own ground/sky still shows through above and below the

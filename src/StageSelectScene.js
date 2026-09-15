@@ -4,6 +4,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
+import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
 
 const DIFFICULTY_COLOR = {
   Easy: 0x33cc33,
@@ -28,8 +29,15 @@ export default class StageSelectScene extends Phaser.Scene {
     super('StageSelectScene');
   }
 
+  // Same saga backdrop art GameScene battles use (see Backdrop.js) —
+  // loads all 3 rather than just this.sagaId's, since sagaId isn't known
+  // until create() runs.
+  preload() {
+    preloadSagaBackgrounds(this);
+  }
+
   create(data) {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
     const progress = loadStageProgress();
 
     // Saga expansion (bible §A.6.1): STAGE_CONFIG.js stays one flat array
@@ -39,6 +47,13 @@ export default class StageSelectScene extends Phaser.Scene {
     // erroring.
     this.sagaId = data?.sagaId || STAGE_CONFIG[0].saga;
     this.sagaStages = STAGE_CONFIG.filter((stage) => stage.saga === this.sagaId);
+
+    // Backdrop matches the chosen saga (see Backdrop.js), dimmed by a flat
+    // scrim for the stage grid's own text/contrast — mirrors HomeScene's
+    // treatment for the same reason (most of this screen is small text-
+    // bearing cards over open background, not one narrow lane).
+    addSagaBackground(this, this.sagaId);
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
     this.add
       .text(width / 2, 24, 'Select Stage', {
