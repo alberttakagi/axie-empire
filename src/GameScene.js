@@ -28,7 +28,7 @@ import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treas
 import { loadLoadout } from './Loadout.js';
 import { trySpendEnergy } from './Energy.js';
 import { getComboBonusValue } from './Combo.js';
-import { getEvolvedPartCount } from './PartEvolution.js';
+import { hasReachedPartEvolution } from './PartEvolution.js';
 import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
 import {
@@ -128,6 +128,14 @@ const SPRITE_SIZE_SLOPE = 1.1; // px of extra diameter per point of radius above
 // radius/hitbox is untouched, so this doesn't change combat/spacing at
 // all) keeps it reading as "the big one" for as long as it's alive.
 const BOSS_VISUAL_SCALE_MULTIPLIER = 1.6;
+
+// Part evolution's glow (see PartEvolution.js/spawnUnit) — a single flat,
+// subtle strength rather than something that draws the eye across the
+// whole lane; the evolved sprite art itself (where a unit has one) is
+// already the primary "this leveled up" signal, so the glow's job is just
+// a quiet accent, both for units that get it alongside real evolved art
+// and Titan, which relies on it alone.
+const PART_EVOLUTION_GLOW_STRENGTH = 0.9;
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
@@ -962,26 +970,20 @@ export default class GameScene extends Phaser.Scene {
     const evolutionStage = unitProgress.evolutionStage;
 
     // Part evolution (see PartEvolution.js): a purely cosmetic, level-driven
-    // progression independent of the evoShard-driven evolutionStage above —
+    // milestone independent of the evoShard-driven evolutionStage above —
     // reaching level 10 swaps the unit to its real, official evolved
-    // ("awakened") art (UNIT_CONFIG.js's `sprite.evolved`) where one exists.
-    // That's the only actual evolved-look asset available per unit (see
-    // that file's comment on why it isn't 6 separate stages), so every
-    // milestone past the first (level 20-60) instead layers an escalating
-    // golden glow on top of that same evolved sprite to keep signaling
-    // further progress. A unit with no real evolved art at all (hasRealEvolvedArt
-    // false — currently just Titan) never "spends" a milestone on an art
-    // swap, so its glow starts counting from the very first milestone
-    // instead of the second.
-    const evolvedPartCount = getEvolvedPartCount(unitProgress.level);
+    // ("awakened") art (UNIT_CONFIG.js's `sprite.evolved`) where one exists,
+    // plus a subtle glow. A unit with no real evolved art at all (currently
+    // just Titan) gets the glow alone — it's still a real, visible signal
+    // that this unit hit the milestone, just without art to swap to.
+    const hasEvolved = hasReachedPartEvolution(unitProgress.level);
     const hasRealEvolvedArt = !!config.sprite?.evolved;
-    const isEvolved = evolvedPartCount > 0 && hasRealEvolvedArt;
-    const glowSteps = hasRealEvolvedArt ? Math.max(0, evolvedPartCount - 1) : evolvedPartCount;
+    const isEvolved = hasEvolved && hasRealEvolvedArt;
 
     const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#000000', true, 1, isEvolved);
 
-    if (spriteImage && glowSteps > 0) {
-      spriteImage.postFX.addGlow(0xffdd33, 1 + glowSteps * 0.7, 0, false, 0.1, 12);
+    if (spriteImage && hasEvolved) {
+      spriteImage.postFX.addGlow(0xffdd33, PART_EVOLUTION_GLOW_STRENGTH, 0, false, 0.1, 12);
     }
 
     // Evolution-stage visual cue: a circle placeholder gets a stroked ring
