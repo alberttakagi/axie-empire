@@ -39,12 +39,16 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
 // unit's gameplay radius — a UI icon has no such stat to key off).
 // isPlayerSide also controls facing, matching createEntityVisual: art is
 // rendered facing screen-left, correct for an enemy portrait, flipped for
-// a player unit's. Returns null (nothing added) if this config has no
-// sprite, so callers can lay out a text-only fallback instead.
-export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = true) {
+// a player unit's. `useEvolved` shows the unit's real evolved ("awakened")
+// look instead of its base one (see UNIT_CONFIG.js's `sprite.evolved`
+// field/PartEvolution.js) — falls back to the base idle if this config has
+// no evolved art. Returns null (nothing added) if this config has no
+// sprite at all, so callers can lay out a text-only fallback instead.
+export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = true, useEvolved = false) {
   if (!config.sprite) return null;
   const prefix = isPlayerSide ? 'unit' : 'enemy';
-  const icon = scene.add.image(x, y, `${prefix}_${config.id}_idle`);
+  const evolvedTag = useEvolved && config.sprite.evolved ? '_evolved' : '';
+  const icon = scene.add.image(x, y, `${prefix}_${config.id}${evolvedTag}_idle`);
   icon.setFlipX(isPlayerSide);
   icon.setScale(targetDiameter / Math.max(icon.width, icon.height));
   return icon;

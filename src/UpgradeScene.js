@@ -10,6 +10,8 @@ import {
   tryEvolveUnit,
 } from './PlayerProgress.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
+import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
+import { hasReachedPartEvolution } from './PartEvolution.js';
 
 // The bible's §A.10.6(a) per-unit leveling screen — shows every unit's
 // current level/cap, evolution stage, and a live stat preview, with
@@ -35,6 +37,13 @@ const BUTTON_HEIGHT = 40;
 export default class UpgradeScene extends Phaser.Scene {
   constructor() {
     super('UpgradeScene');
+  }
+
+  // Same roster art GameScene battles use (see SpriteIcon.js) — loaded
+  // here too since a player can reach this screen without ever having
+  // started GameScene first.
+  preload() {
+    preloadSpriteRoster(this, UNIT_CONFIG, true);
   }
 
   create() {
@@ -131,12 +140,20 @@ export default class UpgradeScene extends Phaser.Scene {
     const evoName =
       unitProgress.evolutionStage === 0 ? 'Normal Form' : `${meta.evolutions[unitProgress.evolutionStage - 1].name} Form`;
 
+    // Portrait icon showing the unit's CURRENT look — its real evolved
+    // ("awakened") art once it's reached the part-evolution milestone (see
+    // PartEvolution.js), same as it'd appear in battle right now, rather
+    // than always the base form. Falls back to the old colored swatch for
+    // any (currently nonexistent) sprite-less unit.
+    const isEvolved = hasReachedPartEvolution(unitProgress.level);
     const rowObjects = [];
     rowObjects.push(this.add.rectangle(width / 2, y, width - ROW_WIDTH_MARGIN, ROW_HEIGHT - 8, 0x222222));
-    rowObjects.push(this.add.rectangle(30, y, 20, 20, base.color));
+    const icon = addUnitIcon(this, 38, y, base, ROW_HEIGHT - 16, true, isEvolved);
+    if (icon) rowObjects.push(icon);
+    else rowObjects.push(this.add.rectangle(30, y, 20, 20, base.color));
     rowObjects.push(
       this.add
-        .text(48, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
+        .text(78, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
           color: '#ffffff',
         })
@@ -144,7 +161,7 @@ export default class UpgradeScene extends Phaser.Scene {
     );
     rowObjects.push(
       this.add
-        .text(48, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
+        .text(78, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
           color: '#aaaaaa',
         })
