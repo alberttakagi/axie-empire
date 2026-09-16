@@ -378,19 +378,31 @@ window.renderStarter = async function renderStarter(axieId, animationName = 'act
   return dataUrl;
 };
 
-// Some PvE Chimera skeletons (unlike any Starter Axie) include a full-canvas
+// Some PvE Chimera skeletons (unlike any Starter Axie) include a
 // "vignette"/backdrop attachment — sometimes only during a specific special
-// attack (e.g. dryad-mage's spellcast), sometimes for the whole skeleton
-// (e.g. werewolf) — that's opaque solid black instead of blending
-// transparently against our stage (almost certainly authored to be
-// composited with a non-'normal' blend mode against the real game's own
-// darker battle backdrop, which our bare stage doesn't provide). Flood-
-// filling in from all 4 canvas corners and clearing any contiguous,
-// near-black, fully-opaque region catches exactly that backdrop — it's
-// always attached to the edges of a 512x512 render at our small
-// scale/position — while leaving a character's own black outline/shading
-// untouched, since those are enclosed by non-black pixels and never reached.
-async function stripOpaqueBlackBackground(dataUrl, threshold = 12) {
+// attack (e.g. dryad-mage's spellcast — confirmed by directly sampling its
+// pixels: a large rectangular region at alpha ~229, RGB near (0,0,0)),
+// sometimes for the whole skeleton — instead of blending transparently
+// against our stage (almost certainly authored to be composited with a
+// non-'normal' blend mode against the real game's own darker battle
+// backdrop, which our bare stage doesn't provide).
+//
+// An earlier version of this function only flood-filled from the 4 canvas
+// corners and only matched FULLY opaque (alpha >= 250) near-black pixels —
+// which missed dryad-mage's spellcast entirely: that vignette is a
+// SEMI-transparent (~90% opaque) black rectangle that floats in the middle
+// of the canvas without ever touching an edge, so a corner seed never
+// reaches it and the strict opacity check doesn't match it even if it did.
+// This version instead flood-fills from EVERY near-black-ish pixel anywhere
+// in the image (looser alpha floor to catch semi-transparent vignettes
+// too), grouping the canvas into connected components, and clears only the
+// components at or above `minBlobSize` — a vignette (whole-canvas-ish or a
+// large floating rectangle) is tens of thousands of pixels; a character's
+// own black outline/shading is thin curves/strokes that never connect into
+// a component anywhere near that size. Verified this doesn't regress
+// already-clean renders (slime, werewolf) — same visual output as the old
+// corner-flood-fill for those — while actually fixing dryad-mage's.
+async function stripOpaqueBlackBackground(dataUrl, { threshold = 24, alphaMin = 100, minBlobSize = 3000 } = {}) {
   const img = new Image();
   img.src = dataUrl;
   await img.decode();
@@ -403,32 +415,36 @@ async function stripOpaqueBlackBackground(dataUrl, threshold = 12) {
   const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const { data, width, height } = imageData;
 
-  const isBlackOpaque = (i) =>
-    data[i] <= threshold && data[i + 1] <= threshold && data[i + 2] <= threshold && data[i + 3] >= 250;
+  const isBlackish = (i) =>
+    data[i] <= threshold && data[i + 1] <= threshold && data[i + 2] <= threshold && data[i + 3] >= alphaMin;
 
   const visited = new Uint8Array(width * height);
-  const stack = [];
-  for (const [cx, cy] of [[0, 0], [width - 1, 0], [0, height - 1], [width - 1, height - 1]]) {
-    const idx = cy * width + cx;
-    if (!visited[idx] && isBlackOpaque(idx * 4)) {
-      visited[idx] = 1;
-      stack.push(idx);
-    }
-  }
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const startIdx = y * width + x;
+      if (visited[startIdx] || !isBlackish(startIdx * 4)) continue;
 
-  while (stack.length) {
-    const idx = stack.pop();
-    const x = idx % width;
-    const y = (idx / width) | 0;
-    data[idx * 4 + 3] = 0; // clear alpha — this pixel is background, not character
+      const stack = [startIdx];
+      const members = [startIdx];
+      visited[startIdx] = 1;
+      while (stack.length) {
+        const idx = stack.pop();
+        const cx = idx % width;
+        const cy = (idx / width) | 0;
+        for (const [nx, ny] of [[cx - 1, cy], [cx + 1, cy], [cx, cy - 1], [cx, cy + 1]]) {
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const nIdx = ny * width + nx;
+          if (visited[nIdx]) continue;
+          if (isBlackish(nIdx * 4)) {
+            visited[nIdx] = 1;
+            stack.push(nIdx);
+            members.push(nIdx);
+          }
+        }
+      }
 
-    for (const [nx, ny] of [[x - 1, y], [x + 1, y], [x, y - 1], [x, y + 1]]) {
-      if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
-      const nIdx = ny * width + nx;
-      if (visited[nIdx]) continue;
-      if (isBlackOpaque(nIdx * 4)) {
-        visited[nIdx] = 1;
-        stack.push(nIdx);
+      if (members.length >= minBlobSize) {
+        for (const m of members) data[m * 4 + 3] = 0; // clear alpha — this blob is background, not character
       }
     }
   }
