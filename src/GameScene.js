@@ -490,8 +490,8 @@ export default class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => stopMusic());
   }
 
-  // Two-camera HUD split (Battle Cats-style scroll-to-zoom on the
-  // battlefield only): cameras.main renders the world — it's what
+  // Two-camera HUD split (Battle Cats-style scroll-to-zoom + drag-to-pan on
+  // the battlefield only): cameras.main renders the world — it's what
   // getWorldPoint/setZoom/scrollX below actually operate on — and
   // this.uiCamera, added on top of it (so it draws after/in front), renders
   // the HUD at a fixed zoom 1/scroll 0 regardless. Each camera ignores the
@@ -527,6 +527,45 @@ export default class GameScene extends Phaser.Scene {
       const worldPointAfter = cam.getWorldPoint(pointer.x, pointer.y);
       cam.scrollX += worldPointBefore.x - worldPointAfter.x;
       cam.scrollY += worldPointBefore.y - worldPointAfter.y;
+    });
+
+    // Drag-to-pan — once zoomed in, scrolling alone can leave either base
+    // (or anything else off toward an edge) out of view with no way back;
+    // click-and-drag anywhere pans the same world camera the wheel above
+    // zooms. No world object is ever interactive (see the grep-able
+    // absence of setInteractive on anything but UI/popup elements), so
+    // there's nothing for this to conflict with — only a real drag moves
+    // the camera at all (a plain click ends up with ~0 movement, so a
+    // button tap underneath is unaffected), and it's skipped entirely
+    // while a popup has the game paused, matching every other
+    // battle-affecting input in this scene.
+    let isDraggingWorld = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartScrollX = 0;
+    let dragStartScrollY = 0;
+
+    this.input.on('pointerdown', (pointer) => {
+      if (this.isPaused) return;
+      isDraggingWorld = true;
+      dragStartX = pointer.x;
+      dragStartY = pointer.y;
+      dragStartScrollX = this.cameras.main.scrollX;
+      dragStartScrollY = this.cameras.main.scrollY;
+    });
+
+    this.input.on('pointermove', (pointer) => {
+      if (!isDraggingWorld || !pointer.isDown) return;
+      const cam = this.cameras.main;
+      cam.scrollX = dragStartScrollX - (pointer.x - dragStartX) / cam.zoom;
+      cam.scrollY = dragStartScrollY - (pointer.y - dragStartY) / cam.zoom;
+    });
+
+    this.input.on('pointerup', () => {
+      isDraggingWorld = false;
+    });
+    this.input.on('pointerupoutside', () => {
+      isDraggingWorld = false;
     });
   }
 
