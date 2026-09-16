@@ -102,7 +102,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0.05,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png"] },
   },
   fast: {
     id: 'fast',
@@ -137,7 +137,7 @@ export const ENEMY_CONFIG = {
     // Wave Attack (bible §A.3.8): mirrors the player-side fast unit's own
     // shockwave-on-hit.
     waveOnHit: { radius: 60 },
-    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png"] },
   },
   tank: {
     id: 'tank',
@@ -177,7 +177,7 @@ export const ENEMY_CONFIG = {
     // (or Barrier-Broken — see the player-side tank's barrierBreakerChance)
     // before real damage gets through, reinforcing its "hard to kill" role.
     barrierMaxHp: 30,
-    sprite: { idle: "/sprites/enemies/enemy_tank_idle.png", attack: "/sprites/enemies/enemy_tank_attack.png", hit: "/sprites/enemies/enemy_tank_hit.png", run: ["/sprites/enemies/enemy_tank_run_0.png", "/sprites/enemies/enemy_tank_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_tank_idle.png", attack: "/sprites/enemies/enemy_tank_attack.png", hit: "/sprites/enemies/enemy_tank_hit.png", run: ["/sprites/enemies/enemy_tank_run_0.png", "/sprites/enemies/enemy_tank_run_1.png"], idleAnim: ["/sprites/enemies/enemy_tank_idleanim_0.png", "/sprites/enemies/enemy_tank_idleanim_1.png"] },
   },
   ranged: {
     id: 'ranged',
@@ -221,7 +221,7 @@ export const ENEMY_CONFIG = {
     // Long Distance (bible §A.3.8): mirrors the player-side ranged unit's
     // own blind-spot-but-long-reach shape.
     longDistance: { min: 40, max: 140 },
-    sprite: { idle: "/sprites/enemies/enemy_ranged_idle.png", attack: "/sprites/enemies/enemy_ranged_attack.png", hit: "/sprites/enemies/enemy_ranged_hit.png", run: ["/sprites/enemies/enemy_ranged_run_0.png", "/sprites/enemies/enemy_ranged_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_ranged_idle.png", attack: "/sprites/enemies/enemy_ranged_attack.png", hit: "/sprites/enemies/enemy_ranged_hit.png", run: ["/sprites/enemies/enemy_ranged_run_0.png", "/sprites/enemies/enemy_ranged_run_1.png"], idleAnim: ["/sprites/enemies/enemy_ranged_idleanim_0.png", "/sprites/enemies/enemy_ranged_idleanim_1.png"] },
   },
   aoe: {
     id: 'aoe',
@@ -254,7 +254,7 @@ export const ENEMY_CONFIG = {
     // on the player's base blocks the special-burst trigger for 3s, so
     // there's real stakes to letting this one connect.
     statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.25, durationMs: 3000 },
-    sprite: { idle: "/sprites/enemies/enemy_aoe_idle.png", attack: "/sprites/enemies/enemy_aoe_attack.png", hit: "/sprites/enemies/enemy_aoe_hit.png", run: ["/sprites/enemies/enemy_aoe_run_0.png", "/sprites/enemies/enemy_aoe_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_aoe_idle.png", attack: "/sprites/enemies/enemy_aoe_attack.png", hit: "/sprites/enemies/enemy_aoe_hit.png", run: ["/sprites/enemies/enemy_aoe_run_0.png", "/sprites/enemies/enemy_aoe_run_1.png"], idleAnim: ["/sprites/enemies/enemy_aoe_idleanim_0.png", "/sprites/enemies/enemy_aoe_idleanim_1.png"] },
   },
 
   // --- Roster expansion mirrors (see UNIT_CONFIG.js's own matching section)
@@ -289,7 +289,7 @@ export const ENEMY_CONFIG = {
     // evasive identity.
     dodgeChance: 0.12,
     dodgeWindowMs: 400,
-    sprite: { idle: "/sprites/enemies/enemy_swarm_idle.png", attack: "/sprites/enemies/enemy_swarm_attack.png", hit: "/sprites/enemies/enemy_swarm_hit.png", run: ["/sprites/enemies/enemy_swarm_run_0.png", "/sprites/enemies/enemy_swarm_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_swarm_idle.png", attack: "/sprites/enemies/enemy_swarm_attack.png", hit: "/sprites/enemies/enemy_swarm_hit.png", run: ["/sprites/enemies/enemy_swarm_run_0.png", "/sprites/enemies/enemy_swarm_run_1.png"], idleAnim: ["/sprites/enemies/enemy_swarm_idleanim_0.png", "/sprites/enemies/enemy_swarm_idleanim_1.png"] },
   },
   sniper: {
     id: 'sniper',
@@ -318,7 +318,7 @@ export const ENEMY_CONFIG = {
     // Long Distance (bible §A.3.8): mirrors the player-side sniper's own
     // blind-spot-but-long-reach shape.
     longDistance: { min: 70, max: 200 },
-    sprite: { idle: "/sprites/enemies/enemy_sniper_idle.png", attack: "/sprites/enemies/enemy_sniper_attack.png", hit: "/sprites/enemies/enemy_sniper_hit.png" },
+    sprite: { idle: "/sprites/enemies/enemy_sniper_idle.png", attack: "/sprites/enemies/enemy_sniper_attack.png", hit: "/sprites/enemies/enemy_sniper_hit.png", idleAnim: ["/sprites/enemies/enemy_sniper_idleanim_0.png", "/sprites/enemies/enemy_sniper_idleanim_1.png"] },
   },
   guardian: {
     id: 'guardian',
@@ -347,7 +347,7 @@ export const ENEMY_CONFIG = {
     // Barrier (bible §A.3.8): a shell that must be cracked before real
     // damage gets through, on top of already-high HP.
     barrierMaxHp: 40,
-    sprite: { idle: "/sprites/enemies/enemy_guardian_idle.png", attack: "/sprites/enemies/enemy_guardian_attack.png", hit: "/sprites/enemies/enemy_guardian_hit.png", run: ["/sprites/enemies/enemy_guardian_run_0.png", "/sprites/enemies/enemy_guardian_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_guardian_idle.png", attack: "/sprites/enemies/enemy_guardian_attack.png", hit: "/sprites/enemies/enemy_guardian_hit.png", run: ["/sprites/enemies/enemy_guardian_run_0.png", "/sprites/enemies/enemy_guardian_run_1.png"], idleAnim: ["/sprites/enemies/enemy_guardian_idleanim_0.png", "/sprites/enemies/enemy_guardian_idleanim_1.png"] },
   },
   support: {
     id: 'support',
@@ -374,7 +374,7 @@ export const ENEMY_CONFIG = {
     critChance: 0.05,
     statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.3, durationMs: 1500, multiplier: 0.6 },
     toxicOnHit: { chance: 0.25, percent: 0.06 },
-    sprite: { idle: "/sprites/enemies/enemy_support_idle.png", attack: "/sprites/enemies/enemy_support_attack.png", hit: "/sprites/enemies/enemy_support_hit.png", run: ["/sprites/enemies/enemy_support_run_0.png", "/sprites/enemies/enemy_support_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_support_idle.png", attack: "/sprites/enemies/enemy_support_attack.png", hit: "/sprites/enemies/enemy_support_hit.png", run: ["/sprites/enemies/enemy_support_run_0.png", "/sprites/enemies/enemy_support_run_1.png"], idleAnim: ["/sprites/enemies/enemy_support_idleanim_0.png", "/sprites/enemies/enemy_support_idleanim_1.png"] },
   },
   titan: {
     id: 'titan',
@@ -403,7 +403,7 @@ export const ENEMY_CONFIG = {
     // Surge Attack (bible §A.3.8) — mirrors the player-side Titan's own
     // delayed ground-slam.
     surgeOnHit: { chance: 0.25, delayMs: 600, radius: 70 },
-    sprite: { idle: "/sprites/enemies/enemy_titan_idle.png", attack: "/sprites/enemies/enemy_titan_attack.png", hit: "/sprites/enemies/enemy_titan_hit.png", run: ["/sprites/enemies/enemy_titan_run_0.png", "/sprites/enemies/enemy_titan_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_titan_idle.png", attack: "/sprites/enemies/enemy_titan_attack.png", hit: "/sprites/enemies/enemy_titan_hit.png", run: ["/sprites/enemies/enemy_titan_run_0.png", "/sprites/enemies/enemy_titan_run_1.png"], idleAnim: ["/sprites/enemies/enemy_titan_idleanim_0.png", "/sprites/enemies/enemy_titan_idleanim_1.png"] },
   },
 
   // --- Wider enemy trait roster (bible §A.3.8) — see this file's own
@@ -445,7 +445,7 @@ export const ENEMY_CONFIG = {
     // build's `sniper`) — see GameScene.handleEnemyDeath.
     reviveCount: 2,
     reviveHpPercent: 0.5,
-    sprite: { idle: "/sprites/enemies/enemy_zombie_idle.png", attack: "/sprites/enemies/enemy_zombie_attack.png", hit: "/sprites/enemies/enemy_zombie_hit.png", run: ["/sprites/enemies/enemy_zombie_run_0.png", "/sprites/enemies/enemy_zombie_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_zombie_idle.png", attack: "/sprites/enemies/enemy_zombie_attack.png", hit: "/sprites/enemies/enemy_zombie_hit.png", run: ["/sprites/enemies/enemy_zombie_run_0.png", "/sprites/enemies/enemy_zombie_run_1.png"], idleAnim: ["/sprites/enemies/enemy_zombie_idleanim_0.png", "/sprites/enemies/enemy_zombie_idleanim_1.png"] },
   },
   colossus: {
     id: 'colossus',
@@ -480,7 +480,7 @@ export const ENEMY_CONFIG = {
     // TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES and UNIT_CONFIG.js's
     // `guardian`, this build's Colossus Slayer.
     superClass: 'colossus',
-    sprite: { idle: "/sprites/enemies/enemy_colossus_idle.png", attack: "/sprites/enemies/enemy_colossus_attack.png", hit: "/sprites/enemies/enemy_colossus_hit.png", run: ["/sprites/enemies/enemy_colossus_run_0.png", "/sprites/enemies/enemy_colossus_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_colossus_idle.png", attack: "/sprites/enemies/enemy_colossus_attack.png", hit: "/sprites/enemies/enemy_colossus_hit.png", run: ["/sprites/enemies/enemy_colossus_run_0.png", "/sprites/enemies/enemy_colossus_run_1.png"], idleAnim: ["/sprites/enemies/enemy_colossus_idleanim_0.png", "/sprites/enemies/enemy_colossus_idleanim_1.png"] },
   },
   behemoth: {
     id: 'behemoth',
@@ -514,6 +514,6 @@ export const ENEMY_CONFIG = {
     // see TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES and UNIT_CONFIG.js's
     // `titan`, this build's Behemoth Slayer.
     superClass: 'behemoth',
-    sprite: { idle: "/sprites/enemies/enemy_behemoth_idle.png", attack: "/sprites/enemies/enemy_behemoth_attack.png", hit: "/sprites/enemies/enemy_behemoth_hit.png", run: ["/sprites/enemies/enemy_behemoth_run_0.png", "/sprites/enemies/enemy_behemoth_run_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_behemoth_idle.png", attack: "/sprites/enemies/enemy_behemoth_attack.png", hit: "/sprites/enemies/enemy_behemoth_hit.png", run: ["/sprites/enemies/enemy_behemoth_run_0.png", "/sprites/enemies/enemy_behemoth_run_1.png"], idleAnim: ["/sprites/enemies/enemy_behemoth_idleanim_0.png", "/sprites/enemies/enemy_behemoth_idleanim_1.png"] },
   },
 };

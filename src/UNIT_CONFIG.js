@@ -172,7 +172,7 @@ export const UNIT_CONFIG = {
     special: { type: 'none' },
     critChance: 0.05,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/units/unit_basic_idle.png", attack: "/sprites/units/unit_basic_attack.png", hit: "/sprites/units/unit_basic_hit.png", run: ["/sprites/units/unit_basic_run_0.png", "/sprites/units/unit_basic_run_1.png"], evolved: { idle: "/sprites/units/unit_basic_evolved_idle.png", attack: "/sprites/units/unit_basic_evolved_attack.png", hit: "/sprites/units/unit_basic_evolved_hit.png", run: ["/sprites/units/unit_basic_evolved_run_0.png", "/sprites/units/unit_basic_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_basic_idle.png", attack: "/sprites/units/unit_basic_attack.png", hit: "/sprites/units/unit_basic_hit.png", run: ["/sprites/units/unit_basic_run_0.png", "/sprites/units/unit_basic_run_1.png"], idleAnim: ["/sprites/units/unit_basic_idleanim_0.png", "/sprites/units/unit_basic_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_basic_evolved_idle.png", attack: "/sprites/units/unit_basic_evolved_attack.png", hit: "/sprites/units/unit_basic_evolved_hit.png", run: ["/sprites/units/unit_basic_evolved_run_0.png", "/sprites/units/unit_basic_evolved_run_1.png"] } },
   },
   fast: {
     id: 'fast',
@@ -210,7 +210,7 @@ export const UNIT_CONFIG = {
     // this unit, catching whatever else is nearby — fits its "quick skirmisher"
     // identity as a way to punish enemies clustering up behind its target.
     waveOnHit: { radius: 60 },
-    sprite: { idle: "/sprites/units/unit_fast_idle.png", attack: "/sprites/units/unit_fast_attack.png", hit: "/sprites/units/unit_fast_hit.png", run: ["/sprites/units/unit_fast_run_0.png", "/sprites/units/unit_fast_run_1.png"], evolved: { idle: "/sprites/units/unit_fast_evolved_idle.png", attack: "/sprites/units/unit_fast_evolved_attack.png", hit: "/sprites/units/unit_fast_evolved_hit.png", run: ["/sprites/units/unit_fast_evolved_run_0.png", "/sprites/units/unit_fast_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_fast_idle.png", attack: "/sprites/units/unit_fast_attack.png", hit: "/sprites/units/unit_fast_hit.png", run: ["/sprites/units/unit_fast_run_0.png", "/sprites/units/unit_fast_run_1.png"], idleAnim: ["/sprites/units/unit_fast_idleanim_0.png", "/sprites/units/unit_fast_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_fast_evolved_idle.png", attack: "/sprites/units/unit_fast_evolved_attack.png", hit: "/sprites/units/unit_fast_evolved_hit.png", run: ["/sprites/units/unit_fast_evolved_run_0.png", "/sprites/units/unit_fast_evolved_run_1.png"] } },
   },
   tank: {
     id: 'tank',
@@ -248,7 +248,7 @@ export const UNIT_CONFIG = {
     // target shatters it outright, then still deals full damage that hit —
     // fits "heavy hitter that shrugs off shields" even at Tank's low DPS.
     barrierBreakerChance: 1.0,
-    sprite: { idle: "/sprites/units/unit_tank_idle.png", attack: "/sprites/units/unit_tank_attack.png", hit: "/sprites/units/unit_tank_hit.png", run: ["/sprites/units/unit_tank_run_0.png", "/sprites/units/unit_tank_run_1.png"], evolved: { idle: "/sprites/units/unit_tank_evolved_idle.png", attack: "/sprites/units/unit_tank_evolved_attack.png", hit: "/sprites/units/unit_tank_evolved_hit.png", run: ["/sprites/units/unit_tank_evolved_run_0.png", "/sprites/units/unit_tank_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_tank_idle.png", attack: "/sprites/units/unit_tank_attack.png", hit: "/sprites/units/unit_tank_hit.png", run: ["/sprites/units/unit_tank_run_0.png", "/sprites/units/unit_tank_run_1.png"], idleAnim: ["/sprites/units/unit_tank_idleanim_0.png", "/sprites/units/unit_tank_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_tank_evolved_idle.png", attack: "/sprites/units/unit_tank_evolved_attack.png", hit: "/sprites/units/unit_tank_evolved_hit.png", run: ["/sprites/units/unit_tank_evolved_run_0.png", "/sprites/units/unit_tank_evolved_run_1.png"] } },
   },
   ranged: {
     id: 'ranged',
@@ -288,7 +288,7 @@ export const UNIT_CONFIG = {
     // itself, but reaches out to 140px — fits the "sniper" archetype of
     // being useless up close but dangerous from afar.
     longDistance: { min: 40, max: 140 },
-    sprite: { idle: "/sprites/units/unit_ranged_idle.png", attack: "/sprites/units/unit_ranged_attack.png", hit: "/sprites/units/unit_ranged_hit.png", run: ["/sprites/units/unit_ranged_run_0.png", "/sprites/units/unit_ranged_run_1.png"], evolved: { idle: "/sprites/units/unit_ranged_evolved_idle.png", attack: "/sprites/units/unit_ranged_evolved_attack.png", hit: "/sprites/units/unit_ranged_evolved_hit.png", run: ["/sprites/units/unit_ranged_evolved_run_0.png", "/sprites/units/unit_ranged_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_ranged_idle.png", attack: "/sprites/units/unit_ranged_attack.png", hit: "/sprites/units/unit_ranged_hit.png", run: ["/sprites/units/unit_ranged_run_0.png", "/sprites/units/unit_ranged_run_1.png"], idleAnim: ["/sprites/units/unit_ranged_idleanim_0.png", "/sprites/units/unit_ranged_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_ranged_evolved_idle.png", attack: "/sprites/units/unit_ranged_evolved_attack.png", hit: "/sprites/units/unit_ranged_evolved_hit.png", run: ["/sprites/units/unit_ranged_evolved_run_0.png", "/sprites/units/unit_ranged_evolved_run_1.png"] } },
   },
   aoe: {
     id: 'aoe',
@@ -328,7 +328,7 @@ export const UNIT_CONFIG = {
     // Toxic/Poison (bible §A.3.8): a corrosive splash also chips bonus
     // damage off whatever it hits, scaled to that target's own max HP.
     toxicOnHit: { chance: 0.3, percent: 0.1 },
-    sprite: { idle: "/sprites/units/unit_aoe_idle.png", attack: "/sprites/units/unit_aoe_attack.png", hit: "/sprites/units/unit_aoe_hit.png", run: ["/sprites/units/unit_aoe_run_0.png", "/sprites/units/unit_aoe_run_1.png"], evolved: { idle: "/sprites/units/unit_aoe_evolved_idle.png", attack: "/sprites/units/unit_aoe_evolved_attack.png", hit: "/sprites/units/unit_aoe_evolved_hit.png", run: ["/sprites/units/unit_aoe_evolved_run_0.png", "/sprites/units/unit_aoe_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_aoe_idle.png", attack: "/sprites/units/unit_aoe_attack.png", hit: "/sprites/units/unit_aoe_hit.png", run: ["/sprites/units/unit_aoe_run_0.png", "/sprites/units/unit_aoe_run_1.png"], idleAnim: ["/sprites/units/unit_aoe_idleanim_0.png", "/sprites/units/unit_aoe_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_aoe_evolved_idle.png", attack: "/sprites/units/unit_aoe_evolved_attack.png", hit: "/sprites/units/unit_aoe_evolved_hit.png", run: ["/sprites/units/unit_aoe_evolved_run_0.png", "/sprites/units/unit_aoe_evolved_run_1.png"] } },
   },
 
   // --- Roster expansion (bible §A.4.1 — "more Normal-tier units" per the
@@ -376,7 +376,7 @@ export const UNIT_CONFIG = {
     // roll.
     dodgeChance: 0.12,
     dodgeWindowMs: 400,
-    sprite: { idle: "/sprites/units/unit_swarm_idle.png", attack: "/sprites/units/unit_swarm_attack.png", hit: "/sprites/units/unit_swarm_hit.png", run: ["/sprites/units/unit_swarm_run_0.png", "/sprites/units/unit_swarm_run_1.png"], evolved: { idle: "/sprites/units/unit_swarm_evolved_idle.png", attack: "/sprites/units/unit_swarm_evolved_attack.png", hit: "/sprites/units/unit_swarm_evolved_hit.png", run: ["/sprites/units/unit_swarm_evolved_run_0.png", "/sprites/units/unit_swarm_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_swarm_idle.png", attack: "/sprites/units/unit_swarm_attack.png", hit: "/sprites/units/unit_swarm_hit.png", run: ["/sprites/units/unit_swarm_run_0.png", "/sprites/units/unit_swarm_run_1.png"], idleAnim: ["/sprites/units/unit_swarm_idleanim_0.png", "/sprites/units/unit_swarm_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_swarm_evolved_idle.png", attack: "/sprites/units/unit_swarm_evolved_attack.png", hit: "/sprites/units/unit_swarm_evolved_hit.png", run: ["/sprites/units/unit_swarm_evolved_run_0.png", "/sprites/units/unit_swarm_evolved_run_1.png"] } },
   },
   sniper: {
     id: 'sniper',
@@ -412,7 +412,7 @@ export const UNIT_CONFIG = {
     // Zombie-trait enemy its revive when this unit lands the killing blow
     // — see ENEMY_CONFIG.js's `zombie` entry and GameScene.handleEnemyDeath.
     zombieKiller: true,
-    sprite: { idle: "/sprites/units/unit_sniper_idle.png", attack: "/sprites/units/unit_sniper_attack.png", hit: "/sprites/units/unit_sniper_hit.png", run: ["/sprites/units/unit_sniper_run_0.png", "/sprites/units/unit_sniper_run_1.png"], evolved: { idle: "/sprites/units/unit_sniper_evolved_idle.png", attack: "/sprites/units/unit_sniper_evolved_attack.png", hit: "/sprites/units/unit_sniper_evolved_hit.png", run: ["/sprites/units/unit_sniper_evolved_run_0.png", "/sprites/units/unit_sniper_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_sniper_idle.png", attack: "/sprites/units/unit_sniper_attack.png", hit: "/sprites/units/unit_sniper_hit.png", run: ["/sprites/units/unit_sniper_run_0.png", "/sprites/units/unit_sniper_run_1.png"], idleAnim: ["/sprites/units/unit_sniper_idleanim_0.png", "/sprites/units/unit_sniper_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_sniper_evolved_idle.png", attack: "/sprites/units/unit_sniper_evolved_attack.png", hit: "/sprites/units/unit_sniper_evolved_hit.png", run: ["/sprites/units/unit_sniper_evolved_run_0.png", "/sprites/units/unit_sniper_evolved_run_1.png"] } },
   },
   guardian: {
     id: 'guardian',
@@ -452,7 +452,7 @@ export const UNIT_CONFIG = {
     // specifically against enemies carrying the Colossus superClass tag —
     // see TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
     colossusSlayer: true,
-    sprite: { idle: "/sprites/units/unit_guardian_idle.png", attack: "/sprites/units/unit_guardian_attack.png", hit: "/sprites/units/unit_guardian_hit.png", run: ["/sprites/units/unit_guardian_run_0.png", "/sprites/units/unit_guardian_run_1.png"], evolved: { idle: "/sprites/units/unit_guardian_evolved_idle.png", attack: "/sprites/units/unit_guardian_evolved_attack.png", hit: "/sprites/units/unit_guardian_evolved_hit.png", run: ["/sprites/units/unit_guardian_evolved_run_0.png", "/sprites/units/unit_guardian_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_guardian_idle.png", attack: "/sprites/units/unit_guardian_attack.png", hit: "/sprites/units/unit_guardian_hit.png", run: ["/sprites/units/unit_guardian_run_0.png", "/sprites/units/unit_guardian_run_1.png"], idleAnim: ["/sprites/units/unit_guardian_idleanim_0.png", "/sprites/units/unit_guardian_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_guardian_evolved_idle.png", attack: "/sprites/units/unit_guardian_evolved_attack.png", hit: "/sprites/units/unit_guardian_evolved_hit.png", run: ["/sprites/units/unit_guardian_evolved_run_0.png", "/sprites/units/unit_guardian_evolved_run_1.png"] } },
   },
   support: {
     id: 'support',
@@ -482,7 +482,7 @@ export const UNIT_CONFIG = {
     critChance: 0.05,
     statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.4, durationMs: 2000, multiplier: 0.5 },
     toxicOnHit: { chance: 0.3, percent: 0.08 },
-    sprite: { idle: "/sprites/units/unit_support_idle.png", attack: "/sprites/units/unit_support_attack.png", hit: "/sprites/units/unit_support_hit.png", run: ["/sprites/units/unit_support_run_0.png", "/sprites/units/unit_support_run_1.png"], evolved: { idle: "/sprites/units/unit_support_evolved_idle.png", attack: "/sprites/units/unit_support_evolved_attack.png", hit: "/sprites/units/unit_support_evolved_hit.png", run: ["/sprites/units/unit_support_evolved_run_0.png", "/sprites/units/unit_support_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_support_idle.png", attack: "/sprites/units/unit_support_attack.png", hit: "/sprites/units/unit_support_hit.png", run: ["/sprites/units/unit_support_run_0.png", "/sprites/units/unit_support_run_1.png"], idleAnim: ["/sprites/units/unit_support_idleanim_0.png", "/sprites/units/unit_support_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_support_evolved_idle.png", attack: "/sprites/units/unit_support_evolved_attack.png", hit: "/sprites/units/unit_support_evolved_hit.png", run: ["/sprites/units/unit_support_evolved_run_0.png", "/sprites/units/unit_support_evolved_run_1.png"] } },
   },
   titan: {
     id: 'titan',

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Axie Animation Gallery (dev preview)</title>
+    <style>
+      body { background: #2a2a2a; color: #fff; font-family: sans-serif; margin: 0; padding: 16px; }
+      h3 { margin: 0 0 4px; }
+      p.sub { margin: 0 0 16px; color: #aaa; font-size: 13px; }
+      #status { color: #aaa; margin-bottom: 10px; }
+      canvas { background: #4488cc; display: block; }
+    </style>
+  </head>
+  <body>
+    <h3>Axie Animation Gallery — Buba preview (dev harness, not part of the game)</h3>
+    <p class="sub">Every clip loops live at real speed, one shared canvas (many separate WebGL contexts hit the browser's limit).</p>
+    <div id="status">loading...</div>
+    <script type="module" src="/gallery.js"></script>
+  </body>
+</html>
