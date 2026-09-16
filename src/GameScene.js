@@ -114,13 +114,25 @@ const EVOLUTION_RING_WIDTH = [0, 2, 3];
 // slope keeps "bigger stat = bigger sprite" while compressing that range:
 // smallest unit reads at SPRITE_MIN_DIAMETER, biggest (titan, radius 30) at
 // only ~1.5x that instead of ~3x.
-const SPRITE_MIN_DIAMETER = 44;
+const SPRITE_MIN_DIAMETER = 58;
 const SPRITE_MIN_RADIUS = 10; // swarm — the smallest unit's radius
-const SPRITE_SIZE_SLOPE = 1.1; // px of extra diameter per point of radius above the min
+const SPRITE_SIZE_SLOPE = 1.45; // px of extra diameter per point of radius above the min
 
 // Run-pose animation (see updateRunCycle) — how long one full run_0/run_1
 // alternation takes.
 const RUN_FRAME_PERIOD_MS = 320;
+
+// Scroll-to-zoom (see setupZoomControls) — battle-camera-only, so the HUD
+// (rendered by the separate always-zoom-1 uiCamera) never changes size.
+// MIN is exactly 1, not below: the whole battlefield already fits the
+// canvas exactly at zoom 1 (the backdrop/lane/bases are sized to it), so
+// there's no more world a sub-1 zoom could reveal — it would just letterbox
+// (the bounded battlefield shrinks to less than the viewport, leaving a
+// bare border with nothing GameScene draws in it). MAX is close enough to
+// see a unit's own run-cycle/attack animation clearly.
+const WORLD_ZOOM_MIN = 1;
+const WORLD_ZOOM_MAX = 2.2;
+const WORLD_ZOOM_WHEEL_SENSITIVITY = 0.001; // fraction of zoom changed per wheel-delta unit
 
 // A scripted boss (STAGE_CONFIG entries with isBoss: true) is otherwise
 // pixel-identical to its normal namesake enemy aside from a big hp
@@ -359,16 +371,31 @@ export default class GameScene extends Phaser.Scene {
     this.unitCooldowns = {};
     for (const key of this.loadout) this.unitCooldowns[key] = 0;
 
+    // World-vs-UI camera split (see the zoom-controls setup near the end of
+    // this method, setupZoomControls): cameras.main renders ONLY the
+    // battlefield itself — backdrop, lane band, bases, unit/enemy sprites —
+    // and is what scroll-wheel zoom actually zooms. this.uiCamera, added
+    // further down, is a second always-zoom-1 camera on top of it for every
+    // HUD element (spawn buttons, wallet, popups, ...), so the HUD never
+    // changes size or position as the player zooms the battle. Every world
+    // object created directly in this method (as opposed to later, in
+    // spawnUnit/createEnemy/triggerSpecialBurst) gets collected here so
+    // that, once every OTHER (i.e. UI) object this method builds also
+    // exists, one bulk diff below can tell the two apart without threading
+    // an ignore() call through every individual button/text helper.
+    this.worldGameObjects = [];
+
     // Battle backdrop (see Backdrop.js) — added before everything else so
     // it sits behind the whole scene.
-    addSagaBackground(this, this.stage.saga);
+    this.worldGameObjects.push(addSagaBackground(this, this.stage.saga));
 
     // Semi-transparent (rather than the old fully-opaque fill) so the
     // backdrop's own ground/sky still shows through above and below the
     // lane while still giving unit/text contrast a darkened band to sit on.
-    this.add.rectangle(width / 2, this.laneY, width, 80, 0x2a2a2a, 0.55);
+    this.worldGameObjects.push(this.add.rectangle(width / 2, this.laneY, width, 80, 0x2a2a2a, 0.55));
 
     this.base = this.add.rectangle(this.baseX, this.laneY, BASE_WIDTH, 100, BASE_COLOR);
+    this.worldGameObjects.push(this.base);
     // Left-anchored (not centered on baseX): the base sits flush against the
     // canvas's left edge, so a centered "current/max" string would overflow
     // past x=0 (confirmed via direct measurement — a 76px-wide string
@@ -380,8 +407,10 @@ export default class GameScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(0, 0.5);
+    this.worldGameObjects.push(this.baseHpText);
 
     this.enemyBase = this.add.rectangle(this.enemyBaseX, this.laneY, BASE_WIDTH, 100, ENEMY_BASE_COLOR);
+    this.worldGameObjects.push(this.enemyBase);
     // Mirror of the above: right-anchored, growing leftward from the
     // canvas's right edge.
     this.enemyBaseHpText = this.add
@@ -390,6 +419,7 @@ export default class GameScene extends Phaser.Scene {
         color: '#ffffff',
       })
       .setOrigin(1, 0.5);
+    this.worldGameObjects.push(this.enemyBaseHpText);
 
     // Top-left: a pause icon (screenshot-confirmed reference position/
     // behavior — tapping it pauses the fight and opens an Options popup
@@ -437,6 +467,14 @@ export default class GameScene extends Phaser.Scene {
 
     this.createSpawnButtons();
 
+    // Split the two cameras now that every UI object create() itself builds
+    // (pause button, stage name, wallet, spawn buttons, worker cat/cannon/
+    // speed buttons, dojo timer or battle item buttons, game-over text) has
+    // been created — see setupZoomControls (also creates this.uiCamera)
+    // and this.worldGameObjects' own comment above for why this can be one
+    // bulk diff instead of an ignore() call at every UI helper.
+    this.setupZoomControls();
+
     if (this.mode === 'dojo') {
       this.scheduleDojoWaves();
     } else {
@@ -450,6 +488,46 @@ export default class GameScene extends Phaser.Scene {
     // every one of those. A single hook here beats sprinkling stopMusic()
     // calls at every exit point.
     this.events.once('shutdown', () => stopMusic());
+  }
+
+  // Two-camera HUD split (Battle Cats-style scroll-to-zoom on the
+  // battlefield only): cameras.main renders the world — it's what
+  // getWorldPoint/setZoom/scrollX below actually operate on — and
+  // this.uiCamera, added on top of it (so it draws after/in front), renders
+  // the HUD at a fixed zoom 1/scroll 0 regardless. Each camera ignores the
+  // other's objects; see this.worldGameObjects' own comment for how the UI
+  // side of that split is gathered.
+  setupZoomControls() {
+    const { width, height } = this.scale;
+
+    this.uiCamera = this.cameras.add(0, 0, width, height);
+    this.uiCamera.ignore(this.worldGameObjects);
+    const uiObjectsSoFar = this.children.list.filter((obj) => !this.worldGameObjects.includes(obj));
+    this.cameras.main.ignore(uiObjectsSoFar);
+
+    // Nothing to see past the battlefield's own edges (the backdrop/lane
+    // exactly fill the canvas), so bounds just keep the zoomed-in view from
+    // ever panning off into empty space.
+    this.cameras.main.setBounds(0, 0, width, height);
+
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+      const cam = this.cameras.main;
+      const newZoom = Phaser.Math.Clamp(
+        cam.zoom * (1 - deltaY * WORLD_ZOOM_WHEEL_SENSITIVITY),
+        WORLD_ZOOM_MIN,
+        WORLD_ZOOM_MAX,
+      );
+      if (newZoom === cam.zoom) return;
+
+      // Zoom toward the cursor (the same feel as Figma/Google Maps) rather
+      // than always toward the battlefield's center, so scrolling near
+      // either base zooms in on THAT base instead of the lane's midpoint.
+      const worldPointBefore = cam.getWorldPoint(pointer.x, pointer.y);
+      cam.setZoom(newZoom);
+      const worldPointAfter = cam.getWorldPoint(pointer.x, pointer.y);
+      cam.scrollX += worldPointBefore.x - worldPointAfter.x;
+      cam.scrollY += worldPointBefore.y - worldPointAfter.y;
+    });
   }
 
   scheduleStageScript() {
@@ -670,6 +748,7 @@ export default class GameScene extends Phaser.Scene {
       this.showQuitConfirm();
     });
 
+    this.cameras.main.ignore(objects); // UI (see setupZoomControls) — stays fixed regardless of battle zoom
     this.settingsPopupObjects = objects;
   }
 
@@ -774,6 +853,7 @@ export default class GameScene extends Phaser.Scene {
     yesButton.on('pointerdown', () => this.scene.start('HomeScene'));
     noButton.on('pointerdown', () => this.hideQuitConfirm());
 
+    this.cameras.main.ignore(objects); // UI (see setupZoomControls) — stays fixed regardless of battle zoom
     this.quitConfirmObjects = objects;
   }
 
@@ -842,7 +922,10 @@ export default class GameScene extends Phaser.Scene {
   createSpeedUpButton() {
     const { width } = this.scale;
     const x = width - 50;
-    const y = 45;
+    // Below the wallet readout (right-aligned at y=16, 20px font) — was
+    // y=45, which put this button's top edge above the wallet text's own
+    // bottom edge, visibly overlapping it.
+    const y = 58;
 
     this.speedUpButton = this.add.rectangle(x, y, 68, 24, 0x555566).setInteractive({ useHandCursor: true });
     this.speedUpText = this.add.text(x, y, '1x SPEED', { fontFamily: 'Rowdies, sans-serif', fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
@@ -945,6 +1028,7 @@ export default class GameScene extends Phaser.Scene {
     this.restrictionMessageText = this.add
       .text(width / 2, height - 90, text, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ff6666' })
       .setOrigin(0.5);
+    this.cameras.main.ignore(this.restrictionMessageText); // UI (see setupZoomControls)
 
     this.time.delayedCall(1500, () => {
       if (this.restrictionMessageText) {
@@ -1029,6 +1113,10 @@ export default class GameScene extends Phaser.Scene {
       const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}${evolvedTag}_idle`);
       sprite.setFlipX(isPlayerSide);
       this.fitSpriteToRadius(sprite, config.radius, visualScaleMultiplier);
+      // Every unit/enemy sprite is a world object (see setupZoomControls) —
+      // created well after that method's own one-time bulk ignore() call,
+      // so it needs this explicit one instead.
+      this.uiCamera.ignore(sprite);
       return { shape: sprite, label: null, spriteImage: sprite };
     }
 
@@ -1037,6 +1125,7 @@ export default class GameScene extends Phaser.Scene {
       fontFamily: 'Rowdies, sans-serif', fontSize: '16px',
       color: labelColor,
     }).setOrigin(0.5);
+    this.uiCamera.ignore([shape, label]);
     return { shape, label, spriteImage: null };
   }
 
@@ -1089,6 +1178,7 @@ export default class GameScene extends Phaser.Scene {
       .text(width / 2, height / 2 - 60, 'BOSS!', { fontFamily: 'Rowdies, sans-serif', fontSize: '40px', color: '#ff3333', fontStyle: 'bold' })
       .setOrigin(0.5)
       .setAlpha(0);
+    this.cameras.main.ignore(text); // UI (see setupZoomControls) — a fixed screen-center banner, not tied to a world position
 
     this.tweens.add({ targets: text, alpha: 1, duration: 200, yoyo: true, hold: 500, onComplete: () => text.destroy() });
   }
@@ -2056,6 +2146,7 @@ export default class GameScene extends Phaser.Scene {
 
     const { width } = this.scale;
     const flash = this.add.rectangle(width / 2, this.laneY, width, 80, SPECIAL_FLASH_COLOR).setAlpha(0.5);
+    this.uiCamera.ignore(flash); // world object (see setupZoomControls) — zooms/pans with the battlefield
     this.time.delayedCall(SPECIAL_FLASH_DURATION_MS, () => flash.destroy());
   }
 
@@ -2141,6 +2232,7 @@ export default class GameScene extends Phaser.Scene {
       this.endGame();
     });
 
+    this.cameras.main.ignore(objects); // UI (see setupZoomControls) — stays fixed regardless of battle zoom
     this.continueOfferObjects = objects;
   }
 
@@ -2286,7 +2378,8 @@ export default class GameScene extends Phaser.Scene {
       const textColor = label === 'Next Stage' ? '#000000' : '#ffffff';
 
       const button = this.add.rectangle(x, buttonY, buttonWidth, 60, color).setInteractive({ useHandCursor: true });
-      this.add.text(x, buttonY, label, { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: textColor }).setOrigin(0.5);
+      const buttonLabel = this.add.text(x, buttonY, label, { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: textColor }).setOrigin(0.5);
+      this.cameras.main.ignore([button, buttonLabel]); // UI (see setupZoomControls)
 
       if (label === 'Restart') {
         button.on('pointerdown', () => this.scene.restart());
