@@ -122,6 +122,17 @@ const SPRITE_SIZE_SLOPE = 1.45; // px of extra diameter per point of radius abov
 // alternation takes.
 const RUN_FRAME_PERIOD_MS = 320;
 
+// Attack lunge (see updateAttackLunge) — a texture swap to the attack pose
+// alone (just the axie's face changing) barely reads as "attacking" at a
+// glance. A small forward-and-back hop synced to the foreswing/backswing
+// timing an attacker already tracks (tickCombatPhase) sells the hit far
+// more clearly, the same way Battle Cats units visibly lunge at their
+// target rather than just changing sprite. Kept small/quick rather than a
+// big showy hop — it needs to read at a glance without ever looking like
+// the unit actually changed lanes or left its gameplay position (which,
+// net over one full foreswing+backswing cycle, it never does).
+const ATTACK_LUNGE_DISTANCE = 7;
+
 // Scroll-to-zoom (see setupZoomControls) — battle-camera-only, so the HUD
 // (rendered by the separate always-zoom-1 uiCamera) never changes size.
 // MIN is exactly 1, not below: the whole battlefield already fits the
@@ -1271,9 +1282,11 @@ export default class GameScene extends Phaser.Scene {
       // setTexture calls. See updateEntityPoses/getDesiredPose/setEntityPose.
       // isPlayerSide is only needed here so setEntityPose can rebuild the
       // same 'unit_'/'enemy_' prefixed texture key createEntityVisual used.
-      // visualScaleMultiplier likewise lets setEntityPose re-apply a boss's
-      // size bump (see BOSS_VISUAL_SCALE_MULTIPLIER) on every pose swap,
-      // since fitSpriteToRadius would otherwise reset it to the normal size.
+      // visualScaleMultiplier is a boss's size bump (see
+      // BOSS_VISUAL_SCALE_MULTIPLIER) — createEntityVisual is the only
+      // place it's actually applied (setEntityPose never touches scale;
+      // see its own comment), kept here only so it's available if a future
+      // caller needs to know an entity's boss-ness after the fact.
       // isEvolved (player units only) is the same idea for the real evolved
       // texture set — see createEntityVisual/UNIT_CONFIG.js's
       // `sprite.evolved` field — fixed for the unit's whole time on the
@@ -1297,6 +1310,11 @@ export default class GameScene extends Phaser.Scene {
       // setTexture on an actual frame change rather than every tick.
       runCycleMs: 0,
       runFrame: 0,
+      // Attack lunge (see updateAttackLunge) — the px of forward offset
+      // CURRENTLY applied to shape.x, so that method can compute this
+      // tick's desired offset and adjust shape.x by just the difference,
+      // rather than needing its own separate "resting position" bookkeeping.
+      attackLungeOffset: 0,
       hp: config.hp,
       // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
       // tickCombatPhase. null/0 means "not yet started a windup."
@@ -1636,10 +1654,12 @@ export default class GameScene extends Phaser.Scene {
     for (const unit of this.playerUnits) {
       this.setEntityPose(unit, this.getDesiredPose(unit));
       this.updateRunCycle(unit, deltaMs);
+      this.updateAttackLunge(unit);
     }
     for (const enemy of this.enemies) {
       this.setEntityPose(enemy, this.getDesiredPose(enemy));
       this.updateRunCycle(enemy, deltaMs);
+      this.updateAttackLunge(enemy);
     }
   }
 
@@ -1659,13 +1679,21 @@ export default class GameScene extends Phaser.Scene {
     return 'idle';
   }
 
-  // idle/attack/hit are one static texture each — set once, on the frame
-  // the pose actually changes (the currentPose guard below), sized via
-  // fitSpriteToRadius as usual. run is different: it's a looping 2-frame
-  // alternation (see updateRunCycle), so entering it just resets that
-  // cycle to its first frame — fitSpriteToRadius runs here too (sizing
-  // run_0), but deliberately NOT again on every later run_0/run_1 swap;
-  // see updateRunCycle for why.
+  // idle/attack/hit/run_0/run_1 are all just texture swaps on the SAME
+  // sprite — none of them ever touch scale. fitSpriteToRadius runs exactly
+  // once, in createEntityVisual, sized off the idle texture; every later
+  // pose reuses that one scale. This used to re-fit on every swap, which
+  // seems reasonable (each pose gets sized to the same target diameter)
+  // but is actually wrong: every pose is trimmed to its OWN tight bounding
+  // box (see tools/sprite-gen's trimTransparentPadding), and an attack
+  // pose's box is bigger than idle's (a swung weapon/limb reaches further
+  // out) even though the character's actual body is the same true size in
+  // both — fitting THAT bigger box to the same target diameter shrank the
+  // whole sprite, which read as "enemies get small mid-attack." Keeping
+  // one fixed scale for the sprite's whole lifetime means each pose just
+  // renders at its own natural relative size (attack's weapon reaches out
+  // further, idle doesn't) instead of every pose being force-normalized to
+  // an identical bounding-box size.
   setEntityPose(entity, pose) {
     if (!entity.spriteImage || entity.currentPose === pose) return;
     entity.currentPose = pose;
@@ -1678,23 +1706,13 @@ export default class GameScene extends Phaser.Scene {
     } else {
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`);
     }
-    this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
   }
 
   // A single static "moving" pose read as barely different from idle for
   // these round, mostly-legless Axies/Chimeras (see SpriteIcon.js's own
   // comment), so while an entity is on the run pose this alternates
-  // between its two run frames. Deliberately does NOT call
-  // fitSpriteToRadius on the swap (unlike every other pose change): each
-  // frame is trimmed to its own tight bounding box (see tools/sprite-gen's
-  // trimTransparentPadding), so run_0 and run_1 aren't the same pixel
-  // dimensions even though the character itself is the same size in both
-  // — resizing to fit each frame's own box on every swap made the sprite
-  // visibly grow/shrink every ~160ms instead of just changing pose. Both
-  // frames instead keep whatever scale setEntityPose already set for run_0
-  // (the true render scale is identical between them; only the
-  // transparent padding differs), so alternating them changes the pose
-  // without changing the size.
+  // between its two run frames — same one fixed scale as every other pose
+  // (see setEntityPose's own comment) applies here too, unchanged.
   updateRunCycle(entity, deltaMs) {
     if (!entity.spriteImage || entity.currentPose !== 'run') return;
 
@@ -1706,6 +1724,35 @@ export default class GameScene extends Phaser.Scene {
       const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`);
     }
+  }
+
+  // Small forward-and-back hop synced to tickCombatPhase's own
+  // foreswing/backswing timing — see ATTACK_LUNGE_DISTANCE. Recomputes
+  // this tick's DESIRED offset from scratch (rather than integrating a
+  // velocity like tickKnockback does) and applies only the delta from
+  // last tick's offset, so shape.x always equals "wherever normal
+  // movement/knockback left it" plus the current lunge — never drifting,
+  // and never needing its own separate cleanup wherever attackPhase gets
+  // forcibly reset to null (a knockback interrupting a windup, say): the
+  // very next tick after that, desiredOffset naturally computes back to 0
+  // and this retracts whatever lunge was mid-flight in one step.
+  updateAttackLunge(entity) {
+    if (!entity.shape || entity.hp <= 0) return;
+
+    let desiredOffset = 0;
+    if (entity.attackPhase === 'windup') {
+      const foreswingMs = Math.max(1, entity.config.foreswingMs);
+      desiredOffset = ATTACK_LUNGE_DISTANCE * Phaser.Math.Clamp(1 - entity.phaseMs / foreswingMs, 0, 1);
+    } else if (entity.attackPhase === 'backswing') {
+      const backswingMs = Math.max(1, entity.config.backswingMs);
+      desiredOffset = ATTACK_LUNGE_DISTANCE * Phaser.Math.Clamp(entity.phaseMs / backswingMs, 0, 1);
+    }
+
+    const delta = desiredOffset - entity.attackLungeOffset;
+    if (delta === 0) return;
+    entity.attackLungeOffset = desiredOffset;
+    entity.shape.x += delta * (entity.isPlayerSide ? 1 : -1); // toward the enemy side
+    if (entity.label) entity.label.x = entity.shape.x;
   }
 
   // Advances one attacker's foreswing/backswing attack cycle (bible §A.3.4,
