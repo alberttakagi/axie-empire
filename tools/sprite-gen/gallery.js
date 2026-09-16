@@ -9,13 +9,13 @@
 // WebGL contexts"), silently killing the oldest ones. One shared canvas
 // with everything laid out on it avoids that entirely.
 //
-// Buba (axieId '1') only, for now — a quick look, not a full asset build.
+// One Starter at a time, picked via URL query params (?axieId=12&only=ranged)
+// rather than editing this file per look — see the bottom of this file for
+// how those are read. Defaults to Buba (axieId '1'), every category.
 
 import { Application, Text, Graphics } from 'pixi.js';
 import { Spine, TextureAtlas } from 'pixi-spine';
 import { AtlasAttachmentLoader, SkeletonJson, SkeletonBinary } from '@pixi-spine/runtime-3.8';
-
-const AXIE_ID = '1'; // Buba
 
 const COLUMNS = 6;
 const CELL = 130;
@@ -86,7 +86,22 @@ const CATEGORIES = [
     label: 'Battle status',
     names: ['battle/get-buff', 'battle/get-debuff'],
   },
+  {
+    label: 'Ranged attacks',
+    names: [
+      'attack/ranged/cast-fly',
+      'attack/ranged/cast-high',
+      'attack/ranged/cast-low',
+      'attack/ranged/cast-multi',
+      'attack/ranged/cast-tail',
+    ],
+  },
 ];
+
+// e.g. "Melee attacks" -> "melee-attacks", for matching the `only` param.
+function slugify(label) {
+  return label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
 
 // Same loader as main.js's loadStarterSkeletonData, duplicated rather than
 // imported — this file intentionally stays fully standalone from the
@@ -113,12 +128,12 @@ async function loadStarterSkeletonData(axieId) {
 // at COLUMNS per row and starting a fresh row for each new category — so
 // the whole gallery is just one flat list of "draw this at this spot"
 // entries by the time the render loop below runs.
-function layoutCells() {
+function layoutCells(categories) {
   const cells = [];
   const headers = [];
   let y = MARGIN;
 
-  for (const { label, names } of CATEGORIES) {
+  for (const { label, names } of categories) {
     headers.push({ label, x: MARGIN, y });
     y += HEADER_HEIGHT;
 
@@ -138,10 +153,17 @@ function layoutCells() {
 
 async function main() {
   const status = document.getElementById('status');
-  status.textContent = 'loading Buba skeleton…';
-  const skeletonData = await loadStarterSkeletonData(AXIE_ID);
+  const params = new URLSearchParams(window.location.search);
+  const axieId = params.get('axieId') || '1'; // default: Buba
+  const onlySlugs = params.get('only')?.split(',').map((s) => s.trim());
+  const categories = onlySlugs ? CATEGORIES.filter((c) => onlySlugs.includes(slugify(c.label))) : CATEGORIES;
 
-  const { cells, headers, width, height } = layoutCells();
+  document.querySelector('h3').textContent = `Axie Animation Gallery — axieId ${axieId} preview (dev harness, not part of the game)`;
+
+  status.textContent = `loading axieId ${axieId} skeleton…`;
+  const skeletonData = await loadStarterSkeletonData(axieId);
+
+  const { cells, headers, width, height } = layoutCells(categories);
 
   const canvas = document.createElement('canvas');
   document.body.appendChild(canvas);
