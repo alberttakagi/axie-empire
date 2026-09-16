@@ -118,13 +118,9 @@ const SPRITE_MIN_DIAMETER = 44;
 const SPRITE_MIN_RADIUS = 10; // swarm — the smallest unit's radius
 const SPRITE_SIZE_SLOPE = 1.1; // px of extra diameter per point of radius above the min
 
-// Run-pose animation (see updateRunCycle) — how long one full hop takes,
-// and how many px off the lane baseline its peak reaches. Snappy/small
-// rather than a slow, tall bounce: this plays continuously for as long as
-// an entity is walking, so anything more exaggerated would read as
-// bouncy/silly rather than "running."
-const RUN_CYCLE_PERIOD_MS = 320;
-const RUN_BOB_AMPLITUDE = 3;
+// Run-pose animation (see updateRunCycle) — how long one full run_0/run_1
+// alternation takes.
+const RUN_FRAME_PERIOD_MS = 320;
 
 // A scripted boss (STAGE_CONFIG entries with isBoss: true) is otherwise
 // pixel-identical to its normal namesake enemy aside from a big hp
@@ -1166,10 +1162,10 @@ export default class GameScene extends Phaser.Scene {
       // ENEMY_CONFIG.js's sniper/Dryad Ranger entry).
       isMoving: false,
       // run-pose animation state — see updateRunCycle. runCycleMs tracks
-      // position within one hop (reset whenever the run pose is (re-)
-      // entered, in setEntityPose); runFrame is just the last-set frame
-      // index (0/1), kept so updateRunCycle only calls setTexture on an
-      // actual frame change rather than every tick.
+      // position within one run_0/run_1 alternation (reset whenever the
+      // run pose is (re-)entered, in setEntityPose); runFrame is just the
+      // last-set frame index (0/1), kept so updateRunCycle only calls
+      // setTexture on an actual frame change rather than every tick.
       runCycleMs: 0,
       runFrame: 0,
       hp: config.hp,
@@ -1535,14 +1531,12 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // idle/attack/hit are one static texture each — set once, on the frame
-  // the pose actually changes (the currentPose guard below). run is
-  // different: it's a short looping cycle (see updateRunCycle), so
-  // entering it just resets that cycle to its first frame/no vertical
-  // offset — the per-frame texture/bob work happens continuously in
-  // updateRunCycle instead, independent of whether the pose itself just
-  // changed. Leaving run resets spriteImage.y in case a bounce was
-  // mid-arc, so e.g. a unit that starts attacking mid-stride doesn't get
-  // stuck floating above its lane.
+  // the pose actually changes (the currentPose guard below), sized via
+  // fitSpriteToRadius as usual. run is different: it's a looping 2-frame
+  // alternation (see updateRunCycle), so entering it just resets that
+  // cycle to its first frame — fitSpriteToRadius runs here too (sizing
+  // run_0), but deliberately NOT again on every later run_0/run_1 swap;
+  // see updateRunCycle for why.
   setEntityPose(entity, pose) {
     if (!entity.spriteImage || entity.currentPose === pose) return;
     entity.currentPose = pose;
@@ -1553,7 +1547,6 @@ export default class GameScene extends Phaser.Scene {
       entity.runCycleMs = 0;
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_0`);
     } else {
-      entity.spriteImage.y = this.laneY;
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`);
     }
     this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
@@ -1561,30 +1554,28 @@ export default class GameScene extends Phaser.Scene {
 
   // A single static "moving" pose read as barely different from idle for
   // these round, mostly-legless Axies/Chimeras (see SpriteIcon.js's own
-  // comment) — a real running FEEL needed actual motion, not just a
-  // different frame. So while an entity is on the run pose, this layers a
-  // continuous hop (a sine-squared bounce, always upward off the lane
-  // baseline — an actual dip below it would read as sinking into the
-  // ground) on top of a 2-frame texture swap timed to that same bounce
-  // (run_0 low, run_1 at the peak), rather than a plain per-pose static
-  // swap. No-ops immediately once the entity leaves the run pose (nothing
-  // to advance).
+  // comment), so while an entity is on the run pose this alternates
+  // between its two run frames. Deliberately does NOT call
+  // fitSpriteToRadius on the swap (unlike every other pose change): each
+  // frame is trimmed to its own tight bounding box (see tools/sprite-gen's
+  // trimTransparentPadding), so run_0 and run_1 aren't the same pixel
+  // dimensions even though the character itself is the same size in both
+  // — resizing to fit each frame's own box on every swap made the sprite
+  // visibly grow/shrink every ~160ms instead of just changing pose. Both
+  // frames instead keep whatever scale setEntityPose already set for run_0
+  // (the true render scale is identical between them; only the
+  // transparent padding differs), so alternating them changes the pose
+  // without changing the size.
   updateRunCycle(entity, deltaMs) {
     if (!entity.spriteImage || entity.currentPose !== 'run') return;
 
-    entity.runCycleMs = (entity.runCycleMs + deltaMs) % RUN_CYCLE_PERIOD_MS;
-    const phase = entity.runCycleMs / RUN_CYCLE_PERIOD_MS; // 0..1 across one hop
-    const bounce = Math.sin(phase * Math.PI); // 0 -> 1 -> 0, never negative
-
-    entity.spriteImage.y = this.laneY - bounce * RUN_BOB_AMPLITUDE;
-
-    const frame = phase < 0.5 ? 0 : 1;
+    entity.runCycleMs = (entity.runCycleMs + deltaMs) % RUN_FRAME_PERIOD_MS;
+    const frame = entity.runCycleMs < RUN_FRAME_PERIOD_MS / 2 ? 0 : 1;
     if (frame !== entity.runFrame) {
       entity.runFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
       const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`);
-      this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
     }
   }
 
