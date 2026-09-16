@@ -118,6 +118,14 @@ const SPRITE_MIN_DIAMETER = 44;
 const SPRITE_MIN_RADIUS = 10; // swarm — the smallest unit's radius
 const SPRITE_SIZE_SLOPE = 1.1; // px of extra diameter per point of radius above the min
 
+// Run-pose animation (see updateRunCycle) — how long one full hop takes,
+// and how many px off the lane baseline its peak reaches. Snappy/small
+// rather than a slow, tall bounce: this plays continuously for as long as
+// an entity is walking, so anything more exaggerated would read as
+// bouncy/silly rather than "running."
+const RUN_CYCLE_PERIOD_MS = 320;
+const RUN_BOB_AMPLITUDE = 3;
+
 // A scripted boss (STAGE_CONFIG entries with isBoss: true) is otherwise
 // pixel-identical to its normal namesake enemy aside from a big hp
 // multiplier — the shockwave/warning flash at the moment it spawns is a
@@ -1157,6 +1165,13 @@ export default class GameScene extends Phaser.Scene {
       // for the one enemy with no move animation to render (see
       // ENEMY_CONFIG.js's sniper/Dryad Ranger entry).
       isMoving: false,
+      // run-pose animation state — see updateRunCycle. runCycleMs tracks
+      // position within one hop (reset whenever the run pose is (re-)
+      // entered, in setEntityPose); runFrame is just the last-set frame
+      // index (0/1), kept so updateRunCycle only calls setTexture on an
+      // actual frame change rather than every tick.
+      runCycleMs: 0,
+      runFrame: 0,
       hp: config.hp,
       // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
       // tickCombatPhase. null/0 means "not yet started a windup."
@@ -1263,7 +1278,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
-    this.updateEntityPoses();
+    this.updateEntityPoses(deltaMs);
 
     // Sparring Grounds' base is invincible (see damageBase/damageEnemyBase),
     // so its HP is always Infinity — shown as "∞/∞" rather than a literal
@@ -1492,9 +1507,15 @@ export default class GameScene extends Phaser.Scene {
   // branchy per-unit logic (several of its paths `continue` before reaching
   // the end of the loop body). Entities without a sprite (every enemy today
   // — see UNIT_CONFIG.js's `sprite` field) are silently no-ops here.
-  updateEntityPoses() {
-    for (const unit of this.playerUnits) this.setEntityPose(unit, this.getDesiredPose(unit));
-    for (const enemy of this.enemies) this.setEntityPose(enemy, this.getDesiredPose(enemy));
+  updateEntityPoses(deltaMs) {
+    for (const unit of this.playerUnits) {
+      this.setEntityPose(unit, this.getDesiredPose(unit));
+      this.updateRunCycle(unit, deltaMs);
+    }
+    for (const enemy of this.enemies) {
+      this.setEntityPose(enemy, this.getDesiredPose(enemy));
+      this.updateRunCycle(enemy, deltaMs);
+    }
   }
 
   // hit (dazed/surprised) beats attack (mid-swing) beats run (walking with
@@ -1513,13 +1534,58 @@ export default class GameScene extends Phaser.Scene {
     return 'idle';
   }
 
+  // idle/attack/hit are one static texture each — set once, on the frame
+  // the pose actually changes (the currentPose guard below). run is
+  // different: it's a short looping cycle (see updateRunCycle), so
+  // entering it just resets that cycle to its first frame/no vertical
+  // offset — the per-frame texture/bob work happens continuously in
+  // updateRunCycle instead, independent of whether the pose itself just
+  // changed. Leaving run resets spriteImage.y in case a bounce was
+  // mid-arc, so e.g. a unit that starts attacking mid-stride doesn't get
+  // stuck floating above its lane.
   setEntityPose(entity, pose) {
     if (!entity.spriteImage || entity.currentPose === pose) return;
     entity.currentPose = pose;
     const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
     const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
-    entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`);
+    if (pose === 'run') {
+      entity.runFrame = 0;
+      entity.runCycleMs = 0;
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_0`);
+    } else {
+      entity.spriteImage.y = this.laneY;
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`);
+    }
     this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
+  }
+
+  // A single static "moving" pose read as barely different from idle for
+  // these round, mostly-legless Axies/Chimeras (see SpriteIcon.js's own
+  // comment) — a real running FEEL needed actual motion, not just a
+  // different frame. So while an entity is on the run pose, this layers a
+  // continuous hop (a sine-squared bounce, always upward off the lane
+  // baseline — an actual dip below it would read as sinking into the
+  // ground) on top of a 2-frame texture swap timed to that same bounce
+  // (run_0 low, run_1 at the peak), rather than a plain per-pose static
+  // swap. No-ops immediately once the entity leaves the run pose (nothing
+  // to advance).
+  updateRunCycle(entity, deltaMs) {
+    if (!entity.spriteImage || entity.currentPose !== 'run') return;
+
+    entity.runCycleMs = (entity.runCycleMs + deltaMs) % RUN_CYCLE_PERIOD_MS;
+    const phase = entity.runCycleMs / RUN_CYCLE_PERIOD_MS; // 0..1 across one hop
+    const bounce = Math.sin(phase * Math.PI); // 0 -> 1 -> 0, never negative
+
+    entity.spriteImage.y = this.laneY - bounce * RUN_BOB_AMPLITUDE;
+
+    const frame = phase < 0.5 ? 0 : 1;
+    if (frame !== entity.runFrame) {
+      entity.runFrame = frame;
+      const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
+      const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`);
+      this.fitSpriteToRadius(entity.spriteImage, entity.config.radius, entity.visualScaleMultiplier);
+    }
   }
 
   // Advances one attacker's foreswing/backswing attack cycle (bible §A.3.4,

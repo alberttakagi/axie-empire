@@ -18,27 +18,48 @@
 // this from more than one scene's preload() (e.g. both GameScene and
 // LoadoutScene) never re-fetches an already-cached texture.
 //
-// `run` (a walking/moving pose — see GameScene's getDesiredPose) is
-// optional per entry rather than always-on like idle/attack/hit: every
-// unit has one, but one enemy (sniper/Dryad Ranger) has no move animation
-// in its source skeleton to render one from, so it simply has no
-// `sprite.run` and falls back to idle while moving.
+// `run` (the walking/moving pose — see GameScene's getDesiredPose) is a
+// short array of PNG paths rather than one path like idle/attack/hit: a
+// single static frame read as barely-different from idle (these are round,
+// mostly-legless Axies/Chimeras — there's no dramatic leg-swing to capture),
+// so GameScene instead cycles between run[0]/run[1] and layers a bounce on
+// top while an entity is actually moving, to actually read as running
+// rather than sliding. `run` is optional per entry rather than always-on
+// like idle/attack/hit: every unit has one, but one enemy (sniper/Dryad
+// Ranger) has no move animation in its source skeleton to render one from,
+// so it simply has no `sprite.run` and falls back to idle while moving.
 const CORE_POSES = ['idle', 'attack', 'hit'];
+
+function runFrameKeys(prefix, id, evolvedTag, frameCount) {
+  const keys = [];
+  for (let i = 0; i < frameCount; i++) keys.push(`${prefix}_${id}${evolvedTag}_run_${i}`);
+  return keys;
+}
 
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   for (const config of Object.values(roster)) {
     if (!config.sprite) continue;
-    const poses = config.sprite.run ? [...CORE_POSES, 'run'] : CORE_POSES;
-    for (const pose of poses) {
+    for (const pose of CORE_POSES) {
       const key = `${prefix}_${config.id}_${pose}`;
       if (!scene.textures.exists(key)) scene.load.image(key, config.sprite[pose]);
     }
+    if (config.sprite.run) {
+      const keys = runFrameKeys(prefix, config.id, '', config.sprite.run.length);
+      config.sprite.run.forEach((path, i) => {
+        if (!scene.textures.exists(keys[i])) scene.load.image(keys[i], path);
+      });
+    }
     if (!config.sprite.evolved) continue;
-    const evolvedPoses = config.sprite.evolved.run ? [...CORE_POSES, 'run'] : CORE_POSES;
-    for (const pose of evolvedPoses) {
+    for (const pose of CORE_POSES) {
       const key = `${prefix}_${config.id}_evolved_${pose}`;
       if (!scene.textures.exists(key)) scene.load.image(key, config.sprite.evolved[pose]);
+    }
+    if (config.sprite.evolved.run) {
+      const keys = runFrameKeys(prefix, config.id, '_evolved', config.sprite.evolved.run.length);
+      config.sprite.evolved.run.forEach((path, i) => {
+        if (!scene.textures.exists(keys[i])) scene.load.image(keys[i], path);
+      });
     }
   }
 }
