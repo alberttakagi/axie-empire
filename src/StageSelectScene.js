@@ -264,16 +264,23 @@ export default class StageSelectScene extends Phaser.Scene {
     if (this.insufficientEnergyText) this.insufficientEnergyText.destroy();
 
     const { width, height } = this.scale;
-    this.insufficientEnergyText = this.add
+    const text = this.add
       .text(width / 2, height - 20, 'Not enough Energy!', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
         color: '#ff6666',
       })
       .setOrigin(0.5);
+    this.insufficientEnergyText = text;
 
     this.time.delayedCall(INSUFFICIENT_ENERGY_MESSAGE_MS, () => {
-      if (this.insufficientEnergyText) {
-        this.insufficientEnergyText.destroy();
+      // Compare against the specific instance THIS call created, not just
+      // "is there currently a message showing" — tapping a second locked
+      // stage within this delay replaces this.insufficientEnergyText with
+      // a newer Text before this timer fires; without this check, this
+      // timer would destroy that newer message and null the property out
+      // from under its own (still-pending) delayedCall.
+      if (this.insufficientEnergyText === text) {
+        text.destroy();
         this.insufficientEnergyText = null;
       }
     });

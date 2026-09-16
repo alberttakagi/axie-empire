@@ -20,7 +20,11 @@
 //                 Cat levels add flat increments on top of these per-stage
 //                 baselines). Values are yen, matching Battle Cats' real
 //                 "start each stage with 1000" convention (Easy 1.2x,
-//                 Normal 1x, Hard 0.8x, Boss 1x of that base).
+//                 Normal 1x, Hard 0.8x, Boss 1x of that base for
+//                 startingMoney; moneyAccrualPerSec uses the same ratios
+//                 except Hard, which is 0.85x rather than 0.8x — every Hard
+//                 stage's moneyAccrualPerSec is consistently 42.5, i.e.
+//                 0.85 * the 50 baseline, not 40).
 //   enemyBaseHp   the enemy tower's max HP — independent of baseHp (the
 //                 player's own base) so it can climb with the difficulty
 //                 curve instead of following the player-forgiveness curve.
@@ -589,18 +593,31 @@ export const STAGE_CONFIG = [
       { enemyId: 'guardian', statMultiplier: 9, baseHpPercentTrigger: 99, isBoss: true },
     ],
   },
+  // Saga 3 (stage21-30): baseXp/energyCost/gemsFirstClear/enemyBaseHp were
+  // originally authored as if saga3 started its own fresh, lower-numbered
+  // scale (stage21 sat BELOW stage20's numbers on every one of those four
+  // fields, only climbing back past stage20's peak partway through the
+  // saga) — inconsistent with the saga1->saga2 boundary (stage10->
+  // stage11), which keeps all four fields climbing with no dip at all
+  // despite also dropping to 'Easy' difficulty. Rescaled every saga3 stage
+  // by a fixed per-field ratio (chosen so stage21 continues stage20's
+  // climb at roughly the same rate stage11 continued stage10's) rather
+  // than patching stage21 alone, since a single-stage fix would have just
+  // pushed the identical cliff to stage21->22 instead of removing it —
+  // this preserves saga3's own internal pacing shape exactly, just raised
+  // to properly connect with where saga2 left off.
   {
     id: 'stage21',
     saga: 'saga3',
     displayName: 'Titan Sighting',
     difficulty: 'Easy',
-    baseXp: 45000,
-    energyCost: 48,
-    gemsFirstClear: 450,
+    baseXp: 65000,
+    energyCost: 57,
+    gemsFirstClear: 640,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
-    enemyBaseHp: 3200,
+    enemyBaseHp: 5300,
     spawnScript: [
       { enemyId: 'swarm', statMultiplier: 1.6, spawnDelayMs: 1000 },
       { enemyId: 'basic', statMultiplier: 1.6, spawnDelayMs: 2200 },
@@ -616,13 +633,13 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Ground Shakers',
     difficulty: 'Easy',
-    baseXp: 50000,
-    energyCost: 50,
-    gemsFirstClear: 480,
+    baseXp: 72000,
+    energyCost: 60,
+    gemsFirstClear: 680,
     startingMoney: 1200,
     moneyAccrualPerSec: 60,
     baseHp: 120,
-    enemyBaseHp: 3500,
+    enemyBaseHp: 5800,
     spawnScript: [
       { enemyId: 'titan', statMultiplier: 1, spawnDelayMs: 1500 },
       { enemyId: 'fast', statMultiplier: 1.6, spawnDelayMs: 3500 },
@@ -639,13 +656,13 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Vanguard\'s Edge',
     difficulty: 'Normal',
-    baseXp: 57000,
-    energyCost: 53,
-    gemsFirstClear: 520,
+    baseXp: 82000,
+    energyCost: 63,
+    gemsFirstClear: 740,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
-    enemyBaseHp: 3900,
+    enemyBaseHp: 6400,
     spawnScript: [
       { enemyId: 'sniper', statMultiplier: 1.8, spawnDelayMs: 1500 },
       { enemyId: 'support', statMultiplier: 1.7, spawnDelayMs: 3500 },
@@ -666,13 +683,13 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Corrosive Front',
     difficulty: 'Normal',
-    baseXp: 64000,
-    energyCost: 56,
-    gemsFirstClear: 560,
+    baseXp: 92000,
+    energyCost: 67,
+    gemsFirstClear: 800,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
-    enemyBaseHp: 4300,
+    enemyBaseHp: 7100,
     spawnScript: [
       { enemyId: 'support', statMultiplier: 1.8, spawnDelayMs: 1500 },
       { enemyId: 'aoe', statMultiplier: 1.8, spawnDelayMs: 3500 },
@@ -690,14 +707,14 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Full Roster',
     difficulty: 'Normal',
-    baseXp: 72000,
-    energyCost: 59,
-    gemsFirstClear: 610,
+    baseXp: 104000,
+    energyCost: 70,
+    gemsFirstClear: 870,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
     restrictions: { costRange: { min: 400, max: 1600 } },
-    enemyBaseHp: 4800,
+    enemyBaseHp: 7900,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1.7, spawnDelayMs: 1000 },
       { enemyId: 'fast', statMultiplier: 1.7, spawnDelayMs: 2200 },
@@ -716,13 +733,13 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Breaking Point',
     difficulty: 'Hard',
-    baseXp: 81000,
-    energyCost: 63,
-    gemsFirstClear: 670,
+    baseXp: 117000,
+    energyCost: 75,
+    gemsFirstClear: 950,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
-    enemyBaseHp: 5400,
+    enemyBaseHp: 8900,
     spawnScript: [
       { enemyId: 'titan', statMultiplier: 1.3, spawnDelayMs: 1500 },
       { enemyId: 'guardian', statMultiplier: 1.6, spawnDelayMs: 3500 },
@@ -740,13 +757,13 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Scorched Line',
     difficulty: 'Hard',
-    baseXp: 91000,
-    energyCost: 67,
-    gemsFirstClear: 730,
+    baseXp: 131000,
+    energyCost: 80,
+    gemsFirstClear: 1040,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
-    enemyBaseHp: 6000,
+    enemyBaseHp: 9900,
     spawnScript: [
       { enemyId: 'aoe', statMultiplier: 2, spawnDelayMs: 1500 },
       { enemyId: 'titan', statMultiplier: 1.4, spawnDelayMs: 3500 },
@@ -764,13 +781,13 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Last Bastion',
     difficulty: 'Hard',
-    baseXp: 102000,
-    energyCost: 71,
-    gemsFirstClear: 800,
+    baseXp: 147000,
+    energyCost: 85,
+    gemsFirstClear: 1140,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
-    enemyBaseHp: 6700,
+    enemyBaseHp: 11100,
     spawnScript: [
       { enemyId: 'guardian', statMultiplier: 1.8, spawnDelayMs: 1500 },
       { enemyId: 'titan', statMultiplier: 1.5, spawnDelayMs: 3500 },
@@ -790,14 +807,14 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'Endgame Approach',
     difficulty: 'Hard',
-    baseXp: 115000,
-    energyCost: 75,
-    gemsFirstClear: 880,
+    baseXp: 166000,
+    energyCost: 89,
+    gemsFirstClear: 1250,
     startingMoney: 800,
     moneyAccrualPerSec: 42.5,
     baseHp: 90,
     restrictions: { maxDeployed: 5 },
-    enemyBaseHp: 7500,
+    enemyBaseHp: 12400,
     spawnScript: [
       { enemyId: 'swarm', statMultiplier: 2.1, spawnDelayMs: 1000 },
       { enemyId: 'sniper', statMultiplier: 2.2, spawnDelayMs: 2600 },
@@ -822,15 +839,15 @@ export const STAGE_CONFIG = [
     saga: 'saga3',
     displayName: 'The Ascendant',
     difficulty: 'Boss',
-    baseXp: 200000,
-    energyCost: 90,
-    gemsFirstClear: 1500,
+    baseXp: 289000,
+    energyCost: 107,
+    gemsFirstClear: 2130,
     startingMoney: 1000,
     moneyAccrualPerSec: 50,
     baseHp: 100,
     restrictions: { bannedUnitTypes: ['titan'] },
     allowContinue: false, // Continue (bible §A.3.9) — disabled for saga bosses, see stage10's own comment
-    enemyBaseHp: 15000,
+    enemyBaseHp: 24700,
     spawnScript: [
       { enemyId: 'guardian', statMultiplier: 1.9, spawnDelayMs: 1000 },
       { enemyId: 'sniper', statMultiplier: 2.3, spawnDelayMs: 3000 },

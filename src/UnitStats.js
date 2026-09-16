@@ -27,12 +27,28 @@ export function getEffectiveUnitConfig(type) {
   let critChance = base.critChance;
   let rechargeMs = base.rechargeMs;
 
+  // hpMultiplier/damageMultiplier/rechargeMultiplier apply ONCE, from base,
+  // using only the highest evolution stage actually reached — per this
+  // file's own header ("effectiveStat = baseStat * evolutionMultiplier *
+  // ...", ONE evolutionMultiplier) and PROGRESSION_CONFIG.js's ("applied to
+  // the unit's BASE (level-1) hp/damage"), these define what TIER the unit
+  // is at now, not a per-stage bonus meant to stack. A previous version of
+  // this loop multiplied by every passed stage's own multiplier in turn,
+  // silently compounding them (e.g. a True Form unit got hp *= 1.25 * 1.6
+  // instead of the documented hp *= 1.6) — every evolved unit was stronger
+  // than its own config intended. critChanceBonus is the one real
+  // exception: it's an additive bonus layered on top, not a tier-defining
+  // multiplier, so it still sums across every stage passed through (today
+  // only True Form sets one, but a future Evolved-stage bonus should add
+  // to it, not replace it).
+  if (unitProgress.evolutionStage > 0) {
+    const currentEvolution = meta.evolutions[unitProgress.evolutionStage - 1];
+    hp *= currentEvolution.hpMultiplier;
+    damage *= currentEvolution.damageMultiplier;
+    if (currentEvolution.rechargeMultiplier) rechargeMs *= currentEvolution.rechargeMultiplier;
+  }
   for (let i = 0; i < unitProgress.evolutionStage; i += 1) {
-    const evolution = meta.evolutions[i];
-    hp *= evolution.hpMultiplier;
-    damage *= evolution.damageMultiplier;
-    if (evolution.critChanceBonus) critChance += evolution.critChanceBonus;
-    if (evolution.rechargeMultiplier) rechargeMs *= evolution.rechargeMultiplier;
+    if (meta.evolutions[i].critChanceBonus) critChance += meta.evolutions[i].critChanceBonus;
   }
 
   const growthMultiplier = 1 + meta.growthPercentPerLevel * (unitProgress.level - 1);

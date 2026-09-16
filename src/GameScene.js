@@ -319,6 +319,12 @@ export default class GameScene extends Phaser.Scene {
     this.rechargeReductionMs = getBaseUpgradeEffect('research');
     this.accountingBonusPercent = getBaseUpgradeEffect('accounting');
     this.studyBonusPercent = getBaseUpgradeEffect('study');
+    // Treasure set bonus (bible §A.6.3, "Energy Drink") — same "only
+    // changes between battles" reasoning as the Base Upgrades above (it's
+    // earned via TreasureScene, never mid-fight), but this one used to be
+    // re-read from localStorage and recomputed on every single frame via
+    // getMoneyAccrualPerSec instead of cached here like its neighbors.
+    this.moneyIncomeBonusPercent = getBonusPercent('moneyIncomePercent');
 
     // The player's chosen Formation (bible §A.10.3) — only these units get
     // a deploy button at all, see createSpawnButtons. Falls back to every
@@ -381,6 +387,13 @@ export default class GameScene extends Phaser.Scene {
     // is 2000ms across every UNIT_CONFIG entry; see trySpawnUnit/update.
     this.unitCooldowns = {};
     for (const key of this.loadout) this.unitCooldowns[key] = 0;
+    // The EFFECTIVE (Research-reduced / evolution-adjusted) full recharge
+    // duration each unit's current cooldown counts down from — separate
+    // from the raw UNIT_CONFIG.rechargeMs updateSpawnButtons' button.config
+    // holds, since that never reflects those bonuses. See trySpawnUnit
+    // (which sets both together) and updateSpawnButtons (which needs the
+    // real duration, not the base one, to compute the overlay's fraction).
+    this.unitCooldownDurations = {};
 
     // World-vs-UI camera split (see the zoom-controls setup near the end of
     // this method, setupZoomControls): cameras.main renders ONLY the
@@ -995,7 +1008,7 @@ export default class GameScene extends Phaser.Scene {
   // multiplies the whole thing.
   getMoneyAccrualPerSec() {
     const base = this.stage.moneyAccrualPerSec + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.accrualPerLevel;
-    return base * (1 + getBonusPercent('moneyIncomePercent') / 100) * this.getMoneyRampMultiplier();
+    return base * (1 + this.moneyIncomeBonusPercent / 100) * this.getMoneyRampMultiplier();
   }
 
   // See MONEY_RAMP_START_MULTIPLIER/MONEY_RAMP_DURATION_MS above.
@@ -1064,6 +1077,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.money -= baseConfig.cost;
     this.unitCooldowns[key] = recharge;
+    this.unitCooldownDurations[key] = recharge;
     this.spawnUnit(key, finalConfig);
     playDeploySfx();
   }
@@ -1459,7 +1473,12 @@ export default class GameScene extends Phaser.Scene {
       button.costText.setAlpha(alpha);
 
       const remaining = this.unitCooldowns[button.key] || 0;
-      const frac = button.config.rechargeMs ? remaining / button.config.rechargeMs : 0;
+      // Full duration THIS cooldown actually counts down from, not the raw
+      // base rechargeMs — with any Research reduction or evolution
+      // rechargeMultiplier, those differ, and using the base value made
+      // the overlay clear well before the unit was really off cooldown.
+      const fullDuration = this.unitCooldownDurations[button.key] || button.config.rechargeMs;
+      const frac = fullDuration ? remaining / fullDuration : 0;
       button.cooldownOverlay.height = BUTTON_HEIGHT * frac;
     }
   }
@@ -1537,7 +1556,16 @@ export default class GameScene extends Phaser.Scene {
           this.enemies.find((enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && this.inRange(unit, enemy)) || null;
       }
 
-      if (!unit.target && this.enemyBaseX - unit.shape.x <= enemyBaseReachDistance + this.getMaxRange(unit.config)) {
+      // Long Distance units (bible §A.3.8) have a real dead zone against a
+      // target unit (inRange enforces longDistance.min) — this base-reach
+      // check used to only apply the max side of that window, so a unit
+      // that ends up standing well inside its own min range of the base
+      // (nothing ever having been in its min/max window to stop it
+      // earlier) could attack the base directly despite being unable to
+      // hit a unit standing at that identical distance.
+      const enemyBaseDistance = this.enemyBaseX - unit.shape.x;
+      const clearsMinRange = !unit.config.longDistance || enemyBaseDistance >= unit.config.longDistance.min;
+      if (!unit.target && clearsMinRange && enemyBaseDistance <= enemyBaseReachDistance + this.getMaxRange(unit.config)) {
         unit.target = 'enemyBase';
       }
 
@@ -1593,7 +1621,11 @@ export default class GameScene extends Phaser.Scene {
           this.playerUnits.find((unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit)) || null;
       }
 
-      if (!enemy.target && enemy.shape.x - this.baseX <= baseReachDistance + this.getMaxRange(enemy.config)) {
+      // See the mirrored player-side check in updatePlayerUnits for why
+      // longDistance.min needs its own guard here too.
+      const baseDistance = enemy.shape.x - this.baseX;
+      const clearsMinRange = !enemy.config.longDistance || baseDistance >= enemy.config.longDistance.min;
+      if (!enemy.target && clearsMinRange && baseDistance <= baseReachDistance + this.getMaxRange(enemy.config)) {
         enemy.target = 'base';
       }
 
@@ -1628,6 +1660,16 @@ export default class GameScene extends Phaser.Scene {
       entity.hp = Math.round(entity.config.hp * entity.config.reviveHpPercent);
       entity.hpAtLastKnockback = entity.hp; // reset the HP-threshold knockback bookkeeping to the fresh HP
       entity.knockbacksUsed = 0;
+      // A revived entity can die (hp <= 0, arriving here) while mid-slide
+      // or mid-attack-windup — e.g. staggered by one hit, then finished off
+      // by an AoE/Wave sweep before its slide ever finished. Without this,
+      // it comes back to life still sliding on the ORIGINAL attacker's
+      // now-stale velocity/direction, or resumes an attack cycle from
+      // wherever it was interrupted, instead of starting clean.
+      entity.knockbackMs = 0;
+      entity.knockbackVelocity = 0;
+      entity.attackPhase = null;
+      entity.phaseMs = 0;
     }
   }
 
@@ -2223,7 +2265,13 @@ export default class GameScene extends Phaser.Scene {
       if (enemy.hp > 0) {
         enemy.hp -= burstDamage;
         enemy.lastAttacker = syntheticAttacker; // no .config at all — never counts as a zombieKiller finish, see processZombieRevives
-        if (enemy.hp > 0) this.startKnockbackSlide(syntheticAttacker, enemy);
+        // Still bypasses the HP-threshold "endurance" gate (per this
+        // method's own header comment — the burst's knockback is
+        // unconditional, not staggered), but 'immune' is a real wall, not a
+        // threshold to skip past: this went straight to startKnockbackSlide
+        // before, silently shoving knockback-immune enemies the one attack
+        // in the game that's supposed to respect nothing else about them.
+        if (enemy.hp > 0 && enemy.config.knockbackType !== 'immune') this.startKnockbackSlide(syntheticAttacker, enemy);
       }
     }
     this.processZombieRevives(this.enemies);

@@ -68,7 +68,7 @@
 // is still > 0 it instead comes back at reviveHpPercent of its (unscaled)
 // max HP with its revive counter decremented — UNLESS the finishing blow's
 // attacker has UNIT_CONFIG's zombieKiller flag, which denies the revive
-// outright. See GameScene's handleEnemyDeath.
+// outright. See GameScene's onEnemyKilled/processZombieRevives.
 //
 // `superClass` — Colossus/Behemoth (bible §A.3.8): a tag layered ON TOP OF
 // the normal `trait` above, not a replacement for it — see
@@ -421,7 +421,7 @@ export const ENEMY_CONFIG = {
     trait: 'zombie', // its own outlier trait (see TRAIT_CONFIG.js) — no matchup bonuses either way
     // Identity: an ordinary-strength recurring nuisance whose real threat
     // isn't its stats at all — it just won't stay dead. See
-    // reviveCount/reviveHpPercent below and GameScene's handleEnemyDeath.
+    // reviveCount/reviveHpPercent below and GameScene's onEnemyKilled/processZombieRevives.
     threat: 10,
     hp: 40,
     damage: 8,
@@ -442,7 +442,7 @@ export const ENEMY_CONFIG = {
     statusOnHit: NO_STATUS,
     // Zombie (bible §A.3.8): revives twice at half its (unscaled) max HP
     // unless the finishing blow comes from a zombieKiller unit (this
-    // build's `sniper`) — see GameScene.handleEnemyDeath.
+    // build's `sniper`) — see GameScene.onEnemyKilled/processZombieRevives.
     reviveCount: 2,
     reviveHpPercent: 0.5,
     sprite: { idle: "/sprites/enemies/enemy_zombie_idle.png", attack: "/sprites/enemies/enemy_zombie_attack.png", hit: "/sprites/enemies/enemy_zombie_hit.png", run: ["/sprites/enemies/enemy_zombie_run_0.png", "/sprites/enemies/enemy_zombie_run_1.png"], idleAnim: ["/sprites/enemies/enemy_zombie_idleanim_0.png", "/sprites/enemies/enemy_zombie_idleanim_1.png"] },

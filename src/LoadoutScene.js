@@ -3,6 +3,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { getUnitProgress, loadPlayerProgress } from './PlayerProgress.js';
+import { hasReachedPartEvolution } from './PartEvolution.js';
 import {
   loadLoadout,
   saveLoadout,
@@ -252,9 +253,13 @@ export default class LoadoutScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Portrait icon, squeezed between the name and the level/role text —
-    // see SpriteIcon.js. idleAnimated (last arg): a gentle float instead of
-    // a dead-still portrait, since this screen is nothing BUT static cards.
-    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52, true, false, true);
+    // see SpriteIcon.js. useEvolved matches UpgradeScene/GameScene's own
+    // hasReachedPartEvolution check — this screen was showing every unit's
+    // pre-evolution look even past level 10, out of sync with both of them.
+    // idleAnimated (last arg): a gentle float instead of a dead-still
+    // portrait, since this screen is nothing BUT static cards.
+    const isEvolved = hasReachedPartEvolution(unitProgress.level);
+    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52, true, isEvolved, true);
 
     // Selected/benched state reads fine from the card's own dimming
     // (setAlpha below) — an explicit "IN FORMATION"/"benched" label was
@@ -323,6 +328,13 @@ export default class LoadoutScene extends Phaser.Scene {
 
   showMessage(text) {
     this.messageText.setText(text);
-    this.time.delayedCall(1800, () => this.messageText.setText(''));
+    this.time.delayedCall(1800, () => {
+      // Only blank it out if nothing has overwritten this exact message in
+      // the meantime — triggering a second showMessage within 1800ms of
+      // the first (e.g. two disallowed toggles in a row) used to let the
+      // first call's timer blank the second message out early, since both
+      // timers blindly cleared the same shared messageText with no check.
+      if (this.messageText.text === text) this.messageText.setText('');
+    });
   }
 }

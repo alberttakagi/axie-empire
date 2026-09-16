@@ -7,8 +7,10 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 // public/sprites/units/, one pose per combat state (GameScene swaps between
 // them based on whether the entity is mid-attack-windup, mid-knockback, or
 // walking with no target — see getDesiredPose). `color`/`label` remain as a
-// fallback only for any entity that has no sprite (currently just enemies,
-// which still render as colored circles).
+// fallback only for any entity that has no sprite — every roster entry in
+// both this file and ENEMY_CONFIG.js has one today, so this fallback is
+// currently unused, but stays in place for any future entry that ships
+// without real art.
 //
 // Field reference (kept aligned to the bible's Part C Unit schema, §A.3.2):
 //   id/displayName  reskin hooks — id is the stable lookup key, displayName is

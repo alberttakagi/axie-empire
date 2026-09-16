@@ -60,13 +60,18 @@ export default class CatalogScene extends Phaser.Scene {
   renderGrid() {
     this.contentContainer.removeAll(true);
     const { width } = this.scale;
-    const columns = Math.min(this.keys.length, CARDS_PER_ROW);
-    const rowWidth = columns * CARD_WIDTH + (columns - 1) * CARD_GAP;
-    const startX = (width - rowWidth) / 2 + CARD_WIDTH / 2;
+    const totalRows = Math.ceil(this.keys.length / CARDS_PER_ROW);
 
     this.keys.forEach((key, index) => {
       const row = Math.floor(index / CARDS_PER_ROW);
       const col = index % CARDS_PER_ROW;
+      // Each row is centered on ITS OWN card count, not a fixed
+      // CARDS_PER_ROW-wide block — a short final row (10 units -> 6+4, 13
+      // enemies -> 6+6+1) used to reuse the full-row startX regardless,
+      // rendering flush to the grid's left edge instead of centered.
+      const cardsInRow = row === totalRows - 1 ? this.keys.length - row * CARDS_PER_ROW : CARDS_PER_ROW;
+      const rowWidth = cardsInRow * CARD_WIDTH + (cardsInRow - 1) * CARD_GAP;
+      const startX = (width - rowWidth) / 2 + CARD_WIDTH / 2;
       const x = startX + col * (CARD_WIDTH + CARD_GAP);
       const y = GRID_START_Y + row * (CARD_HEIGHT + CARD_GAP);
       this.renderGridCard(key, x, y, index);
