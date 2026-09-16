@@ -17,16 +17,26 @@
 // '<prefix>_<id>_evolved_<pose>'. Guarded by textures.exists so calling
 // this from more than one scene's preload() (e.g. both GameScene and
 // LoadoutScene) never re-fetches an already-cached texture.
+//
+// `run` (a walking/moving pose — see GameScene's getDesiredPose) is
+// optional per entry rather than always-on like idle/attack/hit: every
+// unit has one, but one enemy (sniper/Dryad Ranger) has no move animation
+// in its source skeleton to render one from, so it simply has no
+// `sprite.run` and falls back to idle while moving.
+const CORE_POSES = ['idle', 'attack', 'hit'];
+
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   for (const config of Object.values(roster)) {
     if (!config.sprite) continue;
-    for (const pose of ['idle', 'attack', 'hit']) {
+    const poses = config.sprite.run ? [...CORE_POSES, 'run'] : CORE_POSES;
+    for (const pose of poses) {
       const key = `${prefix}_${config.id}_${pose}`;
       if (!scene.textures.exists(key)) scene.load.image(key, config.sprite[pose]);
     }
     if (!config.sprite.evolved) continue;
-    for (const pose of ['idle', 'attack', 'hit']) {
+    const evolvedPoses = config.sprite.evolved.run ? [...CORE_POSES, 'run'] : CORE_POSES;
+    for (const pose of evolvedPoses) {
       const key = `${prefix}_${config.id}_evolved_${pose}`;
       if (!scene.textures.exists(key)) scene.load.image(key, config.sprite.evolved[pose]);
     }

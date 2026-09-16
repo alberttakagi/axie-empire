@@ -1150,6 +1150,13 @@ export default class GameScene extends Phaser.Scene {
       visualScaleMultiplier,
       isEvolved,
       currentPose: spriteImage ? 'idle' : null,
+      // True only on a tick where this entity actually steps forward with
+      // no target — see updatePlayerUnits/updateEnemies. Drives the 'run'
+      // pose in getDesiredPose so a unit reads as walking instead of
+      // sliding in place while it closes distance; falls back to 'idle'
+      // for the one enemy with no move animation to render (see
+      // ENEMY_CONFIG.js's sniper/Dryad Ranger entry).
+      isMoving: false,
       hp: config.hp,
       // Foreswing/backswing attack-cycle state (bible §A.3.4) — see
       // tickCombatPhase. null/0 means "not yet started a windup."
@@ -1344,6 +1351,7 @@ export default class GameScene extends Phaser.Scene {
     for (const unit of this.playerUnits) {
       if (unit.hp <= 0) continue;
 
+      unit.isMoving = false;
       this.tickStatusEffects(unit, deltaMs);
 
       if (unit.knockbackMs > 0) {
@@ -1380,6 +1388,7 @@ export default class GameScene extends Phaser.Scene {
           this.dealDamage(unit, unit.target, this.enemies);
         });
       } else if (!unit.target) {
+        unit.isMoving = true;
         const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * deltaMs) / 1000;
         unit.shape.x = Math.min(width - unit.config.radius, unit.shape.x + moveStep);
         if (unit.label) unit.label.x = unit.shape.x;
@@ -1395,6 +1404,7 @@ export default class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) {
       if (enemy.hp <= 0) continue;
 
+      enemy.isMoving = false;
       this.tickStatusEffects(enemy, deltaMs);
 
       if (enemy.knockbackMs > 0) {
@@ -1432,6 +1442,7 @@ export default class GameScene extends Phaser.Scene {
       if (enemy.target && enemy.target !== 'base') {
         this.tickCombatPhase(enemy, deltaMs, () => this.dealDamage(enemy, enemy.target, this.playerUnits));
       } else if (!enemy.target) {
+        enemy.isMoving = true;
         const moveStep = (enemy.config.moveSpeed * enemy.slowMultiplier * deltaMs) / 1000;
         enemy.shape.x -= moveStep;
         if (enemy.label) enemy.label.x = enemy.shape.x;
@@ -1486,13 +1497,19 @@ export default class GameScene extends Phaser.Scene {
     for (const enemy of this.enemies) this.setEntityPose(enemy, this.getDesiredPose(enemy));
   }
 
-  // hit (dazed/surprised) beats attack (mid-swing) beats idle — a dead
-  // entity is left on whatever pose it last had; removeDead destroys it
-  // this same frame regardless.
+  // hit (dazed/surprised) beats attack (mid-swing) beats run (walking with
+  // no target) beats idle (standing still — frozen, warped, or between
+  // steps) — a dead entity is left on whatever pose it last had; removeDead
+  // destroys it this same frame regardless. run only fires for entities
+  // with a real run sprite (see ENEMY_CONFIG.js's sniper/Dryad Ranger,
+  // the one roster entry with no move animation to render) — everyone
+  // else just stays on idle while moving rather than popping to a
+  // nonexistent texture.
   getDesiredPose(entity) {
     if (entity.hp <= 0) return entity.currentPose;
     if (entity.knockbackMs > 0) return 'hit';
     if (entity.attackPhase === 'windup') return 'attack';
+    if (entity.isMoving && entity.config.sprite?.run) return 'run';
     return 'idle';
   }
 

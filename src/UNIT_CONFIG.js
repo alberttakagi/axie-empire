@@ -3,11 +3,12 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 // Player unit roster. Each unit now carries real Axie Starter art (from Sky
 // Mavis's Origins Asset Kit, restricted-license — see tools/sprite-gen/ and
 // tools/axie-origins-asset-kit/LICENSE.md) instead of a placeholder circle:
-// `sprite.idle/attack/hit` point at pre-rendered PNGs under
+// `sprite.idle/attack/hit/run` point at pre-rendered PNGs under
 // public/sprites/units/, one pose per combat state (GameScene swaps between
-// them based on whether the entity is mid-attack-windup or mid-knockback).
-// `color`/`label` remain as a fallback only for any entity that has no
-// sprite (currently just enemies, which still render as colored circles).
+// them based on whether the entity is mid-attack-windup, mid-knockback, or
+// walking with no target — see getDesiredPose). `color`/`label` remain as a
+// fallback only for any entity that has no sprite (currently just enemies,
+// which still render as colored circles).
 //
 // Field reference (kept aligned to the bible's Part C Unit schema, §A.3.2):
 //   id/displayName  reskin hooks — id is the stable lookup key, displayName is
@@ -125,10 +126,14 @@ import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
 //   color/label     placeholder shape fill + single-letter text label — only
 //                   used as a fallback when `sprite` is null (no unit here
 //                   still lacks a sprite, but enemies currently do).
-//   sprite          { idle, attack, hit } public-relative PNG paths, or null
-//                   to fall back to the color/label circle. See GameScene's
-//                   preload()/spawn rendering for how these are swapped.
-//                   An optional nested `evolved: { idle, attack, hit }`
+//   sprite          { idle, attack, hit, run } public-relative PNG paths, or
+//                   null to fall back to the color/label circle. `run` is
+//                   the pose GameScene shows while a unit is walking with no
+//                   target (see getDesiredPose) — every unit has one (see
+//                   tools/sprite-gen/'s "action/run" Starter animation).
+//                   See GameScene's preload()/spawn rendering for how these
+//                   are swapped.
+//                   An optional nested `evolved: { idle, attack, hit, run }`
 //                   holds that unit's REAL, official Sky Mavis "awakened"
 //                   (bodyStage 1) art — a second complete Spine skeleton
 //                   the Origins Asset Kit ships per Starter, one specific
@@ -167,7 +172,7 @@ export const UNIT_CONFIG = {
     special: { type: 'none' },
     critChance: 0.05,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/units/unit_basic_idle.png", attack: "/sprites/units/unit_basic_attack.png", hit: "/sprites/units/unit_basic_hit.png", evolved: { idle: "/sprites/units/unit_basic_evolved_idle.png", attack: "/sprites/units/unit_basic_evolved_attack.png", hit: "/sprites/units/unit_basic_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_basic_idle.png", attack: "/sprites/units/unit_basic_attack.png", hit: "/sprites/units/unit_basic_hit.png", run: "/sprites/units/unit_basic_run.png", evolved: { idle: "/sprites/units/unit_basic_evolved_idle.png", attack: "/sprites/units/unit_basic_evolved_attack.png", hit: "/sprites/units/unit_basic_evolved_hit.png", run: "/sprites/units/unit_basic_evolved_run.png" } },
   },
   fast: {
     id: 'fast',
@@ -205,7 +210,7 @@ export const UNIT_CONFIG = {
     // this unit, catching whatever else is nearby — fits its "quick skirmisher"
     // identity as a way to punish enemies clustering up behind its target.
     waveOnHit: { radius: 60 },
-    sprite: { idle: "/sprites/units/unit_fast_idle.png", attack: "/sprites/units/unit_fast_attack.png", hit: "/sprites/units/unit_fast_hit.png", evolved: { idle: "/sprites/units/unit_fast_evolved_idle.png", attack: "/sprites/units/unit_fast_evolved_attack.png", hit: "/sprites/units/unit_fast_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_fast_idle.png", attack: "/sprites/units/unit_fast_attack.png", hit: "/sprites/units/unit_fast_hit.png", run: "/sprites/units/unit_fast_run.png", evolved: { idle: "/sprites/units/unit_fast_evolved_idle.png", attack: "/sprites/units/unit_fast_evolved_attack.png", hit: "/sprites/units/unit_fast_evolved_hit.png", run: "/sprites/units/unit_fast_evolved_run.png" } },
   },
   tank: {
     id: 'tank',
@@ -243,7 +248,7 @@ export const UNIT_CONFIG = {
     // target shatters it outright, then still deals full damage that hit —
     // fits "heavy hitter that shrugs off shields" even at Tank's low DPS.
     barrierBreakerChance: 1.0,
-    sprite: { idle: "/sprites/units/unit_tank_idle.png", attack: "/sprites/units/unit_tank_attack.png", hit: "/sprites/units/unit_tank_hit.png", evolved: { idle: "/sprites/units/unit_tank_evolved_idle.png", attack: "/sprites/units/unit_tank_evolved_attack.png", hit: "/sprites/units/unit_tank_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_tank_idle.png", attack: "/sprites/units/unit_tank_attack.png", hit: "/sprites/units/unit_tank_hit.png", run: "/sprites/units/unit_tank_run.png", evolved: { idle: "/sprites/units/unit_tank_evolved_idle.png", attack: "/sprites/units/unit_tank_evolved_attack.png", hit: "/sprites/units/unit_tank_evolved_hit.png", run: "/sprites/units/unit_tank_evolved_run.png" } },
   },
   ranged: {
     id: 'ranged',
@@ -283,7 +288,7 @@ export const UNIT_CONFIG = {
     // itself, but reaches out to 140px — fits the "sniper" archetype of
     // being useless up close but dangerous from afar.
     longDistance: { min: 40, max: 140 },
-    sprite: { idle: "/sprites/units/unit_ranged_idle.png", attack: "/sprites/units/unit_ranged_attack.png", hit: "/sprites/units/unit_ranged_hit.png", evolved: { idle: "/sprites/units/unit_ranged_evolved_idle.png", attack: "/sprites/units/unit_ranged_evolved_attack.png", hit: "/sprites/units/unit_ranged_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_ranged_idle.png", attack: "/sprites/units/unit_ranged_attack.png", hit: "/sprites/units/unit_ranged_hit.png", run: "/sprites/units/unit_ranged_run.png", evolved: { idle: "/sprites/units/unit_ranged_evolved_idle.png", attack: "/sprites/units/unit_ranged_evolved_attack.png", hit: "/sprites/units/unit_ranged_evolved_hit.png", run: "/sprites/units/unit_ranged_evolved_run.png" } },
   },
   aoe: {
     id: 'aoe',
@@ -323,7 +328,7 @@ export const UNIT_CONFIG = {
     // Toxic/Poison (bible §A.3.8): a corrosive splash also chips bonus
     // damage off whatever it hits, scaled to that target's own max HP.
     toxicOnHit: { chance: 0.3, percent: 0.1 },
-    sprite: { idle: "/sprites/units/unit_aoe_idle.png", attack: "/sprites/units/unit_aoe_attack.png", hit: "/sprites/units/unit_aoe_hit.png", evolved: { idle: "/sprites/units/unit_aoe_evolved_idle.png", attack: "/sprites/units/unit_aoe_evolved_attack.png", hit: "/sprites/units/unit_aoe_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_aoe_idle.png", attack: "/sprites/units/unit_aoe_attack.png", hit: "/sprites/units/unit_aoe_hit.png", run: "/sprites/units/unit_aoe_run.png", evolved: { idle: "/sprites/units/unit_aoe_evolved_idle.png", attack: "/sprites/units/unit_aoe_evolved_attack.png", hit: "/sprites/units/unit_aoe_evolved_hit.png", run: "/sprites/units/unit_aoe_evolved_run.png" } },
   },
 
   // --- Roster expansion (bible §A.4.1 — "more Normal-tier units" per the
@@ -371,7 +376,7 @@ export const UNIT_CONFIG = {
     // roll.
     dodgeChance: 0.12,
     dodgeWindowMs: 400,
-    sprite: { idle: "/sprites/units/unit_swarm_idle.png", attack: "/sprites/units/unit_swarm_attack.png", hit: "/sprites/units/unit_swarm_hit.png", evolved: { idle: "/sprites/units/unit_swarm_evolved_idle.png", attack: "/sprites/units/unit_swarm_evolved_attack.png", hit: "/sprites/units/unit_swarm_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_swarm_idle.png", attack: "/sprites/units/unit_swarm_attack.png", hit: "/sprites/units/unit_swarm_hit.png", run: "/sprites/units/unit_swarm_run.png", evolved: { idle: "/sprites/units/unit_swarm_evolved_idle.png", attack: "/sprites/units/unit_swarm_evolved_attack.png", hit: "/sprites/units/unit_swarm_evolved_hit.png", run: "/sprites/units/unit_swarm_evolved_run.png" } },
   },
   sniper: {
     id: 'sniper',
@@ -407,7 +412,7 @@ export const UNIT_CONFIG = {
     // Zombie-trait enemy its revive when this unit lands the killing blow
     // — see ENEMY_CONFIG.js's `zombie` entry and GameScene.handleEnemyDeath.
     zombieKiller: true,
-    sprite: { idle: "/sprites/units/unit_sniper_idle.png", attack: "/sprites/units/unit_sniper_attack.png", hit: "/sprites/units/unit_sniper_hit.png", evolved: { idle: "/sprites/units/unit_sniper_evolved_idle.png", attack: "/sprites/units/unit_sniper_evolved_attack.png", hit: "/sprites/units/unit_sniper_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_sniper_idle.png", attack: "/sprites/units/unit_sniper_attack.png", hit: "/sprites/units/unit_sniper_hit.png", run: "/sprites/units/unit_sniper_run.png", evolved: { idle: "/sprites/units/unit_sniper_evolved_idle.png", attack: "/sprites/units/unit_sniper_evolved_attack.png", hit: "/sprites/units/unit_sniper_evolved_hit.png", run: "/sprites/units/unit_sniper_evolved_run.png" } },
   },
   guardian: {
     id: 'guardian',
@@ -447,7 +452,7 @@ export const UNIT_CONFIG = {
     // specifically against enemies carrying the Colossus superClass tag —
     // see TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
     colossusSlayer: true,
-    sprite: { idle: "/sprites/units/unit_guardian_idle.png", attack: "/sprites/units/unit_guardian_attack.png", hit: "/sprites/units/unit_guardian_hit.png", evolved: { idle: "/sprites/units/unit_guardian_evolved_idle.png", attack: "/sprites/units/unit_guardian_evolved_attack.png", hit: "/sprites/units/unit_guardian_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_guardian_idle.png", attack: "/sprites/units/unit_guardian_attack.png", hit: "/sprites/units/unit_guardian_hit.png", run: "/sprites/units/unit_guardian_run.png", evolved: { idle: "/sprites/units/unit_guardian_evolved_idle.png", attack: "/sprites/units/unit_guardian_evolved_attack.png", hit: "/sprites/units/unit_guardian_evolved_hit.png", run: "/sprites/units/unit_guardian_evolved_run.png" } },
   },
   support: {
     id: 'support',
@@ -477,7 +482,7 @@ export const UNIT_CONFIG = {
     critChance: 0.05,
     statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.4, durationMs: 2000, multiplier: 0.5 },
     toxicOnHit: { chance: 0.3, percent: 0.08 },
-    sprite: { idle: "/sprites/units/unit_support_idle.png", attack: "/sprites/units/unit_support_attack.png", hit: "/sprites/units/unit_support_hit.png", evolved: { idle: "/sprites/units/unit_support_evolved_idle.png", attack: "/sprites/units/unit_support_evolved_attack.png", hit: "/sprites/units/unit_support_evolved_hit.png" } },
+    sprite: { idle: "/sprites/units/unit_support_idle.png", attack: "/sprites/units/unit_support_attack.png", hit: "/sprites/units/unit_support_hit.png", run: "/sprites/units/unit_support_run.png", evolved: { idle: "/sprites/units/unit_support_evolved_idle.png", attack: "/sprites/units/unit_support_evolved_attack.png", hit: "/sprites/units/unit_support_evolved_hit.png", run: "/sprites/units/unit_support_evolved_run.png" } },
   },
   titan: {
     id: 'titan',
@@ -518,6 +523,6 @@ export const UNIT_CONFIG = {
     // the roster's biggest unit countering the roster's biggest enemy
     // class. See TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
     behemothSlayer: true,
-    sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png" },
+    sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png", run: "/sprites/units/unit_titan_run.png" },
   },
 };
