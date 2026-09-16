@@ -64,6 +64,16 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
   }
 }
 
+// idleAnimated's gentle float (see addUnitIcon) — a slow, small bob rather
+// than anything reading as "walking" (that's GameScene's own, much
+// brisker, run-cycle hop — a totally different context/purpose), meant
+// to read as "alive and at rest," the same subtle breathing motion the
+// real Axie Infinity app's own Axie cards have, instead of a dead-still
+// portrait. Duration is randomized a little per-icon (see addUnitIcon) so
+// a whole grid of them doesn't visibly bob in lockstep.
+const IDLE_BOB_AMPLITUDE = 3;
+const IDLE_BOB_DURATION_MS = 900;
+
 // A small UI portrait (spawn buttons, roster/loadout cards, etc.) — always
 // shows the idle pose, scaled to a caller-chosen fixed pixel diameter
 // (unlike GameScene's own in-battle fitSpriteToRadius, which sizes off a
@@ -75,12 +85,30 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
 // field/PartEvolution.js) — falls back to the base idle if this config has
 // no evolved art. Returns null (nothing added) if this config has no
 // sprite at all, so callers can lay out a text-only fallback instead.
-export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = true, useEvolved = false) {
+//
+// `idleAnimated` (default off) adds the small looping float described
+// above — opt-in rather than automatic on every icon, since a battle
+// spawn button or an Upgrade-screen row already has plenty going on
+// (cooldown fills, level text) without also drawing the eye with motion;
+// it's meant for screens that are otherwise showing a completely static
+// portrait (Character Formation, the Unit/Enemy Guide).
+export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = true, useEvolved = false, idleAnimated = false) {
   if (!config.sprite) return null;
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   const evolvedTag = useEvolved && config.sprite.evolved ? '_evolved' : '';
   const icon = scene.add.image(x, y, `${prefix}_${config.id}${evolvedTag}_idle`);
   icon.setFlipX(isPlayerSide);
   icon.setScale(targetDiameter / Math.max(icon.width, icon.height));
+  if (idleAnimated) {
+    scene.tweens.add({
+      targets: icon,
+      y: y - IDLE_BOB_AMPLITUDE,
+      duration: IDLE_BOB_DURATION_MS,
+      delay: Math.random() * IDLE_BOB_DURATION_MS,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
   return icon;
 }

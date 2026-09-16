@@ -252,8 +252,9 @@ export default class LoadoutScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     // Portrait icon, squeezed between the name and the level/role text —
-    // see SpriteIcon.js.
-    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52);
+    // see SpriteIcon.js. idleAnimated (last arg): a gentle float instead of
+    // a dead-still portrait, since this screen is nothing BUT static cards.
+    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52, true, false, true);
 
     // Selected/benched state reads fine from the card's own dimming
     // (setAlpha below) — an explicit "IN FORMATION"/"benched" label was

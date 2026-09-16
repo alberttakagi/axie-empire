@@ -79,7 +79,9 @@ export default class CatalogScene extends Phaser.Scene {
       .rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, config.color)
       .setStrokeStyle(1, 0x666666)
       .setInteractive({ useHandCursor: true });
-    const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 48, this.isPlayerSide);
+    // idleAnimated (last arg): a gentle float instead of a dead-still
+    // portrait — this guide is nothing but static cards otherwise.
+    const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 48, this.isPlayerSide, false, true);
     // Character name first (e.g. "Buba"), role second and smaller — this
     // guide is about browsing specific characters, not picking a role.
     // Label sits a bit higher than a single-line name needs, since a few
@@ -123,7 +125,7 @@ export default class CatalogScene extends Phaser.Scene {
       .rectangle(width / 2, height / 2 + 22, width - 60, height - 96, 0x222222)
       .setStrokeStyle(2, 0xffdd33);
 
-    const icon = addUnitIcon(this, width / 2, 138, config, 100, this.isPlayerSide);
+    const icon = addUnitIcon(this, width / 2, 138, config, 100, this.isPlayerSide, false, true); // idleAnimated
     // Character name first (e.g. "Buba"), role second and smaller — same
     // ordering as the grid card and Character Formation.
     const nameText = this.add
