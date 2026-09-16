@@ -241,7 +241,7 @@ export default class LoadoutScene extends Phaser.Scene {
 
     // Character name first (e.g. "Buba") — this screen is about browsing/
     // picking specific characters, not selecting a role mid-battle, so the
-    // real name leads; the role (displayName) follows underneath, smaller.
+    // real name leads.
     const label = this.add
       .text(x, y - CARD_HEIGHT / 2 + 9, config.characterName, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
@@ -250,28 +250,24 @@ export default class LoadoutScene extends Phaser.Scene {
         wordWrap: { width: CARD_WIDTH - 8 },
       })
       .setOrigin(0.5);
+
+    // Portrait icon, squeezed between the name and the level/role text —
+    // see SpriteIcon.js.
+    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52);
+
+    // Selected/benched state reads fine from the card's own dimming
+    // (setAlpha below) — an explicit "IN FORMATION"/"benched" label was
+    // redundant, so it's gone; the role (displayName) takes that slot
+    // instead, below the level for easier reading.
+    const levelLabel = this.add
+      .text(x, y + CARD_HEIGHT / 2 - 22, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
+      .setOrigin(0.5);
     const roleLabel = this.add
-      .text(x, y - CARD_HEIGHT / 2 + 21, `(${config.displayName})`, {
+      .text(x, y + CARD_HEIGHT / 2 - 9, `(${config.displayName})`, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
         color: '#222222',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
-      })
-      .setOrigin(0.5);
-
-    // Portrait icon, squeezed between the name and the level/status text —
-    // see SpriteIcon.js. levelLabel moves down next to statusLabel to make
-    // room (both now share the card's bottom edge instead of levelLabel
-    // sitting dead-center).
-    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52);
-
-    const levelLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 22, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
-      .setOrigin(0.5);
-    const statusLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 9, isSelected ? 'IN FORMATION' : 'benched', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-        color: isSelected ? '#003300' : '#000000',
       })
       .setOrigin(0.5);
 
@@ -298,8 +294,8 @@ export default class LoadoutScene extends Phaser.Scene {
     card.on('pointerover', () => this.showTooltip(type, x, y, isTopRow));
     card.on('pointerout', () => this.hideTooltip());
 
-    const objects = [card, label, roleLabel, levelLabel, statusLabel, pinBadge, pinLabel];
-    if (icon) objects.splice(3, 0, icon); // between the name and the level/status text, in front of the card
+    const objects = [card, label, levelLabel, roleLabel, pinBadge, pinLabel];
+    if (icon) objects.splice(2, 0, icon); // between the name and the level/role text, in front of the card
     this.cardContainer.add(objects);
   }
 

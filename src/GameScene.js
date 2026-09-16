@@ -561,7 +561,7 @@ export default class GameScene extends Phaser.Scene {
       const labelText = this.add
         .text(x, labelY, config.displayName, {
           fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '10px' : '13px',
-          color: '#ffffff',
+          color: '#000000',
           align: 'center',
           wordWrap: { width: buttonWidth - 6 },
         })
@@ -570,7 +570,7 @@ export default class GameScene extends Phaser.Scene {
       const costText = this.add
         .text(x, costY, `${Math.round(config.cost).toLocaleString()}円`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
-          color: '#ffffff',
+          color: '#000000',
         })
         .setOrigin(0.5);
 
