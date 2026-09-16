@@ -523,6 +523,6 @@ export const UNIT_CONFIG = {
     // the roster's biggest unit countering the roster's biggest enemy
     // class. See TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
     behemothSlayer: true,
-    sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png", run: ["/sprites/units/unit_titan_run_0.png", "/sprites/units/unit_titan_run_1.png"] },
+    sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png", run: ["/sprites/units/unit_titan_run_0.png", "/sprites/units/unit_titan_run_1.png"], idleAnim: ["/sprites/units/unit_titan_idleanim_0.png", "/sprites/units/unit_titan_idleanim_1.png"] },
   },
 };
