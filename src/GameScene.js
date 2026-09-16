@@ -1440,9 +1440,12 @@ export default class GameScene extends Phaser.Scene {
     // Sparring Grounds' base is invincible (see damageBase/damageEnemyBase),
     // so its HP is always Infinity — shown as "∞/∞" rather than a literal
     // (and confusing) "Infinity/Infinity" string.
-    this.baseHpText.setText(Number.isFinite(this.baseHp) ? `${Math.max(0, this.baseHp)}/${this.baseMaxHp}` : '∞/∞');
+    // baseHp/enemyBaseHp themselves stay floats (damage amounts aren't
+    // always whole numbers — a weaken multiplier, say) — only rounded here,
+    // at display time, so the HP text never shows something like "47.35".
+    this.baseHpText.setText(Number.isFinite(this.baseHp) ? `${Math.round(Math.max(0, this.baseHp))}/${this.baseMaxHp}` : '∞/∞');
     this.enemyBaseHpText.setText(
-      Number.isFinite(this.enemyBaseHp) ? `${Math.max(0, this.enemyBaseHp)}/${this.enemyBaseMaxHp}` : '∞/∞',
+      Number.isFinite(this.enemyBaseHp) ? `${Math.round(Math.max(0, this.enemyBaseHp))}/${this.enemyBaseMaxHp}` : '∞/∞',
     );
 
     if (this.mode === 'dojo') {
