@@ -289,7 +289,16 @@ const LOW_HP_VIGNETTE_PULSE_ALPHA = 0.15;
 // screen plus the enemy base (with knockback, matching the bible), then
 // resets to 0.
 const SPECIAL_METER_MAX = 200;
-const SPECIAL_CHARGE_PER_SEC = 10; // fills from empty in 20s
+// Real Battle Cats charges the Cat Cannon on a fixed TIME budget, not a
+// flat rate (guide Chapter 08): 0%→100% in 1500F (50s) at baseline, and the
+// Cannon Charge Base Upgrade shaves a flat amount of TIME off that budget
+// per level (see BASE_UPGRADE_CONFIG.js's cannonCharge, now ms rather than
+// a rate-per-second) rather than adding to a fill rate — replacing this
+// build's earlier invented rate-based model (a flat charge/sec, tunable
+// only by adding more rate). CANNON_CHARGE_FLOOR_MS is the real hard floor
+// (950F ≈ 31.7s) research/upgrades can never push the total time below.
+const SPECIAL_CHARGE_DURATION_MS = 50000; // real 1500F baseline
+const CANNON_CHARGE_FLOOR_MS = 31667; // real 950F
 const SPECIAL_BURST_DAMAGE = 30;
 const SPECIAL_BURST_BASE_DAMAGE = 25;
 const CANNON_BUTTON_RADIUS = 34;
@@ -366,7 +375,11 @@ export default class GameScene extends Phaser.Scene {
     // updateCannonButton/triggerSpecialBurst); baseDefense/research/
     // accounting/study are read where their effect actually applies below.
     this.cannonPowerBonus = getBaseUpgradeEffect('cannonPower');
-    this.cannonChargePerSecBonus = getBaseUpgradeEffect('cannonCharge');
+    // ms shaved off the cannon's total charge TIME (see
+    // SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS above) — renamed
+    // from the old rate-based cannonChargePerSecBonus now that
+    // BASE_UPGRADE_CONFIG's cannonCharge line is itself time-based.
+    this.cannonChargeReductionMs = getBaseUpgradeEffect('cannonCharge');
     this.baseDefenseBonus = getBaseUpgradeEffect('baseDefense');
     this.rechargeReductionMs = getBaseUpgradeEffect('research');
     this.accountingBonusPercent = getBaseUpgradeEffect('accounting');
@@ -808,13 +821,20 @@ export default class GameScene extends Phaser.Scene {
       // text squeezed to the top/bottom edges to make room. Falls back to
       // the original centered-text-only layout for any unit with no
       // sprite (none currently, but keeps this robust to a future entry).
-      const icon = addUnitIcon(this, x, y - 2, config, BUTTON_HEIGHT - 22);
-      const labelY = icon ? y - BUTTON_HEIGHT / 2 + 9 : y - 14;
+      // Shrunk further than before (was BUTTON_HEIGHT - 22) to leave room
+      // for the label's now-2-line "Name\n(Ability)" text block above it.
+      const icon = addUnitIcon(this, x, y + 2, config, BUTTON_HEIGHT - 36);
+      const labelY = icon ? y - BUTTON_HEIGHT / 2 + 13 : y - 14;
       const costY = icon ? y + BUTTON_HEIGHT / 2 - 9 : y + 14;
 
+      // Character name first, ability tag in parens (see UNIT_CONFIG.js's
+      // own field reference) — the real Battle Cats lineage name
+      // (displayName) isn't shown here at all; abilityLabel keeps the
+      // at-a-glance "what does this button actually do" clarity the
+      // pre-rebuild roster's own displayName values used to carry.
       const labelText = this.add
-        .text(x, labelY, config.displayName, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '10px' : '13px',
+        .text(x, labelY, `${config.characterName}\n(${config.abilityLabel})`, {
+          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
           color: '#000000',
           align: 'center',
           wordWrap: { width: buttonWidth - 6 },
@@ -1662,14 +1682,16 @@ export default class GameScene extends Phaser.Scene {
     this.updateWorkerCatButton();
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
 
-    // Cat Cannon charges passively over time (bible §A.3.9), independent of
-    // combat performance. Cannon Charge Base Upgrade (bible §A.7.1) adds
-    // flat charge-per-second on top. Doesn't start until the player's first
-    // deploy (see battleStarted) — nothing to charge "during battle" before
-    // there's a battle.
+    // Cat Cannon charges passively over a fixed TIME budget (bible §A.3.9,
+    // guide Chapter 08's real formula), independent of combat performance.
+    // Cannon Charge Base Upgrade shaves flat time off that budget, down to
+    // a hard floor (see SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS
+    // above). Doesn't start until the player's first deploy (see
+    // battleStarted) — nothing to charge "during battle" before there's a
+    // battle.
     if (this.battleStarted) {
-      const chargePerSec = SPECIAL_CHARGE_PER_SEC + this.cannonChargePerSecBonus;
-      this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
+      const chargeDurationMs = Math.max(CANNON_CHARGE_FLOOR_MS, SPECIAL_CHARGE_DURATION_MS - this.cannonChargeReductionMs);
+      this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_METER_MAX * deltaMs) / chargeDurationMs);
     }
     this.updateCannonButton();
     this.updateLowHpVignette(time);
@@ -2223,8 +2245,30 @@ export default class GameScene extends Phaser.Scene {
 
     this.applyWaveAttack(attacker, targetPool, primaryTarget);
     this.scheduleSurgeAttack(attacker, targetPool, totalDamage);
+    this.tryKnockbackOnHit(attacker, targetPool);
 
     return totalDamage;
+  }
+
+  // Knockback-all (bible §A.3.8, real Titan Cat True Form ability — guide
+  // Chapter 11: "30%でふっとばす（メタル等を除く全敵）"): on a successful
+  // per-hit chance roll, unconditionally knocks back every living, non-
+  // immune member of targetPool — not just whatever this hit actually
+  // damaged. Bypasses the normal HP-threshold "endurance" gate entirely
+  // (resolveKnockback), same as the Cat Cannon's own unconditional
+  // knockback burst, since this is a guaranteed special ability rather than
+  // ordinary combat staggering. Suppressed by Curse, same as every other
+  // special ability (see dealDamage's own specialSuppressed check).
+  tryKnockbackOnHit(attacker, targetPool) {
+    const ability = attacker.config.knockbackOnHit;
+    if (!ability || attacker.curseMs > 0) return;
+    if (Math.random() > ability.chance) return;
+
+    for (const entity of targetPool) {
+      if (entity.hp > 0 && entity.config.knockbackType !== 'immune') {
+        this.startKnockbackSlide(attacker, entity);
+      }
+    }
   }
 
   // The shared per-hit pipeline: raw damage (crit/weaken/matchup, via

@@ -47,8 +47,17 @@ export function getEffectiveUnitConfig(type) {
     damage *= currentEvolution.damageMultiplier;
     if (currentEvolution.rechargeMultiplier) rechargeMs *= currentEvolution.rechargeMultiplier;
   }
+  // abilityGrant (bible §A.4.4 — "evolution isn't just bigger numbers"):
+  // an evolution stage can hand a unit a whole new ability outright (e.g.
+  // Fish Cat's real 2% Critical Hit chance, Titan Cat's real 30%-chance
+  // Knockback-all — see PROGRESSION_CONFIG.js) rather than just scaling an
+  // existing stat. Same additive-across-every-reached-stage treatment as
+  // critChanceBonus above, for the same reason: it's cumulative progress,
+  // not a tier-defining replacement.
+  let abilityGrants = {};
   for (let i = 0; i < unitProgress.evolutionStage; i += 1) {
     if (meta.evolutions[i].critChanceBonus) critChance += meta.evolutions[i].critChanceBonus;
+    if (meta.evolutions[i].abilityGrant) abilityGrants = { ...abilityGrants, ...meta.evolutions[i].abilityGrant };
   }
 
   // Stepped growth curve (bible §A.4.2 — see PROGRESSION_CONFIG.js's own
@@ -65,6 +74,7 @@ export function getEffectiveUnitConfig(type) {
 
   return {
     ...base,
+    ...abilityGrants,
     hp: Math.round(hp),
     damage: Math.round(damage * 100) / 100,
     critChance,

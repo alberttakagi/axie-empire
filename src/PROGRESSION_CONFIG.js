@@ -219,7 +219,11 @@ export const PROGRESSION_CONFIG = {
         evoShardCost: 3,
         hpMultiplier: 1.6,
         damageMultiplier: 1.35,
-        critChanceBonus: 0.05,
+        // Real Fish Cat ability (guide Chapter 11): "2%でクリティカル" — 2%
+        // Critical Hit chance at True Form. Replaces the generic +5% every
+        // other unit's True Form gets (see this file's header) with the
+        // real value now that we have one for this specific lineage.
+        critChanceBonus: 0.02,
         rechargeMultiplier: 0.9,
       },
     ],
@@ -284,6 +288,11 @@ export const PROGRESSION_CONFIG = {
         damageMultiplier: 1.35,
         critChanceBonus: 0.05,
         rechargeMultiplier: 0.9,
+        // Real Titan Cat ability (guide Chapter 11): "30%でふっとばす（メタル
+        // 等を除く全敵）" — a 30% chance per landed hit to unconditionally
+        // Knockback every enemy on the field (see UnitStats.js's
+        // abilityGrant handling and GameScene's tryKnockbackOnHit).
+        abilityGrant: { knockbackOnHit: { chance: 0.3 } },
       },
     ],
   },

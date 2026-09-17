@@ -121,11 +121,21 @@ aren't wired up yet (see Known Gaps).
    stage spawn tables for all 48 real Chapter 1 stages (only the schema +
    roster + formulas) — this pass's 10 stages are a faithful
    *reconstruction* of real pacing/order, not a byte-exact dump.
-4. **Fish Cat's real 3rd-form "2% Critical Hit" ability** and **Titan Cat's
-   real 3rd-form "30% Knockback all enemies" ability** aren't modeled —
-   both are per-evolution-stage ability grants the current
-   `PROGRESSION_CONFIG` evolution-bonus system could support with a small
-   addition (see `critChanceBonus` for a precedent), just not done tonight.
+4. ~~Fish Cat's real 3rd-form "2% Critical Hit" and Titan Cat's real 3rd-form
+   "30% Knockback all enemies" aren't modeled.~~ **Done in a follow-up
+   pass**: `PROGRESSION_CONFIG.js` evolutions now support a generic
+   `abilityGrant` field (merged in by `UnitStats.getEffectiveUnitConfig`,
+   same additive-per-reached-stage treatment as `critChanceBonus`) — Fish
+   Cat's True Form `critChanceBonus` was corrected from the generic +5%
+   every other unit's True Form gets to the real 2%, and Titan Cat's True
+   Form grants `knockbackOnHit: { chance: 0.3 }`, resolved by
+   `GameScene.tryKnockbackOnHit` (unconditional knockback — bypasses the
+   normal HP-threshold stagger gate — on every living, non-immune member of
+   the target pool, same pattern as the Cat Cannon's own burst knockback).
+   Verified live both ways: the effective config carries the grant only
+   once evolutionStage reaches 2, and a live `dealDamage` against a target
+   tough enough to survive the hit shows knockback firing at roughly the
+   right rate.
 5. **The economy still starts every battle at full wallet, not real Battle
    Cats' 0¥-at-battle-start.** This predates tonight's pass (pre-existing
    `this.money = this.getWalletCap() * ...` in `GameScene.js`) — flagged
@@ -134,11 +144,54 @@ aren't wired up yet (see Known Gaps).
 6. **CatalogScene.js** wasn't updated with lock/unlock visuals (LoadoutScene
    was) — browsing a locked unit's info there isn't harmful, just not
    labeled "Locked" yet.
-7. **Real Cannon mechanics** (guide: 0%→100% in 50s base, -50F/level,
-   floor 31.7s) weren't ported — this build's cannon still uses its own
-   older rate-based charge model (`SPECIAL_CHARGE_PER_SEC`), not the real
-   time-based one. Left alone given how much the Cat Cannon button itself
-   was already debugged this session.
+7. ~~Real Cannon mechanics weren't ported.~~ **Done in a follow-up pass**:
+   the Cat Cannon now charges on the real fixed TIME budget (guide Chapter
+   08 — 50s base, -50F/≈1,667ms per Cannon Charge Base Upgrade level, hard
+   floor 31.7s/31,667ms — see `SPECIAL_CHARGE_DURATION_MS`/
+   `CANNON_CHARGE_FLOOR_MS` in `GameScene.js`), replacing the old flat
+   rate-per-second model. `BASE_UPGRADE_CONFIG.js`'s `cannonCharge` line is
+   now a real ms-per-level reduction rather than an invented rate bump.
+   Verified live: charge rate over a real 3s window matched the 50s-fill
+   formula almost exactly, and a simulated high upgrade level correctly
+   clamped at the real floor instead of charging faster than it should.
+
+## UI naming convention (added in a follow-up pass)
+
+Per user feedback: the in-battle spawn buttons and Character Formation
+cards now show **`CharacterName (AbilityLabel)`** — e.g. "Tripp (Basic
+Melee)" — not the real Battle Cats lineage name. `UNIT_CONFIG.js` gained a
+third distinct name field to make this possible:
+- `characterName` — the Axie (WHO) — shown first, primary.
+- `abilityLabel` — a short functional role tag (HOW IT PLAYS) — shown in
+  parens, restoring the at-a-glance clarity this roster's pre-rebuild
+  `displayName` values used to carry (e.g. "Fast Melee", "Long Range").
+- `displayName` — the real Battle Cats lineage name (WHAT, in BC terms)
+  — still used wherever a screen names a unit's real BC identity on its
+  own (e.g. the "Clear ... to unlock!" Character Formation message), just
+  not paired with the character name in these two compact card views
+  anymore. `CatalogScene.js` was updated the same way (falls back to
+  `displayName` for enemies, which have no `abilityLabel`).
+
+Also: `LoadoutScene`'s "not unlocked yet" message now names the exact stage
+that unlocks a locked lineage (`Clear "Empire of Axies IV" to unlock!`) via
+a new `describeLockedUnit` helper, reading `UNIT_CONFIG`'s
+`unlockRequirement` against `STAGE_CONFIG` — the shelved Guardian/Xia slot
+(a permanently unsatisfiable requirement) gets its own "Not available yet!"
+message instead of naming a stage that doesn't actually grant it.
+
+## Chimera inventory (asset kit survey, added in a follow-up pass)
+
+The Origins Asset Kit (`tools/axie-origins-asset-kit`) is the ONLY asset kit
+in this repo — no Classic Axie or other-game assets exist locally to pull
+from. It has **20 unique PvE chimera creatures** total (`pve-chimeras.json`
+— most of its 73 catalog entries are just `_lv_1/_lv_2/_lv_3` reskin tiers
+of these same 20, not distinct creatures). 13 are already used across
+`ENEMY_CONFIG.js`'s active + dormant slots; **7 remain unused**:
+AquaticWolf (plain, not the Alpha variant already used), ElderAquaticWolf,
+MothershipSlime, DryadFighter, FloweringForestSlime, TreantFighter, and
+MamaBear — available for whenever more enemy slots get wired up (e.g. the
+guide's other 14 early enemies, or the dormant zombie/colossus/behemoth
+slots once those get real data).
 
 ## Asset needs list (if this pass continues toward full fidelity)
 

@@ -48,9 +48,25 @@ import { NO_STATUS } from './STATUS_CONFIG.js';
 //
 // Field reference for everything NOT covered above — unchanged from the
 // previous roster, still aligned to the bible's Part C Unit schema §A.3.2:
-//   id/displayName  reskin hooks — id is the stable lookup key, displayName
-//                   is the role name shown on the in-battle spawn button.
-//   characterName   the real Starter Axie this lineage reskins.
+//   id              stable lookup key (also STAGE_CONFIG's unlockRequirement
+//                   target and PROGRESSION_CONFIG's own matching key).
+//   displayName     the real Battle Cats lineage name (e.g. "Tank Cat") —
+//                   used wherever a screen needs to name the unit's real BC
+//                   identity on its own (unlock messages, docs), but NOT
+//                   the in-battle spawn button or Character Formation cards
+//                   — see abilityLabel below for what those actually show.
+//   characterName   the real Starter Axie this lineage reskins — shown as
+//                   the PRIMARY label wherever a screen is about a specific
+//                   character (spawn button, Formation card), paired with
+//                   abilityLabel in parentheses: "Tripp (Basic Melee)".
+//   abilityLabel    a short, functional role tag distinct from both of the
+//                   above — what the unit actually DOES at a glance, same
+//                   spirit as this roster's pre-rebuild displayName values
+//                   (e.g. "Basic Melee", "Long Range"). Real Battle Cats
+//                   lineage names read as flavor/identity, not gameplay
+//                   function, to a player unfamiliar with the reference
+//                   game — this keeps that at-a-glance clarity alongside
+//                   the real name instead of losing it.
 //   cost            yen to deploy one (real Lv1 price, Chapter 2-basis per
 //                   the guide's own convention — see its Chapter 05 note).
 //   hp/damage       Lv1, no treasure, no research — see UnitStats.js for how
@@ -69,6 +85,7 @@ export const UNIT_CONFIG = {
   basic: {
     id: 'basic',
     displayName: 'Cat',
+    abilityLabel: 'Basic Melee',
     characterName: 'Tripp', // ネコ／ネコビルダー／ネコモヒカン (Cat / Macho Cat / Mohawk Cat)
     role: 'basic',
     unlockRequirement: null, // available from the very start, matching real Battle Cats' own day-1 roster
@@ -95,6 +112,7 @@ export const UNIT_CONFIG = {
   tank: {
     id: 'tank',
     displayName: 'Tank Cat',
+    abilityLabel: 'Tank',
     characterName: 'Olek', // タンクネコ／ネコカベ／ゴムネコ (Tank Cat / Wall Cat / Eraser Cat)
     role: 'tank',
     unlockRequirement: { stageId: 'stage1' },
@@ -121,6 +139,7 @@ export const UNIT_CONFIG = {
   swarm: {
     id: 'swarm',
     displayName: 'Axe Cat',
+    abilityLabel: 'Melee Attacker',
     characterName: 'Shillin', // バトルネコ／勇者ネコ／暗黒ネコ (Axe Cat / Brave Cat / Dark Cat)
     role: 'swarm',
     unlockRequirement: { stageId: 'stage2' },
@@ -150,6 +169,7 @@ export const UNIT_CONFIG = {
   ranged: {
     id: 'ranged',
     displayName: 'Gross Cat',
+    abilityLabel: 'Ranged Attacker',
     characterName: 'Puffy', // キモネコ／美脚ネコ／ムキあしネコ (Gross Cat / Sexy Legs Cat / Macho Leg Cat)
     role: 'ranged',
     unlockRequirement: { stageId: 'stage3' },
@@ -176,6 +196,7 @@ export const UNIT_CONFIG = {
   fast: {
     id: 'fast',
     displayName: 'Cow Cat',
+    abilityLabel: 'Fast Melee',
     characterName: 'Buba', // ウシネコ／ネコキリン／ネコライオン (Cow Cat / Giraffe Cat / Lion Cat)
     role: 'fast',
     unlockRequirement: { stageId: 'stage4' },
@@ -202,6 +223,7 @@ export const UNIT_CONFIG = {
   aoe: {
     id: 'aoe',
     displayName: 'Bird Cat',
+    abilityLabel: 'Area Attacker',
     characterName: 'Noir', // ネコノトリ／ネコUFO／天空のネコ (Bird Cat / UFO Cat / The Flying Cat)
     role: 'aoe',
     unlockRequirement: { stageId: 'stage5' },
@@ -228,6 +250,7 @@ export const UNIT_CONFIG = {
   sniper: {
     id: 'sniper',
     displayName: 'Fish Cat',
+    abilityLabel: 'Heavy Attacker',
     characterName: 'Momo', // ネコフィッシュ／ネコクジラ／ネコ島 (Fish Cat / Whale Cat / Island Cat)
     role: 'sniper',
     unlockRequirement: { stageId: 'stage6' },
@@ -256,6 +279,7 @@ export const UNIT_CONFIG = {
   support: {
     id: 'support',
     displayName: 'Lizard Cat',
+    abilityLabel: 'Long Range',
     characterName: 'Mit', // ネコトカゲ／ネコドラゴン／ネコキングドラゴン (Lizard Cat / Dragon Cat / King Dragon Cat)
     role: 'support',
     unlockRequirement: { stageId: 'stage7' },
@@ -282,6 +306,7 @@ export const UNIT_CONFIG = {
   titan: {
     id: 'titan',
     displayName: 'Titan Cat',
+    abilityLabel: 'Titan',
     characterName: 'Temujin', // 巨神ネコ／ネコダラボッチ／ネコジャラミ (Titan Cat / Mythical Titan Cat / Jamiera Cat)
     role: 'titan',
     unlockRequirement: { stageId: 'stage8' },
@@ -318,6 +343,7 @@ export const UNIT_CONFIG = {
   guardian: {
     id: 'guardian',
     displayName: 'Guardian',
+    abilityLabel: 'Barrier Tank',
     characterName: 'Xia',
     role: 'guardian',
     unlockRequirement: { stageId: null }, // never satisfied — see PlayerProgress.isUnitUnlocked

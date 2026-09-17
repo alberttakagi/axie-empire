@@ -26,10 +26,16 @@ export const BASE_UPGRADE_CONFIG = {
   },
   cannonCharge: {
     label: 'Cannon Charge',
-    description: 'Charges the Cat Cannon faster.',
+    description: 'Reduces the Cat Cannon’s charge time.',
     maxLevel: 10,
     xpCostBase: 700,
-    perLevelEffect: 0.5, // flat added to SPECIAL_CHARGE_PER_SEC
+    // Real value (guide Chapter 08): 50F (≈1,666.67ms) shaved off the
+    // cannon's total charge TIME per level, down to a hard floor (see
+    // GameScene.js's CANNON_CHARGE_FLOOR_MS) — real Battle Cats needs 11
+    // levels to fully hit that floor; this build's 10-level cap gets close
+    // (50s → ~33.3s) but doesn't quite reach it, same honest shortfall
+    // as Research's own real-vs-this-build's-level-cap note below.
+    perLevelEffect: 1666.67,
     effectType: 'flat',
   },
   baseDefense: {

@@ -105,7 +105,7 @@ export default class CatalogScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const roleLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 6, `(${config.displayName})`, {
+      .text(x, y + CARD_HEIGHT / 2 - 6, `(${config.abilityLabel || config.displayName})`, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '8px',
         color: '#222222',
         align: 'center',
@@ -145,7 +145,7 @@ export default class CatalogScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const roleText = this.add
-      .text(width / 2, 216, `(${config.displayName})`, {
+      .text(width / 2, 216, `(${config.abilityLabel || config.displayName})`, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
         color: '#aaaaaa',
       })

@@ -18,6 +18,7 @@ import {
 import { getActiveCombos } from './Combo.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
 // "manage my formation" screen reachable from the Home screen, rather than
@@ -274,13 +275,15 @@ export default class LoadoutScene extends Phaser.Scene {
 
     // Selected/benched state reads fine from the card's own dimming
     // (setAlpha below) — an explicit "IN FORMATION"/"benched" label was
-    // redundant, so it's gone; the role (displayName) takes that slot
-    // instead, below the level for easier reading.
+    // redundant, so it's gone; the ability tag takes that slot instead,
+    // below the level for easier reading. See UNIT_CONFIG.js's own field
+    // reference: abilityLabel (not displayName, the real Battle Cats
+    // lineage name) is what pairs with the character name up top.
     const levelLabel = this.add
       .text(x, y + CARD_HEIGHT / 2 - 22, unlocked ? `Lv ${unitProgress.level}` : 'Locked', { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
       .setOrigin(0.5);
     const roleLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 9, `(${config.displayName})`, {
+      .text(x, y + CARD_HEIGHT / 2 - 9, `(${config.abilityLabel})`, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
         color: '#222222',
         align: 'center',
@@ -316,9 +319,21 @@ export default class LoadoutScene extends Phaser.Scene {
     this.cardContainer.add(objects);
   }
 
+  // Names exactly which stage clear unlocks a still-locked lineage (see
+  // UNIT_CONFIG.js's unlockRequirement/PlayerProgress.isUnitUnlocked) —
+  // "Not unlocked yet!" alone left the player with no idea how far off it
+  // was. Guardian/Xia's requirement is permanently unsatisfiable
+  // (stageId: null — see UNIT_CONFIG.js's own shelving note), so it gets
+  // its own message rather than naming a stage that doesn't actually grant it.
+  describeLockedUnit(type) {
+    const requirement = UNIT_CONFIG[type]?.unlockRequirement;
+    const stage = requirement?.stageId && STAGE_CONFIG.find((s) => s.id === requirement.stageId);
+    return stage ? `Clear "${stage.displayName}" to unlock!` : 'Not available yet!';
+  }
+
   toggleUnit(type) {
     if (!isUnitUnlocked(type)) {
-      this.showMessage('Not unlocked yet!');
+      this.showMessage(this.describeLockedUnit(type));
       return;
     }
 
