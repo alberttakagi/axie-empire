@@ -1810,6 +1810,20 @@ export default class GameScene extends Phaser.Scene {
           this.enemies.find((enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && this.inRange(unit, enemy)) || null;
       }
 
+      // Mirrors the enemy-side blind-spot handling in updateEnemies: a Long
+      // Distance unit already backed up as far as it can go (its own base
+      // is right there) can't retreat any further from an enemy inside its
+      // blind spot, so fight it point-blank instead of standing there
+      // ignoring it forever.
+      const minRetreatX = this.baseX + BASE_WIDTH / 2 + unit.config.radius;
+      if (!unit.target && unit.config.longDistance && unit.shape.x <= minRetreatX) {
+        unit.target =
+          this.enemies.find(
+            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0
+              && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
+          ) || null;
+      }
+
       if (!unit.target && inEnemyBaseReach) {
         unit.target = 'enemyBase';
       }
@@ -1821,7 +1835,19 @@ export default class GameScene extends Phaser.Scene {
       } else if (!unit.target) {
         unit.isMoving = true;
         const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * deltaMs) / 1000;
-        unit.shape.x = Math.min(width - unit.config.radius, unit.shape.x + moveStep);
+        // Same blind-spot situation as above, but with room left to back
+        // off — mirrors the enemy-side fix in updateEnemies: a Long
+        // Distance unit that's too close to a live enemy kites backward
+        // toward its own base to reopen the gap instead of advancing
+        // blindly through the enemy it can't yet hit.
+        const tooCloseEnemy = unit.config.longDistance
+          && this.enemies.some(
+            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0
+              && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
+          );
+        unit.shape.x = tooCloseEnemy
+          ? Math.max(minRetreatX, unit.shape.x - moveStep)
+          : Math.min(width - unit.config.radius, unit.shape.x + moveStep);
         if (unit.label) unit.label.x = unit.shape.x;
       }
     }
@@ -1881,6 +1907,23 @@ export default class GameScene extends Phaser.Scene {
           this.playerUnits.find((unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit)) || null;
       }
 
+      // Long Distance blind spot (bible §A.3.8, see inRange): a unit inside
+      // longDistance.min was excluded just above. Normally this enemy backs
+      // off toward its own base to reopen the gap (see the movement branch
+      // below) — but if it's already backed up as far as it can go (its own
+      // base is right there, e.g. a unit was already parked touching the
+      // base when this enemy spawned right next to it), retreating further
+      // isn't possible, so fight the blocking unit point-blank instead of
+      // leaving it untouched forever.
+      const maxRetreatX = this.enemyBaseX - BASE_WIDTH / 2 - enemy.config.radius;
+      if (!enemy.target && enemy.config.longDistance && enemy.shape.x >= maxRetreatX) {
+        enemy.target =
+          this.playerUnits.find(
+            (unit) => unit.hp > 0 && unit.warpMs <= 0
+              && Math.abs(enemy.shape.x - unit.shape.x) < enemy.config.longDistance.min,
+          ) || null;
+      }
+
       if (!enemy.target && inBaseReach) {
         enemy.target = 'base';
       }
@@ -1890,7 +1933,19 @@ export default class GameScene extends Phaser.Scene {
       } else if (!enemy.target) {
         enemy.isMoving = true;
         const moveStep = (enemy.config.moveSpeed * enemy.slowMultiplier * deltaMs) / 1000;
-        enemy.shape.x -= moveStep;
+        // Same blind-spot situation as above, but with room left to back
+        // off — walking blindly forward here would carry it straight
+        // through the too-close unit's position without ever fighting it,
+        // since nothing here previously distinguished "no target anywhere
+        // nearby" from "a target is too close to hit." Kite backward
+        // instead, same as a real ranged unit, until the gap reopens past
+        // longDistance.min and inRange can pick the unit up above.
+        const tooCloseUnit = enemy.config.longDistance
+          && this.playerUnits.some(
+            (unit) => unit.hp > 0 && unit.warpMs <= 0
+              && Math.abs(enemy.shape.x - unit.shape.x) < enemy.config.longDistance.min,
+          );
+        enemy.shape.x = tooCloseUnit ? Math.min(maxRetreatX, enemy.shape.x + moveStep) : enemy.shape.x - moveStep;
         if (enemy.label) enemy.label.x = enemy.shape.x;
       }
     }
@@ -2564,6 +2619,16 @@ export default class GameScene extends Phaser.Scene {
   damageBase(amount) {
     if (this.isGameOver) return;
     if (this.mode === 'dojo') return; // invincible — no loss condition in Sparring Grounds
+    // Already destroyed and waiting on handleBaseDestroyed's own Continue-
+    // vs-endGame call: showContinueOffer only sets isPaused, which doesn't
+    // take effect until update()'s NEXT frame, so multiple enemies landing
+    // a hit within the very same updateEnemies() pass that finishes the
+    // base could otherwise each re-run handleBaseDestroyed once per
+    // remaining hit — each one pushing another translucent Continue-offer
+    // overlay on top of the last (and leaking the previous one, since
+    // showContinueOffer overwrites this.continueOfferObjects unconditionally)
+    // until they visually compounded into a solid black screen.
+    if (this.baseHp <= 0) return;
 
     this.baseHp = Math.max(0, this.baseHp - amount);
     showDamageNumber(this, this.baseX, this.laneY - 40, amount);
