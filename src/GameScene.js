@@ -248,6 +248,13 @@ const DEFAULT_DODGE_WINDOW_MS = 400;
 // see updateCannonButton).
 const BASE_CURSE_COLOR = 0x663399;
 
+// Low-HP base warning (this build's own addition — see updateLowHpVignette)
+// — a pulsing full-screen red tint once the player's own base drops to or
+// below this fraction of its max HP.
+const LOW_HP_WARNING_RATIO = 0.25;
+const LOW_HP_VIGNETTE_BASE_ALPHA = 0.2;
+const LOW_HP_VIGNETTE_PULSE_ALPHA = 0.15;
+
 // Cat Cannon: fills PASSIVELY OVER TIME (bible §A.3.9), independent of
 // combat performance — not from damage dealt. Rendered as a dedicated
 // bottom-right circular button (confirmed screenshot layout: Worker Cat
@@ -513,6 +520,12 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.createSpawnButtons();
+
+    // Low-HP base warning overlay (see updateLowHpVignette) — starts fully
+    // transparent; added here (before setupZoomControls' bulk UI sweep) so
+    // it's automatically classified as a UI object without its own
+    // explicit ignore() call, same as every other HUD element above.
+    this.lowHpVignette = this.add.rectangle(width / 2, height / 2, width, height, 0xff0000, 0);
 
     // Split the two cameras now that every UI object create() itself builds
     // (pause button, stage name, wallet, spawn buttons, worker cat/cannon/
@@ -1470,6 +1483,7 @@ export default class GameScene extends Phaser.Scene {
     this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
     this.updateCannonButton();
     this.base.fillColor = this.baseCurseMs > 0 ? BASE_CURSE_COLOR : BASE_COLOR;
+    this.updateLowHpVignette(time);
 
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
@@ -1560,6 +1574,25 @@ export default class GameScene extends Phaser.Scene {
       );
       this.cannonChargeGraphics.fillPath();
     }
+  }
+
+  // A pulsing full-screen red tint once the player's own base drops below
+  // LOW_HP_WARNING_RATIO — this build's own addition (not a bible field),
+  // the same "you are about to lose" urgency cue most tower-defense games
+  // give the base/tower specifically, since nothing here previously
+  // signalled danger beyond the numeric HP text. Skipped entirely in dojo
+  // mode (an invincible Infinity/Infinity base has no "low" to warn about).
+  updateLowHpVignette(time) {
+    if (this.mode === 'dojo' || this.isGameOver) {
+      this.lowHpVignette.setAlpha(0);
+      return;
+    }
+    const ratio = this.baseMaxHp > 0 ? this.baseHp / this.baseMaxHp : 1;
+    if (ratio > LOW_HP_WARNING_RATIO) {
+      this.lowHpVignette.setAlpha(0);
+      return;
+    }
+    this.lowHpVignette.setAlpha(LOW_HP_VIGNETTE_BASE_ALPHA + LOW_HP_VIGNETTE_PULSE_ALPHA * Math.sin(time / 200));
   }
 
   updatePlayerUnits(deltaMs) {
