@@ -417,6 +417,13 @@ export default class GameScene extends Phaser.Scene {
     this.specialMeter = 0;
     this.enemyBaseCurseMs = 0; // curse landed on the enemy base — currently a no-op, nothing to suppress there yet
     this.elapsedMs = 0;
+    // Nothing enemy-side should happen before the player deploys their
+    // first unit — no scripted/dojo spawns, no Cat Cannon charge (bible
+    // §A.3.9 describes the cannon as charging "during battle," and there's
+    // no battle yet). See trySpawnUnit (flips this true and kicks off
+    // scheduleStageScript/scheduleDojoWaves, which create() itself no
+    // longer calls) and update (gates specialMeter's charge on it).
+    this.battleStarted = false;
     this.isGameOver = false;
     this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
@@ -554,11 +561,9 @@ export default class GameScene extends Phaser.Scene {
     // bulk diff instead of an ignore() call at every UI helper.
     this.setupZoomControls();
 
-    if (this.mode === 'dojo') {
-      this.scheduleDojoWaves();
-    } else {
-      this.scheduleStageScript();
-    }
+    // Enemy spawning (scripted stage or dojo waves) no longer starts here —
+    // see battleStarted's own comment/trySpawnUnit, which kicks it off once
+    // the player deploys their first unit.
 
     startMusic();
     // Stop the placeholder music loop no matter HOW this scene ends —
@@ -1181,6 +1186,15 @@ export default class GameScene extends Phaser.Scene {
       rechargeMs: recharge,
     };
 
+    if (!this.battleStarted) {
+      this.battleStarted = true;
+      if (this.mode === 'dojo') {
+        this.scheduleDojoWaves();
+      } else {
+        this.scheduleStageScript();
+      }
+    }
+
     this.money -= cost;
     this.unitCooldowns[key] = recharge;
     this.unitCooldownDurations[key] = recharge;
@@ -1620,9 +1634,13 @@ export default class GameScene extends Phaser.Scene {
 
     // Cat Cannon charges passively over time (bible §A.3.9), independent of
     // combat performance. Cannon Charge Base Upgrade (bible §A.7.1) adds
-    // flat charge-per-second on top.
-    const chargePerSec = SPECIAL_CHARGE_PER_SEC + this.cannonChargePerSecBonus;
-    this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
+    // flat charge-per-second on top. Doesn't start until the player's first
+    // deploy (see battleStarted) — nothing to charge "during battle" before
+    // there's a battle.
+    if (this.battleStarted) {
+      const chargePerSec = SPECIAL_CHARGE_PER_SEC + this.cannonChargePerSecBonus;
+      this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
+    }
     this.updateCannonButton();
     this.updateLowHpVignette(time);
     this.updateBossMusic();
