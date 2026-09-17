@@ -1845,9 +1845,27 @@ export default class GameScene extends Phaser.Scene {
             (enemy) => enemy.hp > 0 && enemy.warpMs <= 0
               && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
           );
-        unit.shape.x = tooCloseEnemy
-          ? Math.max(minRetreatX, unit.shape.x - moveStep)
-          : Math.min(width - unit.config.radius, unit.shape.x + moveStep);
+        if (tooCloseEnemy) {
+          unit.shape.x = Math.max(minRetreatX, unit.shape.x - moveStep);
+        } else {
+          // Never let a single frame's step carry a unit clean through the
+          // engagement window of the very next live enemy ahead of it — a
+          // big enough step (a frame hitch, or simply a very fast mover
+          // like Fast Melee's 165 px/sec, by far the highest moveSpeed in
+          // the game) could otherwise jump from "not yet in range" straight
+          // past "already beyond it" in one frame without ever landing
+          // inside the window inRange checks, walking clean through the
+          // enemy untouched. Clamp the advance to stop right at the
+          // nearest such enemy's own near edge instead, so next frame's
+          // inRange check (above) is guaranteed to see it as in range.
+          let maxAdvanceX = width - unit.config.radius;
+          for (const enemy of this.enemies) {
+            if (enemy.hp <= 0 || enemy.warpMs > 0) continue;
+            const entryX = enemy.shape.x - this.getMaxRange(unit.config) - enemy.config.radius;
+            if (entryX >= unit.shape.x && entryX < maxAdvanceX) maxAdvanceX = entryX;
+          }
+          unit.shape.x = Math.min(maxAdvanceX, unit.shape.x + moveStep);
+        }
         if (unit.label) unit.label.x = unit.shape.x;
       }
     }
@@ -1945,7 +1963,20 @@ export default class GameScene extends Phaser.Scene {
             (unit) => unit.hp > 0 && unit.warpMs <= 0
               && Math.abs(enemy.shape.x - unit.shape.x) < enemy.config.longDistance.min,
           );
-        enemy.shape.x = tooCloseUnit ? Math.min(maxRetreatX, enemy.shape.x + moveStep) : enemy.shape.x - moveStep;
+        if (tooCloseUnit) {
+          enemy.shape.x = Math.min(maxRetreatX, enemy.shape.x + moveStep);
+        } else {
+          // Mirrors the player-side clamp in updatePlayerUnits: never let a
+          // single frame's step carry this enemy clean through the
+          // engagement window of the nearest live player unit ahead of it.
+          let minAdvanceX = enemy.config.radius;
+          for (const unit of this.playerUnits) {
+            if (unit.hp <= 0 || unit.warpMs > 0) continue;
+            const entryX = unit.shape.x + this.getMaxRange(enemy.config) + unit.config.radius;
+            if (entryX <= enemy.shape.x && entryX > minAdvanceX) minAdvanceX = entryX;
+          }
+          enemy.shape.x = Math.max(minAdvanceX, enemy.shape.x - moveStep);
+        }
         if (enemy.label) enemy.label.x = enemy.shape.x;
       }
     }
