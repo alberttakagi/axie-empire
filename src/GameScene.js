@@ -71,6 +71,15 @@ const MIN_RECHARGE_MS = 2000; // bible §A.3.2: hard floor is 60 frames @ 30fps 
 // comfortably above every Restriction Stage's own explicit cap while still
 // being a real ceiling against unlimited spam.
 const DEFAULT_MAX_DEPLOYED = 20;
+
+// Trickle-spawn fallback (see scheduleStageScript/scheduleTrickleWave) — how
+// long to wait after the last scripted wave before starting the repeat, and
+// how often it repeats after that. Reasoned to sit close to this game's own
+// scripted wave spacing (commonly 4000ms apart — see STAGE_CONFIG.js) rather
+// than a bible-cited number, since the bible only specifies that repeating
+// waves should exist, not their exact cadence.
+const TRICKLE_START_DELAY_MS = 6000;
+const TRICKLE_INTERVAL_MS = 7000;
 const SPEED_UP_MULTIPLIER = 2;
 
 // In-battle income ramps up over the fight rather than staying flat (bible
@@ -280,6 +289,11 @@ const CANNON_BUTTON_RADIUS = 34;
 const CANNON_NOT_READY_COLOR = 0x555566;
 const CANNON_READY_COLOR = 0xffdd33;
 const CANNON_CHARGE_FILL_COLOR = 0xffaa33;
+// Fully charged but blocked by baseCurseMs — distinct from both the plain
+// not-ready color (still charging) and the ready color (actually tappable),
+// so a full-but-cursed cannon doesn't look identical to a genuinely ready
+// one (see updateCannonButton/tryTriggerSpecialBurst).
+const CANNON_CURSED_COLOR = 0x663355;
 const SPECIAL_FLASH_COLOR = 0xffdd33;
 const SPECIAL_FLASH_DURATION_MS = 250;
 
@@ -639,6 +653,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   scheduleStageScript() {
+    let lastTimedEntry = null;
+
     for (const entry of this.stage.spawnScript) {
       // A baseHpPercentTrigger entry has no spawnDelayMs at all — it's
       // handled entirely by checkHpTriggers (called from damageEnemyBase)
@@ -649,7 +665,29 @@ export default class GameScene extends Phaser.Scene {
         if (this.isGameOver) return;
         this.spawnScriptedEnemy(entry);
       });
+      if (!lastTimedEntry || entry.spawnDelayMs > lastTimedEntry.spawnDelayMs) lastTimedEntry = entry;
     }
+
+    // Trickle fallback (bible §A.3.11 — the reference schema's own
+    // `repeat_count`/`repeat_interval` fields exist specifically so a stage
+    // never leaves the enemy base standing with nothing left to fight; this
+    // build's spawnScript is a plain fixed list with no repeat fields of its
+    // own, so once every scripted timed wave has fired, keep re-spawning
+    // the stage's own last scripted enemy on a fixed interval for as long
+    // as the enemy base is still alive, rather than the field going silent).
+    if (lastTimedEntry) {
+      this.time.delayedCall(lastTimedEntry.spawnDelayMs + TRICKLE_START_DELAY_MS, () =>
+        this.scheduleTrickleWave(lastTimedEntry),
+      );
+    }
+  }
+
+  scheduleTrickleWave(entry) {
+    if (this.isGameOver || this.enemyBaseHp <= 0) return;
+    // Never re-trigger a boss shockwave/entrance a second time — only the
+    // enemy type/strength is reused, not its one-time boss behavior.
+    this.spawnScriptedEnemy({ ...entry, isBoss: false });
+    this.time.delayedCall(TRICKLE_INTERVAL_MS, () => this.scheduleTrickleWave(entry));
   }
 
   // Sparring Grounds' endless, escalating spawner (DOJO_CONFIG.js) — every
@@ -1583,8 +1621,15 @@ export default class GameScene extends Phaser.Scene {
   // visual) and swaps the button's base color once it's fully charged and
   // tappable.
   updateCannonButton() {
-    const ready = this.specialMeter >= SPECIAL_METER_MAX && this.baseCurseMs <= 0;
-    this.cannonBase.fillColor = ready ? CANNON_READY_COLOR : CANNON_NOT_READY_COLOR;
+    // Charged and tappable are two different questions — a full meter while
+    // baseCurseMs is active is charged but NOT tappable (tryTriggerSpecialBurst
+    // still blocks it), and needs its own distinct look rather than reading
+    // identically to "still charging" (the old ready-only check) or to a
+    // genuinely-ready cannon.
+    const charged = this.specialMeter >= SPECIAL_METER_MAX;
+    const cursed = this.baseCurseMs > 0;
+    const ready = charged && !cursed;
+    this.cannonBase.fillColor = ready ? CANNON_READY_COLOR : charged && cursed ? CANNON_CURSED_COLOR : CANNON_NOT_READY_COLOR;
 
     const fraction = Math.min(1, this.specialMeter / SPECIAL_METER_MAX);
     this.cannonChargeGraphics.clear();
@@ -2353,7 +2398,10 @@ export default class GameScene extends Phaser.Scene {
   // — see applyStatusEffectToBase/baseCurseMs.
   tryTriggerSpecialBurst() {
     if (this.isGameOver) return;
-    if (this.baseCurseMs > 0) return;
+    if (this.baseCurseMs > 0) {
+      this.showRestrictionMessage('Cannon cursed — can\'t fire!');
+      return;
+    }
     if (this.specialMeter < SPECIAL_METER_MAX) return;
 
     this.triggerSpecialBurst();
