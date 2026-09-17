@@ -250,9 +250,9 @@ export const ENEMY_CONFIG = {
     special: { type: 'aoe', radius: 50 },
     critChance: 0.03,
     // Status-effect demo (STATUS_CONFIG.js): whatever it hits gets cursed —
-    // a player unit's own special ability is suppressed, and landing this
-    // on the player's base blocks the special-burst trigger for 3s, so
-    // there's real stakes to letting this one connect.
+    // a player unit's own special ability is suppressed. Landing on the
+    // player's base itself does nothing (the Cat Cannon fires regardless of
+    // any status effect on the base — see GameScene's tryTriggerSpecialBurst).
     statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.25, durationMs: 3000 },
     sprite: { idle: "/sprites/enemies/enemy_aoe_idle.png", attack: "/sprites/enemies/enemy_aoe_attack.png", hit: "/sprites/enemies/enemy_aoe_hit.png", run: ["/sprites/enemies/enemy_aoe_run_0.png", "/sprites/enemies/enemy_aoe_run_1.png"], idleAnim: ["/sprites/enemies/enemy_aoe_idleanim_0.png", "/sprites/enemies/enemy_aoe_idleanim_1.png"] },
   },

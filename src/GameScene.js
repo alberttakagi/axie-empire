@@ -46,6 +46,8 @@ import {
   cycleSfxVolumeLevel,
   getBgmVolumeLevel,
   cycleBgmVolumeLevel,
+  isMuted,
+  VOLUME_LEVELS,
 } from './Audio.js';
 import { addUserRank } from './UserRank.js';
 import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
@@ -259,12 +261,6 @@ const HIT_FLASH_DURATION_MS = 100;
 // doesn't specify its own dodgeWindowMs.
 const DEFAULT_DODGE_WINDOW_MS = 400;
 
-// Curse tint for the player's base itself (see baseCurseMs) — a cursed base
-// can't fire the Cat Cannon regardless of meter charge (see
-// tryTriggerSpecialBurst); the base's own fillColor only ever reflects this,
-// never the cannon's ready state (that's the cannon button's own job now —
-// see updateCannonButton).
-const BASE_CURSE_COLOR = 0x663399;
 
 // Low-HP base warning (this build's own addition — see updateLowHpVignette)
 // — a pulsing full-screen red tint once the player's own base drops to or
@@ -289,11 +285,6 @@ const CANNON_BUTTON_RADIUS = 34;
 const CANNON_NOT_READY_COLOR = 0x555566;
 const CANNON_READY_COLOR = 0xffdd33;
 const CANNON_CHARGE_FILL_COLOR = 0xffaa33;
-// Fully charged but blocked by baseCurseMs — distinct from both the plain
-// not-ready color (still charging) and the ready color (actually tappable),
-// so a full-but-cursed cannon doesn't look identical to a genuinely ready
-// one (see updateCannonButton/tryTriggerSpecialBurst).
-const CANNON_CURSED_COLOR = 0x663355;
 const SPECIAL_FLASH_COLOR = 0xffdd33;
 const SPECIAL_FLASH_DURATION_MS = 250;
 
@@ -314,6 +305,10 @@ export default class GameScene extends Phaser.Scene {
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
     preloadBackgrounds(this);
     preloadAttackVfx(this);
+    // Real boss battle theme (see onBossSpawned/stopBossMusic) — the only
+    // real audio FILE this build plays; everything else in Audio.js is
+    // synthesized on the fly and needs no preloading.
+    if (!this.cache.audio.exists('bgm_boss')) this.load.audio('bgm_boss', '/audio/bgm_boss.wav');
   }
 
   create(data) {
@@ -411,6 +406,8 @@ export default class GameScene extends Phaser.Scene {
     this.xpBoostMultiplier = 1; // XP Boost
     this.treasureRadarActive = false; // Treasure Radar
     this.continuesUsed = 0; // Continue (bible §A.3.9) — see CONTINUE_GEM_COSTS
+    this.aliveBossCount = 0; // how many currently-alive enemies are boss-tagged — see onBossSpawned/onEnemyKilled
+    this.bossMusicSound = null; // the real boss.wav Sound instance while one's playing, else null
     // Combo's "Starting Money Up" is a bonus ON TOP of the normal starting
     // fill — deliberately allowed to exceed getWalletCap() for this one
     // initial value (a real "bonus," not just a differently-computed cap);
@@ -418,8 +415,7 @@ export default class GameScene extends Phaser.Scene {
     this.money = this.getWalletCap() * (1 + comboStartingMoneyPercent / 100);
     this.enemiesKilled = 0;
     this.specialMeter = 0;
-    this.baseCurseMs = 0; // curse landed directly on the player's base — blocks triggerSpecialBurst
-    this.enemyBaseCurseMs = 0; // mirror on the enemy base — currently a no-op, nothing to suppress there yet
+    this.enemyBaseCurseMs = 0; // curse landed on the enemy base — currently a no-op, nothing to suppress there yet
     this.elapsedMs = 0;
     this.isGameOver = false;
     this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
@@ -569,8 +565,17 @@ export default class GameScene extends Phaser.Scene {
     // Restart, Quit, the post-battle Menu button, Next Stage, all of them
     // just call scene.start/scene.restart, and Phaser fires 'shutdown' on
     // every one of those. A single hook here beats sprinkling stopMusic()
-    // calls at every exit point.
-    this.events.once('shutdown', () => stopMusic());
+    // calls at every exit point. Also tears down the real boss track
+    // directly (not via stopBossMusic, which would wrongly resume the
+    // synth loop right as the scene is going away) if one's still playing.
+    this.events.once('shutdown', () => {
+      stopMusic();
+      if (this.bossMusicSound) {
+        this.bossMusicSound.stop();
+        this.bossMusicSound.destroy();
+        this.bossMusicSound = null;
+      }
+    });
   }
 
   // Two-camera HUD split (Battle Cats-style scroll-to-zoom + drag-to-pan on
@@ -1321,7 +1326,34 @@ export default class GameScene extends Phaser.Scene {
 
     this.createEnemy(entry.enemyId, config, entry.isBoss);
 
-    if (entry.isBoss) this.triggerBossShockwave();
+    if (entry.isBoss) {
+      this.triggerBossShockwave();
+      this.onBossSpawned();
+    }
+  }
+
+  // A scripted boss appearing swaps the normal synthesized battle loop for
+  // the real boss.wav track for as long as at least one boss-tagged enemy
+  // is alive — see onEnemyKilled for the reverse swap. aliveBossCount
+  // (rather than a plain boolean) covers the rare case of more than one
+  // boss-tagged entry in the same stage's spawnScript.
+  onBossSpawned() {
+    this.aliveBossCount += 1;
+    if (this.bossMusicSound) return; // already playing for an earlier boss
+
+    stopMusic();
+    if (isMuted() || getBgmVolumeLevel() === 0) return; // battle music wants silence right now — respect it for the boss track too
+
+    this.bossMusicSound = this.sound.add('bgm_boss', { loop: true, volume: VOLUME_LEVELS[getBgmVolumeLevel()] });
+    this.bossMusicSound.play();
+  }
+
+  stopBossMusic() {
+    if (!this.bossMusicSound) return;
+    this.bossMusicSound.stop();
+    this.bossMusicSound.destroy();
+    this.bossMusicSound = null;
+    if (!this.isGameOver) startMusic(); // resume the normal battle loop
   }
 
   // See BOSS_SHOCKWAVE_* constants above.
@@ -1377,7 +1409,9 @@ export default class GameScene extends Phaser.Scene {
     const visualScaleMultiplier = isBoss ? BOSS_VISUAL_SCALE_MULTIPLIER : 1;
     const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#ffffff', false, visualScaleMultiplier);
 
-    this.enemies.push(this.makeEntityState(type, config, shape, label, spriteImage, false, visualScaleMultiplier));
+    const entity = this.makeEntityState(type, config, shape, label, spriteImage, false, visualScaleMultiplier);
+    entity.isBoss = isBoss; // see onBossSpawned/onEnemyKilled — drives the real boss-music swap
+    this.enemies.push(entity);
   }
 
   // Shared initial-state shape for both player units and enemies (bible
@@ -1537,7 +1571,6 @@ export default class GameScene extends Phaser.Scene {
     this.walletText.setText(`${Math.round(this.money).toLocaleString()}/${Math.round(this.getWalletCap()).toLocaleString()}円`);
     this.updateSpawnButtons();
     this.updateWorkerCatButton();
-    this.baseCurseMs = Math.max(0, this.baseCurseMs - deltaMs);
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
 
     // Cat Cannon charges passively over time (bible §A.3.9), independent of
@@ -1546,7 +1579,6 @@ export default class GameScene extends Phaser.Scene {
     const chargePerSec = SPECIAL_CHARGE_PER_SEC + this.cannonChargePerSecBonus;
     this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
     this.updateCannonButton();
-    this.base.fillColor = this.baseCurseMs > 0 ? BASE_CURSE_COLOR : BASE_COLOR;
     this.updateLowHpVignette(time);
 
     this.updatePlayerUnits(deltaMs);
@@ -1621,15 +1653,8 @@ export default class GameScene extends Phaser.Scene {
   // visual) and swaps the button's base color once it's fully charged and
   // tappable.
   updateCannonButton() {
-    // Charged and tappable are two different questions — a full meter while
-    // baseCurseMs is active is charged but NOT tappable (tryTriggerSpecialBurst
-    // still blocks it), and needs its own distinct look rather than reading
-    // identically to "still charging" (the old ready-only check) or to a
-    // genuinely-ready cannon.
-    const charged = this.specialMeter >= SPECIAL_METER_MAX;
-    const cursed = this.baseCurseMs > 0;
-    const ready = charged && !cursed;
-    this.cannonBase.fillColor = ready ? CANNON_READY_COLOR : charged && cursed ? CANNON_CURSED_COLOR : CANNON_NOT_READY_COLOR;
+    const ready = this.specialMeter >= SPECIAL_METER_MAX;
+    this.cannonBase.fillColor = ready ? CANNON_READY_COLOR : CANNON_NOT_READY_COLOR;
 
     const fraction = Math.min(1, this.specialMeter / SPECIAL_METER_MAX);
     this.cannonChargeGraphics.clear();
@@ -1751,7 +1776,6 @@ export default class GameScene extends Phaser.Scene {
           fireAttackVfx(this, enemy, this.baseX, this.laneY);
           const weakenMultiplier = enemy.weakenMs > 0 ? enemy.weakenMultiplier : 1;
           this.damageBase(enemy.config.damage * weakenMultiplier);
-          this.applyStatusEffectToBase(enemy);
         });
         continue;
       }
@@ -1823,6 +1847,10 @@ export default class GameScene extends Phaser.Scene {
   onEnemyKilled(enemy) {
     this.enemiesKilled += 1;
     addLifetimeStat('enemiesDefeated');
+    if (enemy.isBoss) {
+      this.aliveBossCount = Math.max(0, this.aliveBossCount - 1);
+      if (this.aliveBossCount === 0) this.stopBossMusic();
+    }
     // Sparring Grounds pays no money for kills at all (bible: it's a
     // damage-test venue, not a money-farming one) — score still counts
     // the kill via enemiesKilled above, just no economy payout.
@@ -2250,21 +2278,12 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // Same roll as applyStatusEffect, but for an attacker whose target is the
-  // player's base directly. Only CURSE has anywhere to land here (bases
-  // don't move or attack, so slow/stop/weaken have nothing to affect) —
-  // curses this.baseCurseMs, which blocks tryTriggerSpecialBurst.
-  applyStatusEffectToBase(attacker) {
-    const status = attacker.config.statusOnHit;
-    if (!status || status.type !== STATUS_TYPES.CURSE) return;
-    if (Math.random() > status.chance) return;
-    this.baseCurseMs = status.durationMs;
-  }
-
-  // Mirror of applyStatusEffectToBase for a player unit hitting the enemy
-  // base. Currently a deliberate no-op in practice: the enemy base has no
-  // special ability of its own to suppress yet, so nothing observable
-  // happens — kept symmetric for whenever the enemy side gets one.
+  // Same roll as applyStatusEffect, but for a player unit whose target is
+  // the enemy base directly. Currently a deliberate no-op in practice: the
+  // enemy base has no special ability of its own to suppress yet, so
+  // nothing observable happens — kept in place for whenever the enemy side
+  // gets one (the player's own base no longer has an equivalent — the Cat
+  // Cannon fires regardless of any Curse landed on the base).
   applyStatusEffectToEnemyBase(attacker) {
     const status = attacker.config.statusOnHit;
     if (!status || status.type !== STATUS_TYPES.CURSE) return;
@@ -2394,14 +2413,10 @@ export default class GameScene extends Phaser.Scene {
 
   // Player-triggered: tapping the Cat Cannon button only does something
   // once the meter is full (see updateCannonButton for its ready-state
-  // visual). A cursed base blocks this outright regardless of meter charge
-  // — see applyStatusEffectToBase/baseCurseMs.
+  // visual) — nothing else can block it; it always fires the instant it's
+  // charged, regardless of any status effect active on the base.
   tryTriggerSpecialBurst() {
     if (this.isGameOver) return;
-    if (this.baseCurseMs > 0) {
-      this.showRestrictionMessage('Cannon cursed — can\'t fire!');
-      return;
-    }
     if (this.specialMeter < SPECIAL_METER_MAX) return;
 
     this.triggerSpecialBurst();
