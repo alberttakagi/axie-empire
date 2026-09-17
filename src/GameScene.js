@@ -52,6 +52,7 @@ import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
 import { getBattleItemCount, tryUseBattleItem, rollBattleItemDrop } from './BattleItems.js';
 import { preloadAttackVfx, createAttackVfxAnims, fireAttackVfx } from './AttackVfx.js';
 import { showDamageNumber } from './CombatFeedback.js';
+import { addLifetimeStat } from './LifetimeStats.js';
 
 // Account-wide Base Upgrades (bible §A.7.1) — read once per battle at
 // create() time into flat numbers, since they only change between battles
@@ -1102,6 +1103,7 @@ export default class GameScene extends Phaser.Scene {
     this.unitCooldownDurations[key] = recharge;
     this.spawnUnit(key, finalConfig);
     playDeploySfx();
+    addLifetimeStat('unitsDeployed');
   }
 
   // Brief on-screen reason for a blocked Restriction Stage tap (bible
@@ -1716,6 +1718,7 @@ export default class GameScene extends Phaser.Scene {
 
   onEnemyKilled(enemy) {
     this.enemiesKilled += 1;
+    addLifetimeStat('enemiesDefeated');
     // Sparring Grounds pays no money for kills at all (bible: it's a
     // damage-test venue, not a money-farming one) — score still counts
     // the kill via enemiesKilled above, just no economy payout.
@@ -1947,6 +1950,7 @@ export default class GameScene extends Phaser.Scene {
       showDamageNumber(this, entity.shape.x, entity.shape.y, appliedToHp, { isCrit });
       if (isCrit) playCritSfx();
       else playHitSfx();
+      if (attacker.isPlayerSide) addLifetimeStat('damageDealt', appliedToHp);
     }
   }
 
@@ -2308,6 +2312,7 @@ export default class GameScene extends Phaser.Scene {
     this.specialMeter = 0;
     playCannonSfx();
     this.cameras.main.shake(200, 0.008);
+    addLifetimeStat('cannonUses');
 
     // Cannon Power Base Upgrade (bible §A.7.1) adds flat damage to both
     // halves of the burst.

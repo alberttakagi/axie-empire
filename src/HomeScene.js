@@ -4,6 +4,7 @@ import { getEnergyState } from './Energy.js';
 import { isMuted, setMuted } from './Audio.js';
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { getMissionsWithStatus } from './Missions.js';
 
 // The bible's §A.10.1 Home/Base Screen — confirmed-from-screenshot layout:
 // a top status bar, a center-lower stack of three primary action buttons
@@ -11,12 +12,13 @@ import { preloadBackgrounds, addBackground } from './Backdrop.js';
 // icon row (Menu / Gamatoto / Missions). This is now the game's actual
 // first screen — StageSelectScene no longer doubles as the hub.
 //
-// Gamatoto (an idle side-activity for base-building materials) and
-// Missions (quest objectives) are shown as real icons matching the
-// confirmed layout, but have no backing system yet in this build — they're
-// deliberately out of scope for this pass (nothing in the bible's Phase
-// 1-5 build order requires them), so tapping either just shows a "coming
-// soon"-style toast rather than pretending to be a finished feature.
+// Gamatoto (an idle side-activity for base-building materials) is shown as
+// a real icon matching the confirmed layout, but has no backing system yet
+// in this build — deliberately out of scope for this pass (nothing in the
+// bible's Phase 1-5 build order requires it), so tapping it just shows a
+// "coming soon"-style toast rather than pretending to be a finished
+// feature. Missions (quest objectives), previously the same kind of stub,
+// now opens a real MissionsScene — see Missions.js/MISSIONS_CONFIG.js.
 
 const PRIMARY_BUTTON_WIDTH = 220;
 const PRIMARY_BUTTON_HEIGHT = 56;
@@ -152,8 +154,23 @@ export default class HomeScene extends Phaser.Scene {
       this.add
         .text(icon.x, y + 36, icon.label, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#aaaaaa' })
         .setOrigin(0.5);
+
+      // A small red badge on Missions when at least one is complete and
+      // still unclaimed — the same "something's waiting for you" nudge
+      // Battle Cats uses on its own Missions icon.
+      if (icon.label === 'Missions') {
+        const claimable = getMissionsWithStatus().filter((m) => m.isComplete && !m.isClaimed).length;
+        if (claimable > 0) {
+          this.add.circle(icon.x + 18, y - 18, 10, 0xff3333);
+          this.add
+            .text(icon.x + 18, y - 18, String(claimable), { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#ffffff' })
+            .setOrigin(0.5);
+        }
+      }
+
       rect.on('pointerdown', () => {
         if (icon.label === 'Menu') this.showMenuPopup();
+        else if (icon.label === 'Missions') this.scene.start('MissionsScene');
         else this.showComingSoon(icon.label);
       });
     });
