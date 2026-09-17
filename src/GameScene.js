@@ -305,9 +305,9 @@ export default class GameScene extends Phaser.Scene {
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
     preloadBackgrounds(this);
     preloadAttackVfx(this);
-    // Real boss battle theme (see onBossSpawned/stopBossMusic) — the only
-    // real audio FILE this build plays; everything else in Audio.js is
-    // synthesized on the fly and needs no preloading.
+    // Real boss battle theme (see updateBossMusic) — the only real audio
+    // FILE this build plays; everything else in Audio.js is synthesized on
+    // the fly and needs no preloading.
     if (!this.cache.audio.exists('bgm_boss')) this.load.audio('bgm_boss', '/audio/bgm_boss.wav');
   }
 
@@ -406,7 +406,7 @@ export default class GameScene extends Phaser.Scene {
     this.xpBoostMultiplier = 1; // XP Boost
     this.treasureRadarActive = false; // Treasure Radar
     this.continuesUsed = 0; // Continue (bible §A.3.9) — see CONTINUE_GEM_COSTS
-    this.aliveBossCount = 0; // how many currently-alive enemies are boss-tagged — see onBossSpawned/onEnemyKilled
+    this.aliveBossCount = 0; // how many currently-alive enemies are boss-tagged — see spawnScriptedEnemy/onEnemyKilled/updateBossMusic
     this.bossMusicSound = null; // the real boss.wav Sound instance while one's playing, else null
     // Combo's "Starting Money Up" is a bonus ON TOP of the normal starting
     // fill — deliberately allowed to exceed getWalletCap() for this one
@@ -566,8 +566,9 @@ export default class GameScene extends Phaser.Scene {
     // just call scene.start/scene.restart, and Phaser fires 'shutdown' on
     // every one of those. A single hook here beats sprinkling stopMusic()
     // calls at every exit point. Also tears down the real boss track
-    // directly (not via stopBossMusic, which would wrongly resume the
-    // synth loop right as the scene is going away) if one's still playing.
+    // directly (not via updateBossMusic's own teardown branch, which would
+    // wrongly resume the synth loop right as the scene is going away) if
+    // one's still playing.
     this.events.once('shutdown', () => {
       stopMusic();
       if (this.bossMusicSound) {
@@ -1328,32 +1329,43 @@ export default class GameScene extends Phaser.Scene {
 
     if (entry.isBoss) {
       this.triggerBossShockwave();
-      this.onBossSpawned();
+      this.aliveBossCount += 1;
     }
   }
 
-  // A scripted boss appearing swaps the normal synthesized battle loop for
-  // the real boss.wav track for as long as at least one boss-tagged enemy
-  // is alive — see onEnemyKilled for the reverse swap. aliveBossCount
-  // (rather than a plain boolean) covers the rare case of more than one
-  // boss-tagged entry in the same stage's spawnScript.
-  onBossSpawned() {
-    this.aliveBossCount += 1;
-    if (this.bossMusicSound) return; // already playing for an earlier boss
+  // Re-asserted every frame (see update()) rather than only reacting to the
+  // spawn/kill events that change aliveBossCount — a boss dying is the
+  // common case, but this stays correct regardless of how the track might
+  // otherwise stop (BGM was muted/Off the instant the boss spawned, so the
+  // track never actually started; a browser tab-visibility pause; anything
+  // else) instead of getting permanently stuck once aliveBossCount and the
+  // Sound object's real playing state disagree with each other.
+  updateBossMusic() {
+    const shouldPlay = this.aliveBossCount > 0 && !this.isGameOver;
+    const isOn = !!this.bossMusicSound;
 
-    stopMusic();
-    if (isMuted() || getBgmVolumeLevel() === 0) return; // battle music wants silence right now — respect it for the boss track too
+    if (shouldPlay && isOn && !this.bossMusicSound.isPlaying) {
+      // Exists but isn't actually sounding (paused, stalled, whatever the
+      // cause) — tear it down so the branch below recreates it fresh.
+      this.bossMusicSound.destroy();
+      this.bossMusicSound = null;
+      return;
+    }
 
-    this.bossMusicSound = this.sound.add('bgm_boss', { loop: true, volume: VOLUME_LEVELS[getBgmVolumeLevel()] });
-    this.bossMusicSound.play();
-  }
+    if (shouldPlay && !isOn) {
+      stopMusic();
+      if (isMuted() || getBgmVolumeLevel() === 0) return; // retried again next frame once volume/mute allows it
+      this.bossMusicSound = this.sound.add('bgm_boss', { loop: true, volume: VOLUME_LEVELS[getBgmVolumeLevel()] });
+      this.bossMusicSound.play();
+      return;
+    }
 
-  stopBossMusic() {
-    if (!this.bossMusicSound) return;
-    this.bossMusicSound.stop();
-    this.bossMusicSound.destroy();
-    this.bossMusicSound = null;
-    if (!this.isGameOver) startMusic(); // resume the normal battle loop
+    if (!shouldPlay && isOn) {
+      this.bossMusicSound.stop();
+      this.bossMusicSound.destroy();
+      this.bossMusicSound = null;
+      if (!this.isGameOver) startMusic(); // resume the normal battle loop
+    }
   }
 
   // See BOSS_SHOCKWAVE_* constants above.
@@ -1410,7 +1422,7 @@ export default class GameScene extends Phaser.Scene {
     const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#ffffff', false, visualScaleMultiplier);
 
     const entity = this.makeEntityState(type, config, shape, label, spriteImage, false, visualScaleMultiplier);
-    entity.isBoss = isBoss; // see onBossSpawned/onEnemyKilled — drives the real boss-music swap
+    entity.isBoss = isBoss; // see spawnScriptedEnemy/onEnemyKilled — drives updateBossMusic
     this.enemies.push(entity);
   }
 
@@ -1580,6 +1592,7 @@ export default class GameScene extends Phaser.Scene {
     this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (chargePerSec * deltaMs) / 1000);
     this.updateCannonButton();
     this.updateLowHpVignette(time);
+    this.updateBossMusic();
 
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
@@ -1708,6 +1721,25 @@ export default class GameScene extends Phaser.Scene {
 
       if (unit.stopMs > 0 || unit.warpMs > 0) continue; // frozen/warped: no attack, no movement, no target-seeking
 
+      // Long Distance units (bible §A.3.8) have a real dead zone against a
+      // target unit (inRange enforces longDistance.min); computed up front
+      // (rather than only at re-acquire time, as this used to) so an
+      // ALREADY-targeting-the-base unit can be re-checked against it too —
+      // a knockback that shoves a unit clear of the base's reach used to
+      // leave `unit.target === 'enemyBase'` untouched, so it kept dealing
+      // damage from wherever it landed, arbitrarily far away, every cycle
+      // afterward. The bible's interruption rule (§A.3.4) already applies
+      // to a knocked-back mid-foreswing hit against a live enemy; it should
+      // apply the same way here — no longer in reach means no longer a
+      // valid target, full stop.
+      const enemyBaseDistance = this.enemyBaseX - unit.shape.x;
+      const clearsMinRange = !unit.config.longDistance || enemyBaseDistance >= unit.config.longDistance.min;
+      const inEnemyBaseReach = clearsMinRange && enemyBaseDistance <= enemyBaseReachDistance + this.getMaxRange(unit.config);
+
+      if (unit.target === 'enemyBase' && !inEnemyBaseReach) {
+        unit.target = null;
+      }
+
       if (unit.target === 'enemyBase') {
         this.tickCombatPhase(unit, deltaMs, () => {
           fireAttackVfx(this, unit, this.enemyBaseX, this.laneY);
@@ -1727,16 +1759,7 @@ export default class GameScene extends Phaser.Scene {
           this.enemies.find((enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && this.inRange(unit, enemy)) || null;
       }
 
-      // Long Distance units (bible §A.3.8) have a real dead zone against a
-      // target unit (inRange enforces longDistance.min) — this base-reach
-      // check used to only apply the max side of that window, so a unit
-      // that ends up standing well inside its own min range of the base
-      // (nothing ever having been in its min/max window to stop it
-      // earlier) could attack the base directly despite being unable to
-      // hit a unit standing at that identical distance.
-      const enemyBaseDistance = this.enemyBaseX - unit.shape.x;
-      const clearsMinRange = !unit.config.longDistance || enemyBaseDistance >= unit.config.longDistance.min;
-      if (!unit.target && clearsMinRange && enemyBaseDistance <= enemyBaseReachDistance + this.getMaxRange(unit.config)) {
+      if (!unit.target && inEnemyBaseReach) {
         unit.target = 'enemyBase';
       }
 
@@ -1771,6 +1794,21 @@ export default class GameScene extends Phaser.Scene {
 
       if (enemy.stopMs > 0 || enemy.warpMs > 0) continue; // frozen/warped: no attack, no movement, no target-seeking
 
+      // See the mirrored player-side check in updatePlayerUnits for why
+      // longDistance.min needs its own guard here too, and why this is
+      // computed up front rather than only at re-acquire time: an
+      // already-targeting-the-base enemy needs to be re-checked against it
+      // too, or a knockback that shoves it clear of the base's reach used
+      // to leave `enemy.target === 'base'` untouched, dealing damage from
+      // wherever it landed regardless of actual distance.
+      const baseDistance = enemy.shape.x - this.baseX;
+      const clearsMinRange = !enemy.config.longDistance || baseDistance >= enemy.config.longDistance.min;
+      const inBaseReach = clearsMinRange && baseDistance <= baseReachDistance + this.getMaxRange(enemy.config);
+
+      if (enemy.target === 'base' && !inBaseReach) {
+        enemy.target = null;
+      }
+
       if (enemy.target === 'base') {
         this.tickCombatPhase(enemy, deltaMs, () => {
           fireAttackVfx(this, enemy, this.baseX, this.laneY);
@@ -1792,11 +1830,7 @@ export default class GameScene extends Phaser.Scene {
           this.playerUnits.find((unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit)) || null;
       }
 
-      // See the mirrored player-side check in updatePlayerUnits for why
-      // longDistance.min needs its own guard here too.
-      const baseDistance = enemy.shape.x - this.baseX;
-      const clearsMinRange = !enemy.config.longDistance || baseDistance >= enemy.config.longDistance.min;
-      if (!enemy.target && clearsMinRange && baseDistance <= baseReachDistance + this.getMaxRange(enemy.config)) {
+      if (!enemy.target && inBaseReach) {
         enemy.target = 'base';
       }
 
@@ -1847,10 +1881,9 @@ export default class GameScene extends Phaser.Scene {
   onEnemyKilled(enemy) {
     this.enemiesKilled += 1;
     addLifetimeStat('enemiesDefeated');
-    if (enemy.isBoss) {
-      this.aliveBossCount = Math.max(0, this.aliveBossCount - 1);
-      if (this.aliveBossCount === 0) this.stopBossMusic();
-    }
+    // updateBossMusic (called every frame) reacts to aliveBossCount itself
+    // rather than needing an explicit call here.
+    if (enemy.isBoss) this.aliveBossCount = Math.max(0, this.aliveBossCount - 1);
     // Sparring Grounds pays no money for kills at all (bible: it's a
     // damage-test venue, not a money-farming one) — score still counts
     // the kill via enemiesKilled above, just no economy payout.
