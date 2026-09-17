@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
-import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
+import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
@@ -37,6 +37,8 @@ import {
   playBossShockwaveSfx,
   playVictorySfx,
   playDefeatSfx,
+  playHitSfx,
+  playCritSfx,
   startMusic,
   stopMusic,
   VOLUME_LEVEL_LABELS,
@@ -48,6 +50,8 @@ import {
 import { addUserRank } from './UserRank.js';
 import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
 import { getBattleItemCount, tryUseBattleItem, rollBattleItemDrop } from './BattleItems.js';
+import { preloadAttackVfx, createAttackVfxAnims, fireAttackVfx } from './AttackVfx.js';
+import { showDamageNumber } from './CombatFeedback.js';
 
 // Account-wide Base Upgrades (bible §A.7.1) — read once per battle at
 // create() time into flat numbers, since they only change between battles
@@ -220,6 +224,16 @@ const STATUS_SLOW_COLOR = 0x88ccff;
 const STATUS_WEAKEN_COLOR = 0xcc8844;
 const STATUS_DODGE_COLOR = 0xffffff; // a brief white flash — rare and outranks every other tint
 
+// Hit-flash (combat-feedback pass, not a bible field) — same white as
+// STATUS_DODGE_COLOR since both read as "something just happened to this
+// entity," but ranked one step above it (see tickStatusEffects): the two
+// are mutually exclusive in practice anyway (a hit either connects,
+// setting hitFlashMs, or is dodged entirely, setting dodgeMs instead — see
+// applyResolvedDamage/tryDodge), so this only matters for whichever
+// leftover frame both happen to still be counting down together.
+const HIT_FLASH_COLOR = 0xffffff;
+const HIT_FLASH_DURATION_MS = 100;
+
 // Dodge (bible §A.3.8): "a % chance to take zero damage... for a short
 // window after triggering; cannot re-trigger while already active" — see
 // tryDodge. Used as the fallback window length for a unit whose config
@@ -267,7 +281,8 @@ export default class GameScene extends Phaser.Scene {
   preload() {
     preloadSpriteRoster(this, UNIT_CONFIG, true);
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
-    preloadSagaBackgrounds(this);
+    preloadBackgrounds(this);
+    preloadAttackVfx(this);
   }
 
   create(data) {
@@ -340,6 +355,8 @@ export default class GameScene extends Phaser.Scene {
     this.comboCritChanceBonus = getComboBonusValue(this.loadout, 'critChanceBonus');
     const comboStartingMoneyPercent = getComboBonusValue(this.loadout, 'startingMoneyPercent');
 
+    createAttackVfxAnims(this);
+
     this.laneY = height * LANE_Y_RATIO;
     this.baseX = BASE_WIDTH / 2;
     this.baseMaxHp = this.stage.baseHp + this.baseDefenseBonus;
@@ -410,8 +427,13 @@ export default class GameScene extends Phaser.Scene {
     this.worldGameObjects = [];
 
     // Battle backdrop (see Backdrop.js) — added before everything else so
-    // it sits behind the whole scene.
-    this.worldGameObjects.push(addSagaBackground(this, this.stage.saga));
+    // it sits behind the whole scene. Picked per stage-number sub-range
+    // rather than per-saga (getStageBattleBackgroundId); dojo mode's
+    // synthetic stage has no real stage number, so it falls back to the
+    // first range's background.
+    this.worldGameObjects.push(
+      addBackground(this, this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id)),
+    );
 
     // Semi-transparent (rather than the old fully-opaque fill) so the
     // backdrop's own ground/sky still shows through above and below the
@@ -1088,9 +1110,14 @@ export default class GameScene extends Phaser.Scene {
   showRestrictionMessage(text) {
     if (this.restrictionMessageText) this.restrictionMessageText.destroy();
 
-    const { width, height } = this.scale;
+    const { width } = this.scale;
     this.restrictionMessageText = this.add
-      .text(width / 2, height - 90, text, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ff6666' })
+      .text(width / 2, 115, text, {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '39px',
+        color: '#ff6666',
+        stroke: '#000000',
+        strokeThickness: 3,
+      })
       .setOrigin(0.5);
     this.cameras.main.ignore(this.restrictionMessageText); // UI (see setupZoomControls)
 
@@ -1234,6 +1261,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.showBossWarning();
     playBossShockwaveSfx();
+    this.cameras.main.shake(300, 0.012);
   }
 
   showBossWarning() {
@@ -1363,6 +1391,14 @@ export default class GameScene extends Phaser.Scene {
       // window, matching "cannot re-trigger while already active." See
       // tickStatusEffects for the countdown.
       dodgeMs: 0,
+      // Hit-flash (this pass's own combat-feedback addition, not a bible
+      // field) — a brief white tint pulse on any entity that just took real
+      // damage, layered with a floating number (CombatFeedback.js) and a
+      // hit/crit sfx so a landed attack actually reads as connecting. Takes
+      // priority over every status tint below while active (see
+      // tickStatusEffects) since it's meant to interrupt/flash over
+      // whatever color the entity is already showing.
+      hitFlashMs: 0,
       // Zombie (bible §A.3.8) — remainingRevives starts at config.reviveCount
       // (0 for every non-Zombie config) and counts down each time
       // processZombieRevives actually revives this entity; lastAttacker
@@ -1543,6 +1579,7 @@ export default class GameScene extends Phaser.Scene {
 
       if (unit.target === 'enemyBase') {
         this.tickCombatPhase(unit, deltaMs, () => {
+          fireAttackVfx(this, unit, this.enemyBaseX, this.laneY);
           const weakenMultiplier = unit.weakenMs > 0 ? unit.weakenMultiplier : 1;
           this.damageEnemyBase(unit.config.damage * weakenMultiplier);
           this.applyStatusEffectToEnemyBase(unit);
@@ -1605,6 +1642,7 @@ export default class GameScene extends Phaser.Scene {
 
       if (enemy.target === 'base') {
         this.tickCombatPhase(enemy, deltaMs, () => {
+          fireAttackVfx(this, enemy, this.baseX, this.laneY);
           const weakenMultiplier = enemy.weakenMs > 0 ? enemy.weakenMultiplier : 1;
           this.damageBase(enemy.config.damage * weakenMultiplier);
           this.applyStatusEffectToBase(enemy);
@@ -1830,6 +1868,7 @@ export default class GameScene extends Phaser.Scene {
   // `special.type` — it's its own optional field that can coexist with
   // whatever attack shape the unit already has (bible §A.3.8).
   dealDamage(attacker, primaryTarget, targetPool) {
+    fireAttackVfx(this, attacker, primaryTarget.shape.x, primaryTarget.shape.y);
     const special = attacker.config.special;
     // A cursed attacker's special ability is suppressed — an aoe attacker
     // falls back to hitting only its primary target, same as a 'none' unit.
@@ -1859,8 +1898,9 @@ export default class GameScene extends Phaser.Scene {
   // out. Returns the total damage computed (barrier-absorbed or not, dodged
   // or not) for score/UI purposes.
   applyDamageAndEffects(attacker, entity) {
-    const totalDamage = this.computeDamage(attacker, entity) + this.computeToxicBonus(attacker, entity);
-    this.applyResolvedDamage(attacker, entity, totalDamage);
+    const { damage, isCrit } = this.computeDamage(attacker, entity);
+    const totalDamage = damage + this.computeToxicBonus(attacker, entity);
+    this.applyResolvedDamage(attacker, entity, totalDamage, isCrit);
     return totalDamage;
   }
 
@@ -1873,8 +1913,11 @@ export default class GameScene extends Phaser.Scene {
   // (§A.3.8). Split out from applyDamageAndEffects so Surge Attack (below)
   // can re-apply a hit's already-rolled damage value without re-rolling
   // Critical Hit/Weaken/trait matchups a second time.
-  applyResolvedDamage(attacker, entity, totalDamage) {
-    if (this.tryDodge(entity)) return;
+  applyResolvedDamage(attacker, entity, totalDamage, isCrit = false) {
+    if (this.tryDodge(entity)) {
+      showDamageNumber(this, entity.shape.x, entity.shape.y, 0, { isMiss: true });
+      return;
+    }
 
     let appliedToHp = totalDamage;
 
@@ -1900,6 +1943,10 @@ export default class GameScene extends Phaser.Scene {
     if (appliedToHp > 0) {
       this.resolveKnockback(attacker, entity);
       this.applyStatusEffect(attacker, entity);
+      entity.hitFlashMs = HIT_FLASH_DURATION_MS;
+      showDamageNumber(this, entity.shape.x, entity.shape.y, appliedToHp, { isCrit });
+      if (isCrit) playCritSfx();
+      else playHitSfx();
     }
   }
 
@@ -2142,6 +2189,7 @@ export default class GameScene extends Phaser.Scene {
       if (entity.weakenMs === 0) entity.weakenMultiplier = 1;
     }
     if (entity.dodgeMs > 0) entity.dodgeMs = Math.max(0, entity.dodgeMs - deltaMs);
+    if (entity.hitFlashMs > 0) entity.hitFlashMs = Math.max(0, entity.hitFlashMs - deltaMs);
 
     if (entity.warpMs > 0) {
       entity.warpMs = Math.max(0, entity.warpMs - deltaMs);
@@ -2168,14 +2216,16 @@ export default class GameScene extends Phaser.Scene {
     // — Image doesn't have `fillColor`, and setTint/clearTint is the sprite
     // equivalent of "recolor, then restore to normal."
     if (entity.spriteImage) {
-      if (entity.dodgeMs > 0) entity.spriteImage.setTint(STATUS_DODGE_COLOR);
+      if (entity.hitFlashMs > 0) entity.spriteImage.setTint(HIT_FLASH_COLOR);
+      else if (entity.dodgeMs > 0) entity.spriteImage.setTint(STATUS_DODGE_COLOR);
       else if (entity.stopMs > 0) entity.spriteImage.setTint(STATUS_STOP_COLOR);
       else if (entity.curseMs > 0) entity.spriteImage.setTint(STATUS_CURSE_COLOR);
       else if (entity.slowMs > 0) entity.spriteImage.setTint(STATUS_SLOW_COLOR);
       else if (entity.weakenMs > 0) entity.spriteImage.setTint(STATUS_WEAKEN_COLOR);
       else entity.spriteImage.clearTint();
     } else {
-      if (entity.dodgeMs > 0) entity.shape.fillColor = STATUS_DODGE_COLOR;
+      if (entity.hitFlashMs > 0) entity.shape.fillColor = HIT_FLASH_COLOR;
+      else if (entity.dodgeMs > 0) entity.shape.fillColor = STATUS_DODGE_COLOR;
       else if (entity.stopMs > 0) entity.shape.fillColor = STATUS_STOP_COLOR;
       else if (entity.curseMs > 0) entity.shape.fillColor = STATUS_CURSE_COLOR;
       else if (entity.slowMs > 0) entity.shape.fillColor = STATUS_SLOW_COLOR;
@@ -2198,7 +2248,7 @@ export default class GameScene extends Phaser.Scene {
     const isCrit = Math.random() < (attacker.config.critChance || 0);
 
     if (defender.config.trait === FLAT_DAMAGE_TRAIT && !isCrit) {
-      return FLAT_DAMAGE_AMOUNT;
+      return { damage: FLAT_DAMAGE_AMOUNT, isCrit };
     }
 
     const strongBonus = MATCHUP_BONUSES[attacker.config.trait]?.[defender.config.trait] ?? 1;
@@ -2207,9 +2257,9 @@ export default class GameScene extends Phaser.Scene {
     const critMultiplier = isCrit ? 2 : 1;
     const superClassMultiplier = this.getSuperClassMultiplier(attacker, defender);
 
-    return (
-      attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier
-    );
+    const damage =
+      attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier;
+    return { damage, isCrit };
   }
 
   // Colossus/Behemoth Slayer (bible §A.3.8) — independent of, and stacking
@@ -2257,6 +2307,7 @@ export default class GameScene extends Phaser.Scene {
   triggerSpecialBurst() {
     this.specialMeter = 0;
     playCannonSfx();
+    this.cameras.main.shake(200, 0.008);
 
     // Cannon Power Base Upgrade (bible §A.7.1) adds flat damage to both
     // halves of the burst.
@@ -2304,6 +2355,8 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode === 'dojo') return; // invincible — no loss condition in Sparring Grounds
 
     this.baseHp = Math.max(0, this.baseHp - amount);
+    showDamageNumber(this, this.baseX, this.laneY - 40, amount);
+    this.cameras.main.shake(120, 0.005);
     if (this.baseHp <= 0) {
       this.handleBaseDestroyed();
     }

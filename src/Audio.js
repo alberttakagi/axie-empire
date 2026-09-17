@@ -137,6 +137,21 @@ export function playDeploySfx() {
   playTone({ freq: 520, duration: 0.09, type: 'square', peakGain: 0.12 });
 }
 
+// A short, low-gain percussive "thwack" for a normal hit landing — kept
+// quiet/short on purpose since many can overlap in a single frame (an AoE
+// hit, several units attacking at once), unlike the rarer stingers below.
+export function playHitSfx() {
+  playTone({ freq: 220, duration: 0.06, type: 'square', peakGain: 0.09 });
+}
+
+// Brighter/higher two-tone version for a Critical Hit landing, so a crit
+// reads as distinct from a normal hit by ear as well as by the bigger
+// floating number (see CombatFeedback.js).
+export function playCritSfx() {
+  playTone({ freq: 660, duration: 0.05, type: 'square', peakGain: 0.13 });
+  playTone({ freq: 990, startOffset: 0.04, duration: 0.07, type: 'square', peakGain: 0.1 });
+}
+
 export function playCannonSfx() {
   // A quick two-tone descending "whump" rather than a single flat tone.
   playTone({ freq: 180, duration: 0.35, type: 'sawtooth', peakGain: 0.22 });

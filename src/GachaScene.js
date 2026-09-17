@@ -7,6 +7,7 @@ import {
   rollSingle,
   rollMulti,
 } from './Gacha.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The bible's §A.10.7 Gacha screen — adapted per Gacha.js's scope note
 // (reward-tier pulls instead of unit rolls, since this build's roster has
@@ -19,8 +20,15 @@ export default class GachaScene extends Phaser.Scene {
     super('GachaScene');
   }
 
+  preload() {
+    preloadBackgrounds(this);
+  }
+
   create() {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
+
+    addBackground(this, 'metamorph');
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
     this.add.text(width / 2, 20, 'Gacha', { fontFamily: 'Rowdies, sans-serif', fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
 

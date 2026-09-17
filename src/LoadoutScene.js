@@ -17,6 +17,7 @@ import {
 } from './Loadout.js';
 import { getActiveCombos } from './Combo.js';
 import { describeUnit } from './UnitDescription.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
 // "manage my formation" screen reachable from the Home screen, rather than
@@ -40,10 +41,14 @@ export default class LoadoutScene extends Phaser.Scene {
   // pre-populated just because another scene also uses the same keys.
   preload() {
     preloadSpriteRoster(this, UNIT_CONFIG, true);
+    preloadBackgrounds(this);
   }
 
   create() {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
+
+    addBackground(this, 'mech');
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
     this.add.text(width / 2, 16, 'Character Formation', { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
 

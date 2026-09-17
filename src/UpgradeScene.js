@@ -12,6 +12,7 @@ import {
 import { getEffectiveUnitConfig } from './UnitStats.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The bible's §A.10.6(a) per-unit leveling screen — shows every unit's
 // current level/cap, evolution stage, and a live stat preview, with
@@ -44,12 +45,16 @@ export default class UpgradeScene extends Phaser.Scene {
   // started GameScene first.
   preload() {
     preloadSpriteRoster(this, UNIT_CONFIG, true);
+    preloadBackgrounds(this);
   }
 
   create() {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
 
     this.page = 0;
+
+    addBackground(this, 'metamorph2');
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
     this.add
       .text(width / 2, 20, 'Upgrade', {

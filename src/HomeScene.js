@@ -3,7 +3,7 @@ import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
 import { isMuted, setMuted } from './Audio.js';
 import { getUserRank } from './UserRank.js';
-import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The bible's §A.10.1 Home/Base Screen — confirmed-from-screenshot layout:
 // a top status bar, a center-lower stack of three primary action buttons
@@ -27,11 +27,8 @@ export default class HomeScene extends Phaser.Scene {
     super('HomeScene');
   }
 
-  // Same saga backdrop art GameScene battles use (see Backdrop.js) — the
-  // hub screen has no saga of its own, so this just loads the default
-  // (saga1) background.
   preload() {
-    preloadSagaBackgrounds(this);
+    preloadBackgrounds(this);
   }
 
   create() {
@@ -40,7 +37,7 @@ export default class HomeScene extends Phaser.Scene {
     // Backdrop, dimmed by a flat scrim (rather than GameScene's own
     // lane-only darkened band) since almost this whole screen is bare text
     // over open background, not just one narrow strip — see Backdrop.js.
-    addSagaBackground(this, null);
+    addBackground(this, 'gauntletArena');
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
     this.add

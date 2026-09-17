@@ -3,6 +3,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { describeUnit } from './UnitDescription.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // Battle Cats reference: にゃんこ図鑑 (Cat Guide) / 敵キャラ図鑑 (Enemy Character
 // Guide) — a browsable catalog of every unit/enemy: a grid of portraits,
@@ -32,15 +33,19 @@ export default class CatalogScene extends Phaser.Scene {
   preload() {
     preloadSpriteRoster(this, UNIT_CONFIG, true);
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
+    preloadBackgrounds(this);
   }
 
   create(data) {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
     this.rosterType = data?.rosterType === 'enemies' ? 'enemies' : 'units';
     this.roster = this.rosterType === 'enemies' ? ENEMY_CONFIG : UNIT_CONFIG;
     this.isPlayerSide = this.rosterType === 'units';
     this.keys = Object.keys(this.roster);
     this.detailIndex = 0;
+
+    addBackground(this, 'temple');
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
     this.add
       .text(width / 2, 20, this.rosterType === 'enemies' ? 'Enemy Guide' : 'Unit Guide', {
