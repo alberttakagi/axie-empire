@@ -1,92 +1,62 @@
-// Trait/matchup layer: an elemental-style rock-paper-scissors system on top
-// of raw stats, plus one unique defensive trait that rewards attack speed
-// over raw damage. Both UNIT_CONFIG and ENEMY_CONFIG entries carry a
-// `trait` field drawn from TRAITS; GameScene's dealDamage()/computeDamage()
-// consult this file to resolve every hit.
+// Real Battle Cats attribute/ability system (guide Chapter 06 "f-trait" table
+// + Chapter 07), replacing this codebase's earlier invented beast/bug/bird/
+// plant/mech 4-cycle. In the real game, ATTRIBUTES belong to ENEMIES only
+// (White/Red/Black/Floating/Metal/Angel/Alien/Zombie/... — Chapter 07's
+// table); player units never carry a combat-relevant attribute of their own.
+// Instead, a unit carries ABILITIES that target specific enemy attributes
+// (Strong Against/Massive Damage/Resistant/Critical — same chapter's table).
+// This file intentionally does NOT reintroduce a symmetric "every trait beats
+// one, loses to one" cycle — real Battle Cats has no such thing; a unit with
+// no ability at all just deals/takes plain damage against every attribute.
 //
-// Trait names map directly onto Axie Infinity's real class system (bible
-// Part D's rename table) — beast/bug/bird/plant are 4 of its 6 base
-// classes, and mech is one of its 3 rarer "hidden" classes, a natural fit
-// for this system's "true tank, flat-damage-immune" outlier since Axie's
-// actual Mech class is themed around armor plating.
+// ENEMY_CONFIG.js's `attribute` field (a single string, or null/omitted for
+// a plain "White"/no-attribute enemy) is one of ENEMY_ATTRIBUTES below.
+// UNIT_CONFIG.js entries carry zero or more of:
+//   strongVs      attribute this unit is "Strong Against" (めっぽう強い) —
+//                 the ONE real-BC ability that affects BOTH directions:
+//                 ×STRONG_DEALT_MULTIPLIER dealt to that attribute, AND
+//                 ×STRONG_TAKEN_MULTIPLIER taken FROM that attribute.
+//   massiveVs     "Massive Damage" (超ダメージ) — ×MASSIVE_DEALT_MULTIPLIER
+//                 dealt only, no resistance half.
+//   resistantVs   "Resistant" (打たれ強い) — ×RESISTANT_TAKEN_MULTIPLIER
+//                 taken only, no damage-dealt half.
+// See GameScene.computeDamage for how these resolve, and critChance for
+// Critical Hit (クリティカル): ×2 dealt AND the one thing that ignores
+// METAL_ATTRIBUTE's flat-damage rule below, regardless of any other ability.
 //
-// FLAT_DAMAGE_TRAIT: any hit landing on a defender with this trait deals a
-// flat FLAT_DAMAGE_AMOUNT instead of the attacker's damage stat — no matter
-// who's attacking, and regardless of any matchup bonus that would otherwise
-// apply. This always takes precedence over MATCHUP_BONUSES, which is why
-// FLAT_DAMAGE_TRAIT is deliberately absent from every entry in that table:
-// a bonus targeting it could never actually fire, so listing one would be
-// dead, misleading data.
-//
-// MATCHUP_BONUSES: attackerTrait -> { defenderTrait: multiplier }. Only the
-// listed pairs get a bonus; every other pairing is a normal 1x hit. The
-// four non-Mech traits form a simple 4-cycle (each beats exactly one,
-// loses to exactly one); Mech sits outside the cycle entirely as the
-// "true tank" outlier — it hands out no bonuses of its own and is the sole
-// beneficiary of the flat-damage rule above.
-//
-// RESIST_BONUSES: defenderTrait -> { attackerTrait: multiplier (< 1 = takes
-// less damage) }. This is a SEPARATE, independent layer from
-// MATCHUP_BONUSES — real reference material for this system keeps
-// "strong against" and "resistant to" as two distinct dimensions rather
-// than one combined bonus table, and this mirrors that. Applied to the two
-// pairs MATCHUP_BONUSES's 4-cycle skips over (beast/bug and plant/bird) —
-// and applied MUTUALLY within each pair, so e.g. beast resists bug AND bug
-// resists beast. Combined with the 4-cycle, every non-Mech trait now has
-// exactly one thing it's strong against, one thing that's strong against
-// it, and one thing it mutually resists — no leftover neutral matchups
-// among the four. Mech is deliberately absent here too, for the same
-// reason as above — its flat-damage rule always overrides, so a resist
-// entry for it could never fire.
-//
-// Wider enemy trait roster (bible §A.3.8's fuller trait catalogue —
-// Red/Floating/Black/Metal/Angel/Alien/Zombie/Relic/Aku/White plus the
-// Colossus/Behemoth "super-classes"): rather than bolt on more reskinned
-// members of the existing 4-cycle (which would just be more of the same
-// rock-paper-scissors with no new mechanical texture), this build adds the
-// entries that carry a genuinely distinct RULE, matching the bible's own
-// "encode as rules, not abilities" framing for these:
-//   'zombie'   — a second outlier trait alongside Mech, same "no matchup/
-//                resist entries of its own" treatment, but its distinct
-//                rule is revival rather than flat damage: see
-//                ENEMY_CONFIG.js's reviveCount/reviveHpPercent fields and
-//                GameScene's handleEnemyDeath. UNIT_CONFIG's zombieKiller
-//                flag (bible's Zombie Killer ability) denies a zombie enemy
-//                its revive when IT lands the finishing blow.
-// Colossus/Behemoth are deliberately NOT added here at all — the bible is
-// explicit that they're a superClass TAG layered on top of a normal
-// primary trait, not a replacement for one (a Colossus enemy is still
-// also, say, Bird underneath) — see ENEMY_CONFIG.js's `superClass` field
-// and UNIT_CONFIG.js's colossusSlayer/behemothSlayer flags instead.
+// Real multipliers (guide Chapter 06 f-trait table, base values — the
+// guide's own "お宝・本能で強化時" column is a late-game power-up layer this
+// build has no equivalent of yet, so this file uses only the base column):
+export const STRONG_DEALT_MULTIPLIER = 1.5;
+export const STRONG_TAKEN_MULTIPLIER = 0.5;
+export const MASSIVE_DEALT_MULTIPLIER = 3;
+export const RESISTANT_TAKEN_MULTIPLIER = 0.25;
+export const CRITICAL_DEALT_MULTIPLIER = 2;
 
-export const TRAITS = ['beast', 'mech', 'bird', 'bug', 'plant', 'zombie'];
+// Metal (メタル, bible/guide Chapter 06-07): any non-critical hit against a
+// Metal-attribute enemy deals only METAL_FLAT_DAMAGE_AMOUNT, no matter the
+// attacker's real damage or any Strong/Massive bonus — Critical Hit is the
+// one thing that ignores this (see computeDamage). No enemy in this pass's
+// Chapter-1 roster actually carries 'metal' yet (Metal isn't one of the
+// guide's early-game attributes) — kept here so the rule is ready the
+// moment one is added.
+export const METAL_ATTRIBUTE = 'metal';
+export const METAL_FLAT_DAMAGE_AMOUNT = 1; // guide: "通常ダメージ1" — real value (this build previously used a placeholder 2)
 
-export const FLAT_DAMAGE_TRAIT = 'mech';
-export const FLAT_DAMAGE_AMOUNT = 2;
+// Every attribute an enemy can carry (guide Chapter 07's early-game subset —
+// Angel/Alien/Relic/Aku/etc. are real too but belong to later chapters this
+// pass doesn't cover). An enemy with none of these (plain "White") just
+// omits ENEMY_CONFIG's `attribute` field entirely.
+export const ENEMY_ATTRIBUTES = ['red', 'black', 'floating', METAL_ATTRIBUTE, 'zombie'];
 
-// Super-class Slayer bonuses (bible §A.3.8) — layered independently of the
-// trait system above: a unit with `colossusSlayer`/`behemothSlayer` (see
-// UNIT_CONFIG.js) deals SUPER_CLASS_SLAYER_BONUSES[class].dealt against any
-// defender whose ENEMY_CONFIG carries that `superClass` tag, and takes
-// .taken damage when on the receiving end of one — independent of, and
-// stacking multiplicatively with, whatever the normal trait matchup above
-// already resolved (bible: "so both sets of counters... apply
-// simultaneously and multiply together").
+// Colossus/Behemoth Slayer (guide's "超獣/超生命体" super-class tier, bible
+// §A.3.8) — unrelated to the attribute system above (a tag layered ON TOP of
+// an enemy's normal attribute, per this constant's own original design),
+// left untouched from the previous system: still used by
+// GameScene.getSuperClassMultiplier and UNIT_CONFIG's colossusSlayer/
+// behemothSlayer flags. Dormant again this pass (colossus/behemoth aren't in
+// the rebuilt Chapter-1 roster), kept for whenever that later content returns.
 export const SUPER_CLASS_SLAYER_BONUSES = {
   colossus: { dealt: 1.6, taken: 0.6 },
   behemoth: { dealt: 2.5, taken: 0.6 },
-};
-
-export const MATCHUP_BONUSES = {
-  beast: { plant: 2.0 }, // beast tramples plant
-  plant: { bug: 2.0 }, // plant purges toxin
-  bug: { bird: 2.0 }, // toxin fouls wings/lungs
-  bird: { beast: 2.0 }, // flight evades/strikes grounded beasts
-};
-
-export const RESIST_BONUSES = {
-  beast: { bug: 0.5 }, // thick hide shrugs off toxin
-  bug: { beast: 0.5 }, // a toxic body shrugs off brute force
-  plant: { bird: 0.5 }, // deep roots/ground cover reduce bombardment
-  bird: { plant: 0.5 }, // flight stays clear of ground-level growth
 };

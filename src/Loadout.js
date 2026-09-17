@@ -21,15 +21,22 @@ export const MAX_LOADOUT_SIZE = 10;
 export const FORMATION_SLOT_COUNT = 3;
 
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
-import { loadPlayerProgress, getUnitProgress } from './PlayerProgress.js';
+import { loadPlayerProgress, getUnitProgress, isUnitUnlocked } from './PlayerProgress.js';
 
 const STORAGE_KEY = 'axieSkirmishFormations';
 // Legacy single-Formation save (pre-dating multiple slots) — read once for
 // migration only; never written to again.
 const LEGACY_STORAGE_KEY = 'axieSkirmishLoadout';
 
+// Only units actually unlocked yet (bible-guide roster gating — see
+// PlayerProgress.isUnitUnlocked/UNIT_CONFIG's unlockRequirement field) go
+// into a fresh Formation by default — a brand-new player starts with just
+// Cat, same as real Battle Cats' own day-1 roster, rather than every
+// lineage (unearned ones included) riding along from turn one.
 function defaultUnitKeys() {
-  return Object.keys(UNIT_CONFIG).slice(0, MAX_LOADOUT_SIZE);
+  return Object.keys(UNIT_CONFIG)
+    .filter((key) => isUnitUnlocked(key))
+    .slice(0, MAX_LOADOUT_SIZE);
 }
 
 function defaultSlot(name) {

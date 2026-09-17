@@ -37,7 +37,7 @@ export const BASE_UPGRADE_CONFIG = {
     description: "Increases your Base's max HP.",
     maxLevel: 10,
     xpCostBase: 600,
-    perLevelEffect: 15, // flat HP added to every stage's baseHp
+    perLevelEffect: 1000, // real value (guide Chapter 08): "城体力 1レベルごとに体力+1,000"
     effectType: 'flat',
   },
   research: {
@@ -45,7 +45,11 @@ export const BASE_UPGRADE_CONFIG = {
     description: 'Reduces every unit’s redeploy Recharge time.',
     maxLevel: 10,
     xpCostBase: 900,
-    perLevelEffect: 100, // ms shaved off every unit's rechargeMs per level
+    // Real value (guide Chapter 06/08): 200ms (6F) shaved off per level.
+    // Real Research goes up to Lv20+10 for a 5,800ms max reduction — this
+    // build's upgrade lines only go to level 10, so the max reduction here
+    // (2,000ms) is proportionally smaller, not the literal real ceiling.
+    perLevelEffect: 200,
     effectType: 'flat',
   },
   accounting: {

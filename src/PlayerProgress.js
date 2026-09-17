@@ -26,6 +26,8 @@
 
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
+import { UNIT_CONFIG } from './UNIT_CONFIG.js';
+import { loadStageProgress } from './StageProgress.js';
 import { addUserRank } from './UserRank.js';
 
 // User Rank (bible §A.7.4) points awarded per level-up / per evolution —
@@ -68,6 +70,22 @@ export function loadPlayerProgress() {
 
 export function getUnitProgress(progress, unitType) {
   return progress.units[unitType] || DEFAULT_UNIT_PROGRESS;
+}
+
+// Real Battle Cats unlocks its Basic-tier roster progressively, roughly one
+// lineage per early-stage clear (guide Chapter 11's per-lineage "unlock"
+// column), rather than handing the player the whole roster on day one —
+// UNIT_CONFIG.js's `unlockRequirement` field encodes exactly that gate:
+// null = always available (Cat); { stageId } = unlocked once that
+// STAGE_CONFIG entry has been cleared; { stageId: null } = never satisfied
+// (the shelved Guardian/Xia slot — see UNIT_CONFIG.js's own note).
+export function isUnitUnlocked(unitType) {
+  const requirement = UNIT_CONFIG[unitType]?.unlockRequirement;
+  if (requirement === null || requirement === undefined) return true;
+  if (!requirement.stageId) return false;
+
+  const stageProgress = loadStageProgress();
+  return stageProgress[requirement.stageId]?.cleared === true;
 }
 
 // Total level cap this unit can currently reach: the config's baseLevelCap,

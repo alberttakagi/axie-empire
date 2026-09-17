@@ -4,10 +4,10 @@
 // press tooltip (Battle Cats reference: hovering a unit shows its ability
 // icons and elemental matchups; we don't have icon art for these, so this
 // renders as short text lines instead).
-import { MATCHUP_BONUSES, RESIST_BONUSES, FLAT_DAMAGE_TRAIT, SUPER_CLASS_SLAYER_BONUSES } from './TRAIT_CONFIG.js';
+import { METAL_ATTRIBUTE, SUPER_CLASS_SLAYER_BONUSES } from './TRAIT_CONFIG.js';
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
 
-const TRAIT_LABEL = { beast: 'Beast', mech: 'Mech', bird: 'Bird', bug: 'Bug', plant: 'Plant', zombie: 'Zombie' };
+const ATTRIBUTE_LABEL = { red: 'Red', black: 'Black', floating: 'Floating', metal: 'Metal', zombie: 'Zombie' };
 
 const STATUS_LABEL = {
   [STATUS_TYPES.SLOW]: 'Slow',
@@ -20,19 +20,28 @@ const STATUS_LABEL = {
 export function describeUnit(config) {
   const lines = [];
 
-  // Trait + matchups (see TRAIT_CONFIG.js) — Mech's flat-damage rule always
-  // overrides the matchup table, so it gets its own distinct line instead
-  // of a (never-applicable) strong-vs/resists line.
-  const traitLabel = TRAIT_LABEL[config.trait] || config.trait;
-  if (config.trait === FLAT_DAMAGE_TRAIT) {
-    lines.push(`${traitLabel} trait — takes only flat damage from every hit`);
-  } else {
-    const strongAgainst = Object.keys(MATCHUP_BONUSES[config.trait] || {}).map((t) => TRAIT_LABEL[t] || t);
-    const resists = Object.keys(RESIST_BONUSES[config.trait] || {}).map((t) => TRAIT_LABEL[t] || t);
-    let line = `${traitLabel} trait`;
-    if (strongAgainst.length) line += ` — strong vs ${strongAgainst.join(', ')}`;
-    if (resists.length) line += `${strongAgainst.length ? ',' : ' —'} resists ${resists.join(', ')}`;
-    lines.push(line);
+  // Attribute (enemies) / targeted abilities (units) — see TRAIT_CONFIG.js.
+  // An enemy carries `attribute`; a unit carries zero or more of
+  // strongVs/massiveVs/resistantVs, each naming the attribute it targets.
+  if (config.attribute) {
+    const attrLabel = ATTRIBUTE_LABEL[config.attribute] || config.attribute;
+    lines.push(
+      config.attribute === METAL_ATTRIBUTE
+        ? `${attrLabel} attribute — takes only flat damage from every non-critical hit`
+        : `${attrLabel} attribute`,
+    );
+  }
+  if (config.strongVs) {
+    const attrLabel = ATTRIBUTE_LABEL[config.strongVs] || config.strongVs;
+    lines.push(`Strong Against ${attrLabel}: 1.5x damage dealt, 0.5x damage taken`);
+  }
+  if (config.massiveVs) {
+    const attrLabel = ATTRIBUTE_LABEL[config.massiveVs] || config.massiveVs;
+    lines.push(`Massive Damage vs ${attrLabel}: 3x damage dealt`);
+  }
+  if (config.resistantVs) {
+    const attrLabel = ATTRIBUTE_LABEL[config.resistantVs] || config.resistantVs;
+    lines.push(`Resistant vs ${attrLabel}: 0.25x damage taken`);
   }
 
   if (config.special?.type === 'aoe') {

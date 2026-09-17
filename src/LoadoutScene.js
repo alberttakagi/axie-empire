@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
-import { getUnitProgress, loadPlayerProgress } from './PlayerProgress.js';
+import { getUnitProgress, loadPlayerProgress, isUnitUnlocked } from './PlayerProgress.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
 import {
   loadLoadout,
@@ -238,11 +238,17 @@ export default class LoadoutScene extends Phaser.Scene {
     const unitProgress = getUnitProgress(loadPlayerProgress(), type);
     const isSelected = this.selected.has(type);
     const pinned = isPinned(type);
+    // Roster gating (bible-guide progression pass — see PlayerProgress's
+    // isUnitUnlocked/UNIT_CONFIG's unlockRequirement): a lineage not yet
+    // unlocked still shows on this screen (so its eventual unlock reads as
+    // real progress), just greyed and unselectable, same idea as a locked
+    // stage on StageSelectScene.
+    const unlocked = isUnitUnlocked(type);
 
     const card = this.add
-      .rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, config.color)
-      .setAlpha(isSelected ? 1 : 0.3)
-      .setStrokeStyle(isSelected ? 3 : 1, isSelected ? 0xffdd33 : 0x666666)
+      .rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, unlocked ? config.color : 0x333333)
+      .setAlpha(unlocked ? (isSelected ? 1 : 0.3) : 0.35)
+      .setStrokeStyle(isSelected && unlocked ? 3 : 1, isSelected && unlocked ? 0xffdd33 : 0x666666)
       .setInteractive({ useHandCursor: true });
 
     // Character name first (e.g. "Buba") — this screen is about browsing/
@@ -271,7 +277,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // redundant, so it's gone; the role (displayName) takes that slot
     // instead, below the level for easier reading.
     const levelLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 22, `Lv ${unitProgress.level}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
+      .text(x, y + CARD_HEIGHT / 2 - 22, unlocked ? `Lv ${unitProgress.level}` : 'Locked', { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
       .setOrigin(0.5);
     const roleLabel = this.add
       .text(x, y + CARD_HEIGHT / 2 - 9, `(${config.displayName})`, {
@@ -282,7 +288,7 @@ export default class LoadoutScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
-    if (icon) icon.setAlpha(isSelected ? 1 : 0.3);
+    if (icon) icon.setAlpha(unlocked ? (isSelected ? 1 : 0.3) : 0.25);
 
     // Pin (bible §A.10.3) — its own small badge in the card's corner, with
     // its own independent hit area; stopPropagation keeps a pin tap from
@@ -311,6 +317,11 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   toggleUnit(type) {
+    if (!isUnitUnlocked(type)) {
+      this.showMessage('Not unlocked yet!');
+      return;
+    }
+
     if (this.selected.has(type)) {
       if (this.selected.size <= 1) {
         this.showMessage('At least one unit must stay in your formation!');

@@ -1,441 +1,330 @@
-import { NO_STATUS, STATUS_TYPES } from './STATUS_CONFIG.js';
+import { NO_STATUS } from './STATUS_CONFIG.js';
 
-// Player unit roster. Each unit now carries real Axie Starter art (from Sky
-// Mavis's Origins Asset Kit, restricted-license — see tools/sprite-gen/ and
-// tools/axie-origins-asset-kit/LICENSE.md) instead of a placeholder circle:
-// `sprite.idle/attack/hit/run` point at pre-rendered PNGs under
-// public/sprites/units/, one pose per combat state (GameScene swaps between
-// them based on whether the entity is mid-attack-windup, mid-knockback, or
-// walking with no target — see getDesiredPose). `color`/`label` remain as a
-// fallback only for any entity that has no sprite — every roster entry in
-// both this file and ENEMY_CONFIG.js has one today, so this fallback is
-// currently unused, but stays in place for any future entry that ships
-// without real art.
+// Player unit roster — REBUILT to be the real Battle Cats "Basic" tier (all
+// 9 Chapter-1-relevant lineages; the guide's 10th, Superfeline/ネコ超人, only
+// unlocks post-Cosmos-chapter-3 and is out of this pass's scope), one
+// starter Axie per lineage, each Axie's own 2 real art tiers (base/"bodyStage
+// 0" and evolved/"bodyStage 1") standing in for that lineage's 3 real forms:
+// Form 1 = base art, no glow. Form 2 = evolved art + a light-blue glow.
+// Form 3 = the SAME evolved art, but a purple glow instead (see
+// PartEvolution.js) — this is the user's own scheme for stretching a
+// limited named-Axie roster across every lineage's full 3-form chain
+// without needing a 3rd distinct art asset per unit.
 //
-// Field reference (kept aligned to the bible's Part C Unit schema, §A.3.2):
-//   id/displayName  reskin hooks — id is the stable lookup key, displayName is
-//                   the role name shown on the in-battle spawn button
-//                   (where a player picks by ROLE, not by character).
-//   characterName   the real Starter Axie this unit reskins (e.g. "Buba")
-//                   — shown ahead of displayName wherever a screen is about
-//                   browsing/inspecting a specific character rather than
-//                   picking a role mid-battle (Character Formation, Unit
-//                   Guide) — see LoadoutScene.js/CatalogScene.js.
-//   role            shared taxonomy with ENEMY_CONFIG.js (basic/fast/tank/ranged/aoe).
-//   trait           one of TRAIT_CONFIG.js's TRAITS — drives matchup bonuses
-//                    and the flat-damage-vs-mech rule; see that file.
-//   cost            yen spent to spawn one (see MONEY_CONFIG.js) — set to
-//                   the literal real Battle Cats price for that unit's
-//                   reference archetype, not a ratio-derived figure.
-//   hp              max health.
-//   damage          damage dealt per hit; combined with attackSpeed this is
-//                   the unit's DPS (damage * attackSpeed) — see foreswingMs/
-//                   backswingMs below for how that cycle is actually paced.
-//   attackSpeed     attacks per second — kept as the balance/DPS reference
-//                   number; foreswingMs/backswingMs are derived from it (see
-//                   note below) rather than the runtime reading this field
-//                   directly.
-//   foreswingMs     wind-up time before a hit lands (bible §A.3.4) — an
-//                   attack in progress here is wasted (no damage dealt) if
-//                   interrupted by a knockback.
-//   backswingMs     recovery time after a hit lands, before the next
-//                   foreswing can begin.
-//                   foreswingMs + backswingMs together are this build's
-//                   stand-in for the bible's fuller
-//                   foreswing/backswing/attack_cooldown three-term model —
-//                   simplified to two phases at a fixed 35/65 split of the
-//                   original attackSpeed-derived interval for this pass.
-//                   Re-author per-unit once real reference frame data is
-//                   pulled in (see the bible's Part E tooling list).
-//   moveSpeed       walk speed in px/sec while no target is in range.
-//   radius          placeholder shape size (also its own melee reach — see `range`).
-//   range           max distance (px, center-to-center) at which it can attack.
-//                   For melee roles this equals `radius`, which reproduces the
-//                   current contact-only combat exactly. Ranged/AoE roles get
-//                   a larger number so they can strike before physical contact.
-//   rechargeMs      cooldown after deploying one copy before this unit can be
-//                   deployed again (bible §A.3.2/§A.3.7) — global floor is
-//                   2000ms; never reduced by the unit's own level (there is
-//                   no leveling yet at all — see the bible's §A.4).
-//   special         { type: 'none' } or an ability descriptor, e.g.
-//                   { type: 'aoe', radius } to splash all enemies within that
-//                   radius of the primary target instead of hitting one.
-//   critChance      0-1 chance per landed hit to deal double damage AND
-//                   bypass the flat-damage-vs-mech rule entirely (bible
-//                   §A.3.6 — Critical Hit is the one thing that ignores
-//                   Metal/mech's damage cap). 0 = never crits.
-//   knockbackCount  how many times cumulative damage can stagger this entity
-//                   (bible §A.3.5's "endurance" model: endurance = hp /
-//                   knockbackCount) before it's simply destroyed by normal HP
-//                   loss instead of being shoved again. This is NOT a
-//                   per-hit chance — it's a running HP-threshold tally, see
-//                   GameScene's resolveKnockback.
-//   knockbackDistance px this entity slides (away from its attacker) over the
-//                   knockback duration each time an HP threshold triggers a
-//                   stagger — a real, timed position shift (see GameScene's
-//                   tickKnockback), not just a visual flourish: it also
-//                   cancels the entity's in-progress attack windup (bible's
-//                   interruption rule). Lower = shorter shove.
-//   knockbackType   'normal' (staggers per knockbackCount/knockbackDistance)
-//                   or 'immune' (never moves at all when hit, regardless of
-//                   the other two fields' values).
-//   statusOnHit     see STATUS_CONFIG.js — an on-hit chance to inflict Slow/
-//                   Stop/Weaken/Curse/Warp on whatever this unit hits.
-//                   NO_STATUS (the default) means it never does. Mirrors
-//                   ENEMY_CONFIG.js's role-to-ability mapping: tank/Stop,
-//                   ranged/Slow, fast+aoe/Curse, basic stays ability-less
-//                   (ENEMY ranged trades its Slow for Warp instead — see
-//                   ENEMY_CONFIG.js — since Warp is conventionally an
-//                   enemy-only affliction in the reference game).
-//   longDistance    { min, max } (bible §A.3.8) — this unit's attack has an
-//                   explicit blind spot (can't hit anything closer than
-//                   `min`) but reaches out to `max`, which also becomes its
-//                   effective stopping/detection distance in place of
-//                   `range` (see GameScene's getMaxRange). Omitted = normal
-//                   fixed-range behavior. Omni Strike is just this with
-//                   `min: 0` (no blind spot), conventionally paired with an
-//                   Area special.
-//   toxicOnHit      { chance, percent } (bible §A.3.8, Toxic/Poison) —
-//                   independent of statusOnHit, so it can stack with
-//                   whatever status ability this unit already has: on a
-//                   successful roll, adds bonus damage equal to `percent`
-//                   of the DEFENDER's own max HP, bypassing the
-//                   Metal/mech flat-damage cap. Suppressed by Curse.
-//   waveOnHit       { radius } (bible §A.3.8, Wave Attack) — also
-//                   independent of statusOnHit/special: after the primary
-//                   hit resolves, sweeps outward from THIS unit's own
-//                   position (not the target's) toward the enemy side,
-//                   hitting every other living entity within `radius` with
-//                   the same damage/knockback/status pipeline. Never
-//                   affects Bases; suppressed by Curse; blocked (and
-//                   itself deals no damage) by a `waveImmune` defender,
-//                   which also stops the sweep from reaching anyone past it.
-//   waveImmune      true = this entity takes no Wave Attack damage and
-//                   blocks a wave from reaching anything positioned beyond
-//                   it (bible's "Wave Shield").
-//   warpImmune      true = Warp status (see statusOnHit above) always
-//                   fails against this entity outright.
-//   barrierMaxHp    this entity has a Barrier shield (bible §A.3.8):
-//                   incoming damage is absorbed by this pool first (fully
-//                   blocking knockback/status effects on any hit that's
-//                   completely absorbed) before any overflow reaches real
-//                   HP. Omitted/0 = no barrier.
-//   barrierBreakerChance 0-1 chance per landed hit that this unit's attack
-//                   instantly destroys the target's Barrier outright
-//                   (bible's "Barrier Breaker") — the SAME hit's full
-//                   damage then still applies to real HP normally, rather
-//                   than being absorbed.
-//   color/label     placeholder shape fill + single-letter text label — only
-//                   used as a fallback when `sprite` is null (no unit here
-//                   still lacks a sprite, but enemies currently do).
-//   sprite          { idle, attack, hit, run } public-relative PNG paths, or
-//                   null to fall back to the color/label circle. `run` is
-//                   the pose GameScene shows while a unit is walking with no
-//                   target (see getDesiredPose) — every unit has one (see
-//                   tools/sprite-gen/'s "action/run" Starter animation).
-//                   See GameScene's preload()/spawn rendering for how these
-//                   are swapped.
-//                   An optional nested `evolved: { idle, attack, hit, run }`
-//                   holds that unit's REAL, official Sky Mavis "awakened"
-//                   (bodyStage 1) art — a second complete Spine skeleton
-//                   the Origins Asset Kit ships per Starter, one specific
-//                   part visibly grown/enriched versus the base form (see
-//                   PartEvolution.js for why only ONE such real evolved
-//                   look exists per unit, not a chosen sequence of 6).
-//                   GameScene swaps to this whole set once the unit's
-//                   first part-evolution milestone (level 10) is reached;
-//                   omitted for any unit with no real evolved variant
-//                   (currently just Titan/Temujin) — that unit stays on
-//                   its base art at every level, using the escalating
-//                   glow alone to show further part-evolution progress.
-
+// Every stat below is ported from the user's guide (にゃんこ大戦争 完全解剖
+// ガイド, Chapter 05/06/11 — battlecats-db-sourced, Lv1/no-treasure/no-
+// research base values) using two conversions:
+//   TIME   any frame(F) value ×(1000/30) = ms. Battle Cats runs at a fixed
+//          30F/sec, so this is exact regardless of anything else — recharge,
+//          attack interval, foreswing/backswing all convert this way.
+//   MONEY  yen, used as-is — this engine's currency already matches Battle
+//          Cats' own denomination directly (see MONEY_CONFIG.js), so cost is
+//          the literal real price, hp/damage are the literal real Lv1 values.
+// SPATIAL fields (moveSpeed, radius, range, knockbackDistance) are NOT
+// converted from the guide's raw pixel/frame numbers — the guide's own
+// reference battlefield is several thousand units long, many times this
+// engine's ~800px canvas, so porting absolute distances would make every
+// unit cross the field in one bound. Instead these keep this engine's own
+// already-tuned pixel scale, adjusted only to preserve each lineage's real
+// RELATIVE proportions against the others (e.g. Cow Cat's real speed stat is
+// exactly 3x Cat's — so its moveSpeed here is exactly 3x Cat's own, same
+// ratio, just at this engine's own absolute scale).
+//
+// `unlockRequirement` (new) — null for the one lineage available from the
+// very start (Cat); every other lineage requires a specific stage clear
+// (see PROGRESSION_CONFIG... no — see PlayerProgress.js's isUnitUnlocked and
+// STAGE_CONFIG.js's saga1, which this pass rebuilds to mirror the guide's
+// real Empire of Cats unlock pacing: roughly one new lineage becomes
+// deployable per early stage cleared, matching the guide's own
+// "第1章◯◯県クリア" per-lineage unlock notes).
+//
+// `strongVs`/`massiveVs`/`resistantVs` — TRAIT_CONFIG.js's real ability
+// model (Strong Against/Massive Damage/Resistant), replacing this file's
+// earlier invented beast/bug/bird/plant/mech matchup cycle. Only Axe Cat and
+// Fish Cat carry a real ability at all in the guide's Basic-tier data
+// (both "対赤：めっぽう強い" — Strong Against Red); every other lineage in
+// this tier is a plain attacker with no targeted ability, and this build
+// follows that faithfully rather than inventing one.
+//
+// Field reference for everything NOT covered above — unchanged from the
+// previous roster, still aligned to the bible's Part C Unit schema §A.3.2:
+//   id/displayName  reskin hooks — id is the stable lookup key, displayName
+//                   is the role name shown on the in-battle spawn button.
+//   characterName   the real Starter Axie this lineage reskins.
+//   cost            yen to deploy one (real Lv1 price, Chapter 2-basis per
+//                   the guide's own convention — see its Chapter 05 note).
+//   hp/damage       Lv1, no treasure, no research — see UnitStats.js for how
+//                   PROGRESSION_CONFIG.js's real Lv-multiplier formula scales
+//                   these up from here.
+//   attackSpeed     documentation-only DPS reference (damage/interval) —
+//                   the runtime reads foreswingMs/backswingMs directly,
+//                   both now the EXACT real fore/back-swing split (fore = the
+//                   guide's own frame value; back = freq − fore), not an
+//                   invented 35/65 ratio.
+//   moveSpeed/radius/range/rechargeMs/special/critChance/knockbackCount/
+//   knockbackDistance/knockbackType/statusOnHit/sprite — see the previous
+//   revision of this file (git history) for the exhaustive per-field
+//   reference; unchanged in shape, just re-tuned per lineage above.
 export const UNIT_CONFIG = {
   basic: {
     id: 'basic',
-    displayName: 'Basic Melee',
-    characterName: "Tripp", // the real Starter Axie this unit reskins
+    displayName: 'Cat',
+    characterName: 'Tripp', // ネコ／ネコビルダー／ネコモヒカン (Cat / Macho Cat / Mohawk Cat)
     role: 'basic',
-    trait: 'beast',
-    cost: 50, // literal real price of this archetype's basic-attacker reference
-    hp: 14,
-    damage: 3,
-    attackSpeed: 1.2, // dps 3.6 — interval ~833ms, split 35/65 below
-    foreswingMs: 290,
-    backswingMs: 540,
-    moveSpeed: 55,
+    unlockRequirement: null, // available from the very start, matching real Battle Cats' own day-1 roster
+    cost: 75,
+    hp: 100,
+    damage: 8,
+    attackSpeed: 24.3, // dps ~1.95 — interval 1233ms (37F), split 267/966 below (real 8F/29F)
+    foreswingMs: 267,
+    backswingMs: 966,
+    moveSpeed: 55, // baseline reference speed for the whole roster (real spd 10)
     radius: 14,
     range: 14,
-    rechargeMs: 3000,
+    rechargeMs: 5333, // real 160F
     knockbackCount: 3,
     knockbackDistance: 12,
     knockbackType: 'normal',
     color: 0x33cc33,
-    label: 'B',
+    label: 'C',
     special: { type: 'none' },
-    critChance: 0.05,
+    critChance: 0,
     statusOnHit: NO_STATUS,
     sprite: { idle: "/sprites/units/unit_basic_idle.png", attack: "/sprites/units/unit_basic_attack.png", hit: "/sprites/units/unit_basic_hit.png", run: ["/sprites/units/unit_basic_run_0.png", "/sprites/units/unit_basic_run_1.png"], idleAnim: ["/sprites/units/unit_basic_idleanim_0.png", "/sprites/units/unit_basic_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_basic_evolved_idle.png", attack: "/sprites/units/unit_basic_evolved_attack.png", hit: "/sprites/units/unit_basic_evolved_hit.png", run: ["/sprites/units/unit_basic_evolved_run_0.png", "/sprites/units/unit_basic_evolved_run_1.png"] } },
   },
-  fast: {
-    id: 'fast',
-    displayName: 'Fast Melee',
-    characterName: "Buba", // the real Starter Axie this unit reskins
-    role: 'fast',
-    trait: 'bird',
-    // Rebalanced against real reference ratios (fastest-mover archetype vs.
-    // basic attacker): hp 5x basic, dps ~6x basic, speed 3x basic. The real
-    // reference unit for "fastest mover" turned out to be a premium unit
-    // (priciest/tankiest of its tier), not a cheap glass cannon — flagged
-    // and confirmed: this turns "fast" into a premium heavy-rusher rather
-    // than an early cheap skirmisher. cost is that unit's literal real price.
-    cost: 500,
-    hp: 70,
-    damage: 4.88,
-    attackSpeed: 4.44, // dps ~21.65 — interval ~225ms, split 35/65 below
-    foreswingMs: 80,
-    backswingMs: 145,
-    moveSpeed: 165,
-    radius: 12,
-    range: 12,
-    rechargeMs: 6000,
-    knockbackCount: 2,
-    knockbackDistance: 18,
-    knockbackType: 'normal',
-    color: 0x33ffcc,
-    label: 'F',
-    special: { type: 'none' },
-    critChance: 0.07,
-    // Status-effect rollout, mirroring ENEMY_CONFIG's fast entry: a quick
-    // harasser that curses on hit — shorter duration than aoe's curse.
-    statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.2, durationMs: 1500 },
-    // Wave Attack (bible §A.3.8): every hit also sweeps a shockwave ahead of
-    // this unit, catching whatever else is nearby — fits its "quick skirmisher"
-    // identity as a way to punish enemies clustering up behind its target.
-    waveOnHit: { radius: 60 },
-    sprite: { idle: "/sprites/units/unit_fast_idle.png", attack: "/sprites/units/unit_fast_attack.png", hit: "/sprites/units/unit_fast_hit.png", run: ["/sprites/units/unit_fast_run_0.png", "/sprites/units/unit_fast_run_1.png"], idleAnim: ["/sprites/units/unit_fast_idleanim_0.png", "/sprites/units/unit_fast_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_fast_evolved_idle.png", attack: "/sprites/units/unit_fast_evolved_attack.png", hit: "/sprites/units/unit_fast_evolved_hit.png", run: ["/sprites/units/unit_fast_evolved_run_0.png", "/sprites/units/unit_fast_evolved_run_1.png"] } },
-  },
   tank: {
     id: 'tank',
-    displayName: 'Tank',
-    characterName: "Olek", // the real Starter Axie this unit reskins
+    displayName: 'Tank Cat',
+    characterName: 'Olek', // タンクネコ／ネコカベ／ゴムネコ (Tank Cat / Wall Cat / Eraser Cat)
     role: 'tank',
-    trait: 'mech',
-    // Rebalanced against real reference ratios (wall unit vs. basic attacker):
-    // hp 4x basic, dps ~0.14x basic, speed ~0.8x basic. cost is that unit's
-    // literal real price (happens to land at 2x basic).
-    cost: 100,
-    hp: 56,
-    damage: 0.8,
-    attackSpeed: 0.6, // dps 0.48 — interval ~1667ms, split 35/65 below
-    foreswingMs: 585,
-    backswingMs: 1085,
-    moveSpeed: 44,
+    unlockRequirement: { stageId: 'stage1' },
+    cost: 150,
+    hp: 400,
+    damage: 2,
+    attackSpeed: 2.4, // dps ~0.9 — interval 2233ms (67F), split 267/1966 below (real 8F/59F)
+    foreswingMs: 267,
+    backswingMs: 1966,
+    moveSpeed: 44, // real spd 8 — 0.8x Cat's
     radius: 26,
     range: 26,
-    rechargeMs: 5000,
-    knockbackCount: 1,
-    knockbackDistance: 4,
-    knockbackType: 'immune', // a true wall doesn't budge, regardless of the other knockback fields
+    rechargeMs: 8333, // real 250F
+    knockbackCount: 1, // real kb 1 — a plain (not immune) single stagger threshold, same shape as Titan Cat
+    knockbackDistance: 8,
+    knockbackType: 'normal',
     color: 0x6699ff,
     label: 'T',
+    special: { type: 'aoe', radius: 30 }, // real Tank Cat forms are area-type despite the negligible damage
+    critChance: 0,
+    statusOnHit: NO_STATUS,
+    sprite: { idle: "/sprites/units/unit_tank_idle.png", attack: "/sprites/units/unit_tank_attack.png", hit: "/sprites/units/unit_tank_hit.png", run: ["/sprites/units/unit_tank_run_0.png", "/sprites/units/unit_tank_run_1.png"], idleAnim: ["/sprites/units/unit_tank_idleanim_0.png", "/sprites/units/unit_tank_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_tank_evolved_idle.png", attack: "/sprites/units/unit_tank_evolved_attack.png", hit: "/sprites/units/unit_tank_evolved_hit.png", run: ["/sprites/units/unit_tank_evolved_run_0.png", "/sprites/units/unit_tank_evolved_run_1.png"] } },
+  },
+  swarm: {
+    id: 'swarm',
+    displayName: 'Axe Cat',
+    characterName: 'Shillin', // バトルネコ／勇者ネコ／暗黒ネコ (Axe Cat / Brave Cat / Dark Cat)
+    role: 'swarm',
+    unlockRequirement: { stageId: 'stage2' },
+    cost: 300,
+    hp: 200,
+    damage: 25,
+    attackSpeed: 33.3, // dps ~9.3 — interval 900ms (27F), split 267/633 below (real 8F/19F)
+    foreswingMs: 267,
+    backswingMs: 633,
+    moveSpeed: 66, // real spd 12 — 1.2x Cat's
+    radius: 12,
+    range: 12,
+    rechargeMs: 7333, // real 220F
+    knockbackCount: 3,
+    knockbackDistance: 12,
+    knockbackType: 'normal',
+    color: 0x99cc33,
+    label: 'A',
     special: { type: 'none' },
     critChance: 0,
-    // Status-effect rollout, mirroring ENEMY_CONFIG's tank entry: an
-    // immovable bruiser that can also freeze whatever it hits.
-    statusOnHit: { type: STATUS_TYPES.STOP, chance: 0.15, durationMs: 800 },
-    // An anchored heavy unit is a natural fit for "can't be teleported" —
-    // pairs with its existing knockback immunity as "nothing moves this thing."
-    warpImmune: true,
-    // Barrier Breaker (bible §A.3.8): every hit that lands on a Barrier-bearing
-    // target shatters it outright, then still deals full damage that hit —
-    // fits "heavy hitter that shrugs off shields" even at Tank's low DPS.
-    barrierBreakerChance: 1.0,
-    sprite: { idle: "/sprites/units/unit_tank_idle.png", attack: "/sprites/units/unit_tank_attack.png", hit: "/sprites/units/unit_tank_hit.png", run: ["/sprites/units/unit_tank_run_0.png", "/sprites/units/unit_tank_run_1.png"], idleAnim: ["/sprites/units/unit_tank_idleanim_0.png", "/sprites/units/unit_tank_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_tank_evolved_idle.png", attack: "/sprites/units/unit_tank_evolved_attack.png", hit: "/sprites/units/unit_tank_evolved_hit.png", run: ["/sprites/units/unit_tank_evolved_run_0.png", "/sprites/units/unit_tank_evolved_run_1.png"] } },
+    statusOnHit: NO_STATUS,
+    // Strong Against Red (めっぽう強い) — the guide's real ability for this
+    // lineage, replacing the previous roster's invented Dodge gimmick.
+    strongVs: 'red',
+    sprite: { idle: "/sprites/units/unit_swarm_idle.png", attack: "/sprites/units/unit_swarm_attack.png", hit: "/sprites/units/unit_swarm_hit.png", run: ["/sprites/units/unit_swarm_run_0.png", "/sprites/units/unit_swarm_run_1.png"], idleAnim: ["/sprites/units/unit_swarm_idleanim_0.png", "/sprites/units/unit_swarm_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_swarm_evolved_idle.png", attack: "/sprites/units/unit_swarm_evolved_attack.png", hit: "/sprites/units/unit_swarm_evolved_hit.png", run: ["/sprites/units/unit_swarm_evolved_run_0.png", "/sprites/units/unit_swarm_evolved_run_1.png"] } },
   },
   ranged: {
     id: 'ranged',
-    displayName: 'Ranged',
-    characterName: "Puffy", // the real Starter Axie this unit reskins
+    displayName: 'Gross Cat',
+    characterName: 'Puffy', // キモネコ／美脚ネコ／ムキあしネコ (Gross Cat / Sexy Legs Cat / Macho Leg Cat)
     role: 'ranged',
-    trait: 'bug',
-    // Rebalanced against real reference ratios (ranged attacker vs. basic
-    // attacker): hp 4x basic (this archetype isn't a glass cannon in HP —
-    // its edge is one huge hit on a slow cadence), dps ~3.64x basic, speed
-    // same as basic. cost is that unit's literal real price (8x basic).
-    // Range is NOT scaled by the real 2.5x ratio — our "range" is a pixel
-    // distance relative to tiny melee hitboxes (14-26px), not a real
-    // distance unit, so that ratio would actually shrink this unit's reach;
-    // kept at its existing value instead.
-    cost: 400,
-    hp: 56,
-    damage: 33,
-    attackSpeed: 0.4, // dps 13.2 — interval 2500ms, split 35/65 below
-    foreswingMs: 875,
-    backswingMs: 1625,
-    moveSpeed: 55,
+    unlockRequirement: { stageId: 'stage3' },
+    cost: 600,
+    hp: 400,
+    damage: 100,
+    attackSpeed: 7.1, // dps ~23.6 — interval 4233ms (127F), split 267/3966 below (real 8F/119F)
+    foreswingMs: 267,
+    backswingMs: 3966,
+    moveSpeed: 55, // real spd 10 — same as Cat's
     radius: 13,
-    range: 90,
-    rechargeMs: 5500,
-    knockbackCount: 2,
-    knockbackDistance: 14,
+    range: 35, // first lineage with real reach beyond contact (real range 350 vs Cat's 140 — a 2.5x ratio)
+    rechargeMs: 11333, // real 340F
+    knockbackCount: 3,
+    knockbackDistance: 12,
     knockbackType: 'normal',
     color: 0xffcc33,
-    label: 'R',
+    label: 'G',
     special: { type: 'none' },
-    critChance: 0.05,
-    // Status-effect rollout, mirroring ENEMY_CONFIG's ranged entry: a
-    // debuffing sniper that halves the target's move/attack speed on hit.
-    statusOnHit: { type: STATUS_TYPES.SLOW, chance: 0.3, durationMs: 1500, multiplier: 0.5 },
-    // Long Distance (bible §A.3.8): can't hit anything within 40px of
-    // itself, but reaches out to 140px — fits the "sniper" archetype of
-    // being useless up close but dangerous from afar.
-    longDistance: { min: 40, max: 140 },
+    critChance: 0,
+    statusOnHit: NO_STATUS,
     sprite: { idle: "/sprites/units/unit_ranged_idle.png", attack: "/sprites/units/unit_ranged_attack.png", hit: "/sprites/units/unit_ranged_hit.png", run: ["/sprites/units/unit_ranged_run_0.png", "/sprites/units/unit_ranged_run_1.png"], idleAnim: ["/sprites/units/unit_ranged_idleanim_0.png", "/sprites/units/unit_ranged_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_ranged_evolved_idle.png", attack: "/sprites/units/unit_ranged_evolved_attack.png", hit: "/sprites/units/unit_ranged_evolved_hit.png", run: ["/sprites/units/unit_ranged_evolved_run_0.png", "/sprites/units/unit_ranged_evolved_run_1.png"] } },
+  },
+  fast: {
+    id: 'fast',
+    displayName: 'Cow Cat',
+    characterName: 'Buba', // ウシネコ／ネコキリン／ネコライオン (Cow Cat / Giraffe Cat / Lion Cat)
+    role: 'fast',
+    unlockRequirement: { stageId: 'stage4' },
+    cost: 750,
+    hp: 500,
+    damage: 13,
+    attackSpeed: 39, // dps ~39 — interval 333ms (10F), split 200/133 below (real 6F/4F)
+    foreswingMs: 200,
+    backswingMs: 133,
+    moveSpeed: 165, // real spd 30 — exactly 3x Cat's, the fastest mover in the roster
+    radius: 12,
+    range: 12,
+    rechargeMs: 9333, // real 280F
+    knockbackCount: 5,
+    knockbackDistance: 12,
+    knockbackType: 'normal',
+    color: 0x33ffcc,
+    label: 'Cw',
+    special: { type: 'none' },
+    critChance: 0,
+    statusOnHit: NO_STATUS,
+    sprite: { idle: "/sprites/units/unit_fast_idle.png", attack: "/sprites/units/unit_fast_attack.png", hit: "/sprites/units/unit_fast_hit.png", run: ["/sprites/units/unit_fast_run_0.png", "/sprites/units/unit_fast_run_1.png"], idleAnim: ["/sprites/units/unit_fast_idleanim_0.png", "/sprites/units/unit_fast_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_fast_evolved_idle.png", attack: "/sprites/units/unit_fast_evolved_attack.png", hit: "/sprites/units/unit_fast_evolved_hit.png", run: ["/sprites/units/unit_fast_evolved_run_0.png", "/sprites/units/unit_fast_evolved_run_1.png"] } },
   },
   aoe: {
     id: 'aoe',
-    displayName: 'Special (AoE)',
-    characterName: "Noir", // the real Starter Axie this unit reskins
+    displayName: 'Bird Cat',
+    characterName: 'Noir', // ネコノトリ／ネコUFO／天空のネコ (Bird Cat / UFO Cat / The Flying Cat)
     role: 'aoe',
-    trait: 'plant',
-    // Rebalanced against real reference ratios (splash/area attacker vs.
-    // basic attacker): hp 3x basic, dps ~16.2x basic, speed same as basic.
-    // No basic-tier real unit has a true area attack — pulled this from the
-    // wider roster instead, and even THAT unit's literal real price (used
-    // as cost below) sits well above this tier (splash is a premium
-    // mechanic in the real data, not a starter one). Its per-hit damage is
-    // huge because it's meant to be split across every enemy caught in the
-    // splash, same as our `special.aoe` already does.
-    cost: 650,
-    hp: 42,
-    damage: 52.5,
-    attackSpeed: 1.11, // dps ~58.3 — interval ~901ms, split 35/65 below
-    foreswingMs: 315,
-    backswingMs: 586,
-    moveSpeed: 55,
+    unlockRequirement: { stageId: 'stage5' },
+    cost: 975,
+    hp: 300,
+    damage: 140,
+    attackSpeed: 25.5, // dps ~25.7 — interval 1633ms (49F), split 333/1300 below (real 10F/39F)
+    foreswingMs: 333,
+    backswingMs: 1300,
+    moveSpeed: 55, // real spd 10 — same as Cat's
     radius: 16,
-    range: 16,
-    rechargeMs: 7000,
-    knockbackCount: 2,
+    range: 21, // real range 170 vs Cat's 140
+    rechargeMs: 8667, // real 260F
+    knockbackCount: 4,
     knockbackDistance: 10,
     knockbackType: 'normal',
     color: 0xcc66ff,
-    label: 'A',
-    special: { type: 'aoe', radius: 55 },
-    critChance: 0.03,
-    // Status-effect rollout, mirroring ENEMY_CONFIG's aoe entry: curses
-    // whatever it hits — including landing on an enemy aoe and shutting
-    // down its own splash right back.
-    statusOnHit: { type: STATUS_TYPES.CURSE, chance: 0.25, durationMs: 3000 },
-    // Toxic/Poison (bible §A.3.8): a corrosive splash also chips bonus
-    // damage off whatever it hits, scaled to that target's own max HP.
-    toxicOnHit: { chance: 0.3, percent: 0.1 },
-    sprite: { idle: "/sprites/units/unit_aoe_idle.png", attack: "/sprites/units/unit_aoe_attack.png", hit: "/sprites/units/unit_aoe_hit.png", run: ["/sprites/units/unit_aoe_run_0.png", "/sprites/units/unit_aoe_run_1.png"], idleAnim: ["/sprites/units/unit_aoe_idleanim_0.png", "/sprites/units/unit_aoe_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_aoe_evolved_idle.png", attack: "/sprites/units/unit_aoe_evolved_attack.png", hit: "/sprites/units/unit_aoe_evolved_hit.png", run: ["/sprites/units/unit_aoe_evolved_run_0.png", "/sprites/units/unit_aoe_evolved_run_1.png"] } },
-  },
-
-  // --- Roster expansion (bible §A.4.1 — "more Normal-tier units" per the
-  // reference game's own free/no-gacha basic roster). These five are
-  // original designs rather than the "matches a real reference unit's
-  // ratio" derivations above — there's no single real-game unit each one
-  // is patterned after, so their numbers are reasoned/placeholder like the
-  // bible's own "tune to your own economy" framing recommends, not
-  // cross-referenced against real data. Each fills a mechanical niche none
-  // of the original five covers, and pairs up with one of them under the
-  // same trait (2 units per trait, 10 units / 5 traits) for a clean roster.
-
-  swarm: {
-    id: 'swarm',
-    displayName: 'Swarm',
-    characterName: "Shillin", // the real Starter Axie this unit reskins
-    role: 'swarm',
-    trait: 'beast', // pairs with `basic`
-    // Identity: the cheapest, fastest-recharging unit in the roster — meant
-    // to be spammed in numbers rather than relied on individually. Its one
-    // ability (Dodge, bible §A.3.8) fits that same "hard to pin down"
-    // fantasy rather than adding raw power — a small, nimble body that
-    // occasionally just isn't where the hit landed.
-    cost: 30,
-    hp: 8,
-    damage: 2,
-    attackSpeed: 1.5, // dps 3 — interval ~667ms, split 35/65 below
-    foreswingMs: 233,
-    backswingMs: 434,
-    moveSpeed: 60,
-    radius: 10,
-    range: 10,
-    // 2500, not the roster-wide-cheapest 1500 this used to be: the bible's
-    // hard recharge floor is 2000ms (60 frames @ 30fps, see GameScene.js's
-    // MIN_RECHARGE_MS) — any base value at or below that floor makes
-    // Research's redeploy-time reduction a dead stat for this unit specifically.
-    // 2500 keeps swarm the fastest-recharging unit in the roster while still
-    // leaving Research room to do something (down to the 2000 floor).
-    rechargeMs: 2500,
-    knockbackCount: 2,
-    knockbackDistance: 10,
-    knockbackType: 'normal',
-    color: 0x99cc33,
-    label: 'Sw',
-    special: { type: 'none' },
-    critChance: 0.03,
+    label: 'B',
+    special: { type: 'aoe', radius: 40 },
+    critChance: 0,
     statusOnHit: NO_STATUS,
-    // Dodge (bible §A.3.8): a modest chance to take zero damage entirely
-    // (and ignore whatever status effect came with that hit), with a brief
-    // window afterward where further hits also auto-negate without a fresh
-    // roll.
-    dodgeChance: 0.12,
-    dodgeWindowMs: 400,
-    sprite: { idle: "/sprites/units/unit_swarm_idle.png", attack: "/sprites/units/unit_swarm_attack.png", hit: "/sprites/units/unit_swarm_hit.png", run: ["/sprites/units/unit_swarm_run_0.png", "/sprites/units/unit_swarm_run_1.png"], idleAnim: ["/sprites/units/unit_swarm_idleanim_0.png", "/sprites/units/unit_swarm_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_swarm_evolved_idle.png", attack: "/sprites/units/unit_swarm_evolved_attack.png", hit: "/sprites/units/unit_swarm_evolved_hit.png", run: ["/sprites/units/unit_swarm_evolved_run_0.png", "/sprites/units/unit_swarm_evolved_run_1.png"] } },
+    sprite: { idle: "/sprites/units/unit_aoe_idle.png", attack: "/sprites/units/unit_aoe_attack.png", hit: "/sprites/units/unit_aoe_hit.png", run: ["/sprites/units/unit_aoe_run_0.png", "/sprites/units/unit_aoe_run_1.png"], idleAnim: ["/sprites/units/unit_aoe_idleanim_0.png", "/sprites/units/unit_aoe_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_aoe_evolved_idle.png", attack: "/sprites/units/unit_aoe_evolved_attack.png", hit: "/sprites/units/unit_aoe_evolved_hit.png", run: ["/sprites/units/unit_aoe_evolved_run_0.png", "/sprites/units/unit_aoe_evolved_run_1.png"] } },
   },
   sniper: {
     id: 'sniper',
-    displayName: 'Sniper',
-    characterName: "Momo", // the real Starter Axie this unit reskins
+    displayName: 'Fish Cat',
+    characterName: 'Momo', // ネコフィッシュ／ネコクジラ／ネコ島 (Fish Cat / Whale Cat / Island Cat)
     role: 'sniper',
-    trait: 'bird', // pairs with `fast`
-    // Identity: the roster's glass cannon — huge single-hit damage, high
-    // crit chance, but low HP, slow recharge, and (via Long Distance) a
-    // genuine blind spot up close, on top of the longest reach in the game.
-    cost: 700,
-    hp: 30,
-    damage: 80,
-    attackSpeed: 0.25, // dps 20 — interval 4000ms, split 35/65 below
-    foreswingMs: 1400,
-    backswingMs: 2600,
-    moveSpeed: 50,
-    radius: 12,
-    range: 160,
-    rechargeMs: 8000,
-    knockbackCount: 1,
-    knockbackDistance: 16,
+    unlockRequirement: { stageId: 'stage6' },
+    cost: 1200,
+    hp: 700,
+    damage: 180,
+    attackSpeed: 10.2, // dps ~30.6 — interval 1767ms (53F), split 333/1434 below (real 10F/43F)
+    foreswingMs: 333,
+    backswingMs: 1434,
+    moveSpeed: 55, // real spd 10 — same as Cat's; a high-hp/high-atk bruiser, not a true long-range unit
+    radius: 16,
+    range: 16,
+    rechargeMs: 13333, // real 400F
+    knockbackCount: 3,
+    knockbackDistance: 12,
     knockbackType: 'normal',
     color: 0x3399ff,
-    label: 'Sn',
+    label: 'F',
     special: { type: 'none' },
-    critChance: 0.15,
+    critChance: 0,
+    // Strong Against Red (めっぽう強い) — the guide's real ability here too.
+    strongVs: 'red',
     statusOnHit: NO_STATUS,
-    // Long Distance (bible §A.3.8): can't hit anything within 80px, but
-    // reaches all the way out to 220px — the longest window in the roster.
-    longDistance: { min: 80, max: 220 },
-    // Zombie Killer (bible §A.3.8): a precise finishing shot that denies a
-    // Zombie-trait enemy its revive when this unit lands the killing blow
-    // — see ENEMY_CONFIG.js's `zombie` entry and GameScene.handleEnemyDeath.
-    zombieKiller: true,
     sprite: { idle: "/sprites/units/unit_sniper_idle.png", attack: "/sprites/units/unit_sniper_attack.png", hit: "/sprites/units/unit_sniper_hit.png", run: ["/sprites/units/unit_sniper_run_0.png", "/sprites/units/unit_sniper_run_1.png"], idleAnim: ["/sprites/units/unit_sniper_idleanim_0.png", "/sprites/units/unit_sniper_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_sniper_evolved_idle.png", attack: "/sprites/units/unit_sniper_evolved_attack.png", hit: "/sprites/units/unit_sniper_evolved_hit.png", run: ["/sprites/units/unit_sniper_evolved_run_0.png", "/sprites/units/unit_sniper_evolved_run_1.png"] } },
   },
+  support: {
+    id: 'support',
+    displayName: 'Lizard Cat',
+    characterName: 'Mit', // ネコトカゲ／ネコドラゴン／ネコキングドラゴン (Lizard Cat / Dragon Cat / King Dragon Cat)
+    role: 'support',
+    unlockRequirement: { stageId: 'stage7' },
+    cost: 1500,
+    hp: 800,
+    damage: 350,
+    attackSpeed: 8.1, // dps ~28.4 — interval 4300ms (129F), split 333/3967 below (real 10F/119F)
+    foreswingMs: 333,
+    backswingMs: 3967,
+    moveSpeed: 55, // real spd 10 — same as Cat's
+    radius: 14,
+    range: 40, // the roster's true longest reach (real range 400 — the biggest of any Basic-tier lineage)
+    rechargeMs: 19333, // real 580F
+    knockbackCount: 3,
+    knockbackDistance: 12,
+    knockbackType: 'normal',
+    color: 0x6666cc,
+    label: 'L',
+    special: { type: 'none' },
+    critChance: 0,
+    statusOnHit: NO_STATUS,
+    sprite: { idle: "/sprites/units/unit_support_idle.png", attack: "/sprites/units/unit_support_attack.png", hit: "/sprites/units/unit_support_hit.png", run: ["/sprites/units/unit_support_run_0.png", "/sprites/units/unit_support_run_1.png"], idleAnim: ["/sprites/units/unit_support_idleanim_0.png", "/sprites/units/unit_support_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_support_evolved_idle.png", attack: "/sprites/units/unit_support_evolved_attack.png", hit: "/sprites/units/unit_support_evolved_hit.png", run: ["/sprites/units/unit_support_evolved_run_0.png", "/sprites/units/unit_support_evolved_run_1.png"] } },
+  },
+  titan: {
+    id: 'titan',
+    displayName: 'Titan Cat',
+    characterName: 'Temujin', // 巨神ネコ／ネコダラボッチ／ネコジャラミ (Titan Cat / Mythical Titan Cat / Jamiera Cat)
+    role: 'titan',
+    unlockRequirement: { stageId: 'stage8' },
+    cost: 1950,
+    hp: 1000,
+    damage: 280,
+    attackSpeed: 12.5, // dps ~125.6 — interval 2233ms (67F), split 600/1633 below (real 18F/49F)
+    foreswingMs: 600,
+    backswingMs: 1633,
+    moveSpeed: 44, // real spd 8 — 0.8x Cat's
+    radius: 30,
+    range: 30,
+    rechargeMs: 27333, // real 820F — the slowest recharge in the roster
+    knockbackCount: 1, // real kb 1 — doesn't stagger until it's actually defeated
+    knockbackDistance: 6,
+    knockbackType: 'normal',
+    color: 0x338833,
+    label: 'Ti',
+    special: { type: 'aoe', radius: 60 },
+    critChance: 0,
+    statusOnHit: NO_STATUS,
+    sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png", run: ["/sprites/units/unit_titan_run_0.png", "/sprites/units/unit_titan_run_1.png"], idleAnim: ["/sprites/units/unit_titan_idleanim_0.png", "/sprites/units/unit_titan_idleanim_1.png"] },
+  },
+
+  // --- Shelved, not part of the active Chapter-1 roster this pass (see
+  // docs/BATTLE_CATS_MAPPING.md's roadmap section). Xia/guardian doesn't
+  // correspond to any real Battle Cats Basic-tier lineage — its Barrier-tank
+  // identity belongs to a specific real Rare/Super-Rare-tier cat instead.
+  // Left in place (fully wired, real sprites) rather than deleted, since a
+  // future pass mapping the guide's Chapter 12 EX/Rare roster can reclaim it
+  // outright instead of rebuilding it from scratch. Excluded from
+  // PlayerProgress's default loadout and from every stage's unlock chain —
+  // see PlayerProgress.js's isUnitUnlocked, which never returns true for it.
   guardian: {
     id: 'guardian',
     displayName: 'Guardian',
-    characterName: "Xia", // the real Starter Axie this unit reskins
+    characterName: 'Xia',
     role: 'guardian',
-    trait: 'mech', // pairs with `tank`
-    // Identity: the roster's other mech-trait defender — not knockback-
-    // immune like `tank`, but far tankier in raw HP, hits harder, and
-    // carries its own Barrier shield (bible §A.3.8) on top, at the cost of
-    // being slower and much more expensive to field.
+    unlockRequirement: { stageId: null }, // never satisfied — see PlayerProgress.isUnitUnlocked
     cost: 250,
     hp: 120,
     damage: 3,
-    attackSpeed: 0.8, // dps 2.4 — interval 1250ms, split 35/65 below
+    attackSpeed: 0.8,
     foreswingMs: 438,
     backswingMs: 812,
     moveSpeed: 30,
@@ -449,88 +338,8 @@ export const UNIT_CONFIG = {
     label: 'Gd',
     special: { type: 'none' },
     critChance: 0,
-    // A shield-basher: weakens whatever it hits rather than freezing it
-    // (differentiating it from `tank`'s Stop).
-    statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.2, durationMs: 1000, multiplier: 0.6 },
-    // Barrier (bible §A.3.8): its own shell that must be cracked (or
-    // Barrier-Broken) before real damage gets through, layered on top of
-    // its already-high HP.
-    barrierMaxHp: 20,
-    // Colossus Slayer (bible §A.3.8): 1.6x damage dealt / 0.6x damage taken
-    // specifically against enemies carrying the Colossus superClass tag —
-    // see TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
-    colossusSlayer: true,
-    sprite: { idle: "/sprites/units/unit_guardian_idle.png", attack: "/sprites/units/unit_guardian_attack.png", hit: "/sprites/units/unit_guardian_hit.png", run: ["/sprites/units/unit_guardian_run_0.png", "/sprites/units/unit_guardian_run_1.png"], idleAnim: ["/sprites/units/unit_guardian_idleanim_0.png", "/sprites/units/unit_guardian_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_guardian_evolved_idle.png", attack: "/sprites/units/unit_guardian_evolved_attack.png", hit: "/sprites/units/unit_guardian_evolved_hit.png", run: ["/sprites/units/unit_guardian_evolved_run_0.png", "/sprites/units/unit_guardian_evolved_run_1.png"] } },
-  },
-  support: {
-    id: 'support',
-    displayName: 'Support',
-    characterName: "Mit", // the real Starter Axie this unit reskins
-    role: 'support',
-    trait: 'bug', // pairs with `ranged`
-    // Identity: low direct damage, but a strong, reliable Weaken plus a
-    // Toxic tick on the side — a utility/debuff specialist rather than a
-    // damage dealer, fitting bug/toxin theming.
-    cost: 350,
-    hp: 40,
-    damage: 8,
-    attackSpeed: 1.0, // dps 8 — interval 1000ms, split 35/65 below
-    foreswingMs: 350,
-    backswingMs: 650,
-    moveSpeed: 55,
-    radius: 14,
-    range: 70,
-    rechargeMs: 5000,
-    knockbackCount: 2,
-    knockbackDistance: 12,
-    knockbackType: 'normal',
-    color: 0x99cc99,
-    label: 'Su',
-    special: { type: 'none' },
-    critChance: 0.05,
-    statusOnHit: { type: STATUS_TYPES.WEAKEN, chance: 0.4, durationMs: 2000, multiplier: 0.5 },
-    toxicOnHit: { chance: 0.3, percent: 0.08 },
-    sprite: { idle: "/sprites/units/unit_support_idle.png", attack: "/sprites/units/unit_support_attack.png", hit: "/sprites/units/unit_support_hit.png", run: ["/sprites/units/unit_support_run_0.png", "/sprites/units/unit_support_run_1.png"], idleAnim: ["/sprites/units/unit_support_idleanim_0.png", "/sprites/units/unit_support_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_support_evolved_idle.png", attack: "/sprites/units/unit_support_evolved_attack.png", hit: "/sprites/units/unit_support_evolved_hit.png", run: ["/sprites/units/unit_support_evolved_run_0.png", "/sprites/units/unit_support_evolved_run_1.png"] } },
-  },
-  titan: {
-    id: 'titan',
-    displayName: 'Titan',
-    characterName: "Temujin", // the real Starter Axie this unit reskins
-    role: 'titan',
-    trait: 'plant', // pairs with `aoe`
-    // Identity: the roster's top-end powerhouse — the single most
-    // expensive and slowest-recharging unit, but hits an entire area for
-    // huge damage. The "if you can afford it, it changes the fight" unit.
-    // Surge Attack (bible §A.3.8) layers a second, independent ground-slam
-    // on top of its primary aoe hit — a colossus that keeps hurting things
-    // around itself for a moment after it swings.
-    cost: 1500,
-    hp: 200,
-    damage: 60,
-    attackSpeed: 0.5, // dps 30 — interval 2000ms, split 35/65 below
-    foreswingMs: 700,
-    backswingMs: 1300,
-    moveSpeed: 25,
-    radius: 30,
-    range: 30,
-    rechargeMs: 12000,
-    knockbackCount: 1,
-    knockbackDistance: 5,
-    knockbackType: 'normal',
-    color: 0x338833,
-    label: 'Ti',
-    special: { type: 'aoe', radius: 60 },
-    critChance: 0.05,
     statusOnHit: NO_STATUS,
-    // Surge Attack (bible §A.3.8): a delayed second shockwave from the
-    // Titan's own position, dealing the same damage as whatever hit
-    // triggered it.
-    surgeOnHit: { chance: 0.25, delayMs: 600, radius: 70 },
-    // Behemoth Slayer (bible §A.3.8): 2.5x damage dealt / 0.6x damage taken
-    // specifically against enemies carrying the Behemoth superClass tag —
-    // the roster's biggest unit countering the roster's biggest enemy
-    // class. See TRAIT_CONFIG.js's SUPER_CLASS_SLAYER_BONUSES.
-    behemothSlayer: true,
-    sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png", run: ["/sprites/units/unit_titan_run_0.png", "/sprites/units/unit_titan_run_1.png"], idleAnim: ["/sprites/units/unit_titan_idleanim_0.png", "/sprites/units/unit_titan_idleanim_1.png"] },
+    barrierMaxHp: 20,
+    sprite: { idle: "/sprites/units/unit_guardian_idle.png", attack: "/sprites/units/unit_guardian_attack.png", hit: "/sprites/units/unit_guardian_hit.png", run: ["/sprites/units/unit_guardian_run_0.png", "/sprites/units/unit_guardian_run_1.png"], idleAnim: ["/sprites/units/unit_guardian_idleanim_0.png", "/sprites/units/unit_guardian_idleanim_1.png"], evolved: { idle: "/sprites/units/unit_guardian_evolved_idle.png", attack: "/sprites/units/unit_guardian_evolved_attack.png", hit: "/sprites/units/unit_guardian_evolved_hit.png", run: ["/sprites/units/unit_guardian_evolved_run_0.png", "/sprites/units/unit_guardian_evolved_run_1.png"] } },
   },
 };

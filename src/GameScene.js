@@ -7,10 +7,13 @@ import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
 import {
-  FLAT_DAMAGE_TRAIT,
-  FLAT_DAMAGE_AMOUNT,
-  MATCHUP_BONUSES,
-  RESIST_BONUSES,
+  METAL_ATTRIBUTE,
+  METAL_FLAT_DAMAGE_AMOUNT,
+  STRONG_DEALT_MULTIPLIER,
+  STRONG_TAKEN_MULTIPLIER,
+  MASSIVE_DEALT_MULTIPLIER,
+  RESISTANT_TAKEN_MULTIPLIER,
+  CRITICAL_DEALT_MULTIPLIER,
   SUPER_CLASS_SLAYER_BONUSES,
 } from './TRAIT_CONFIG.js';
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
@@ -22,6 +25,7 @@ import {
   getBaseUpgradeLevel,
   addGems,
   trySpendGems,
+  isUnitUnlocked,
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
@@ -186,6 +190,13 @@ const BOSS_VISUAL_SCALE_MULTIPLIER = 1.6;
 // a quiet accent, both for units that get it alongside real evolved art
 // and Titan, which relies on it alone.
 const PART_EVOLUTION_GLOW_STRENGTH = 0.9;
+// Glow color now signals WHICH real Battle Cats Form a unit is standing in
+// for (see UNIT_CONFIG.js's own header) — Form 2 (Evolved, evolutionStage 1)
+// glows light blue, Form 3 (True, evolutionStage 2) glows purple — rather
+// than a single fixed gold regardless of stage, so the two real evolution
+// tiers this build already tracks (PROGRESSION_CONFIG.js's evolutionStage)
+// read as visually distinct at a glance, not just via the stats screen.
+const EVOLUTION_STAGE_GLOW_COLOR = { 1: 0x66ccff, 2: 0xaa66ff };
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
@@ -370,8 +381,12 @@ export default class GameScene extends Phaser.Scene {
     // The player's chosen Formation (bible §A.10.3) — only these units get
     // a deploy button at all, see createSpawnButtons. Falls back to every
     // unit if nothing's saved (Loadout.js's own default), so this never
-    // regresses a player who's never opened the Formation screen.
-    this.loadout = loadLoadout();
+    // regresses a player who's never opened the Formation screen. Filtered
+    // against isUnitUnlocked as a safety net regardless of what's saved —
+    // a lineage still gated behind a stage clear (or the shelved Guardian
+    // slot, see UNIT_CONFIG.js) never gets a deploy button, even if an old
+    // save somehow still lists it.
+    this.loadout = loadLoadout().filter((key) => isUnitUnlocked(key));
 
     // Cat-Combo-equivalent team synergy (bible §A.7.3) — purely a function
     // of which units are in the current Formation, read once here and
@@ -1272,8 +1287,9 @@ export default class GameScene extends Phaser.Scene {
 
     const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#000000', true, 1, isEvolved);
 
-    if (spriteImage && hasEvolved) {
-      spriteImage.postFX.addGlow(0xffdd33, PART_EVOLUTION_GLOW_STRENGTH, 0, false, 0.1, 12);
+    const glowColor = EVOLUTION_STAGE_GLOW_COLOR[unitProgress.evolutionStage];
+    if (spriteImage && hasEvolved && glowColor) {
+      spriteImage.postFX.addGlow(glowColor, PART_EVOLUTION_GLOW_STRENGTH, 0, false, 0.1, 12);
     }
 
     // Evolution-stage visual cue: only the circle-placeholder fallback gets
@@ -2558,14 +2574,43 @@ export default class GameScene extends Phaser.Scene {
   computeDamage(attacker, defender) {
     const isCrit = Math.random() < (attacker.config.critChance || 0);
 
-    if (defender.config.trait === FLAT_DAMAGE_TRAIT && !isCrit) {
-      return { damage: FLAT_DAMAGE_AMOUNT, isCrit };
+    // Metal (TRAIT_CONFIG.js): any non-critical hit is capped at a flat
+    // amount no matter what else would apply — Critical Hit is the one
+    // thing that ignores it, checked first and separately from every other
+    // ability below.
+    if (defender.config.attribute === METAL_ATTRIBUTE && !isCrit) {
+      return { damage: METAL_FLAT_DAMAGE_AMOUNT, isCrit };
     }
 
-    const strongBonus = MATCHUP_BONUSES[attacker.config.trait]?.[defender.config.trait] ?? 1;
-    const resistMultiplier = RESIST_BONUSES[defender.config.trait]?.[attacker.config.trait] ?? 1;
+    // Real Battle Cats abilities target an ENEMY's attribute, not a
+    // symmetric trait-vs-trait cycle (see TRAIT_CONFIG.js's header): a unit
+    // never "has" an attribute of its own, so this only ever looks at
+    // whichever side in this hit is the enemy.
+    const enemyConfig = attacker.isPlayerSide ? defender.config : attacker.config;
+    const unitConfig = attacker.isPlayerSide ? attacker.config : defender.config;
+    const enemyAttribute = enemyConfig.attribute;
+
+    let strongBonus = 1;
+    if (enemyAttribute) {
+      if (attacker.isPlayerSide && unitConfig.massiveVs === enemyAttribute) {
+        strongBonus = MASSIVE_DEALT_MULTIPLIER; // Massive Damage: dealt only
+      } else if (attacker.isPlayerSide && unitConfig.strongVs === enemyAttribute) {
+        strongBonus = STRONG_DEALT_MULTIPLIER; // Strong Against, dealt half
+      }
+    }
+
+    let resistMultiplier = 1;
+    if (!attacker.isPlayerSide && enemyAttribute) {
+      // The enemy is attacking; `unitConfig` is the defending unit here.
+      if (unitConfig.strongVs === enemyAttribute) {
+        resistMultiplier = STRONG_TAKEN_MULTIPLIER; // Strong Against, taken half
+      } else if (unitConfig.resistantVs === enemyAttribute) {
+        resistMultiplier = RESISTANT_TAKEN_MULTIPLIER; // Resistant: taken only
+      }
+    }
+
     const weakenMultiplier = attacker.weakenMs > 0 ? attacker.weakenMultiplier : 1;
-    const critMultiplier = isCrit ? 2 : 1;
+    const critMultiplier = isCrit ? CRITICAL_DEALT_MULTIPLIER : 1;
     const superClassMultiplier = this.getSuperClassMultiplier(attacker, defender);
 
     const damage =

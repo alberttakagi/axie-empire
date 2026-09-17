@@ -77,8 +77,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Normal',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.08,
-    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 100,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 2500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -98,8 +98,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Rare',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.06,
-    growthPercentPerLevelExtra: 0.03, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 1000,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 25000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -119,8 +119,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Normal',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.08,
-    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 200,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 5000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -140,8 +140,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Rare',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.07,
-    growthPercentPerLevelExtra: 0.035, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 800,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 20000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -161,8 +161,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Super Rare',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.05,
-    growthPercentPerLevelExtra: 0.025, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 1300,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 32500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -186,8 +186,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Normal',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.08,
-    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 50,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 1250, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -207,8 +207,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Rare',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.06,
-    growthPercentPerLevelExtra: 0.03, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 900,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 22500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -228,8 +228,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Normal',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.08,
-    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 250,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 6250, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -249,8 +249,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Rare',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.07,
-    growthPercentPerLevelExtra: 0.035, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 600,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 15000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -270,8 +270,8 @@ export const PROGRESSION_CONFIG = {
     rarity: 'Super Rare',
     baseLevelCap: 10,
     maxExtraCap: 10,
-    growthPercentPerLevel: 0.05,
-    growthPercentPerLevelExtra: 0.025, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
+    growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
+    growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 1500,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 37500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
