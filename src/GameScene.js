@@ -1068,8 +1068,22 @@ export default class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
 
+    // A hitArea Circle is defined in the object's own LOCAL space, which for
+    // an Arc/Circle game object is top-left-anchored (0,0) to
+    // (displayWidth, displayHeight) — NOT centered on the shape the way its
+    // world x/y position is. A circle "centered" at local (0,0) actually
+    // sits at the button's top-left corner, covering only its upper-left
+    // quadrant (and an equal area beyond it, off the visible button
+    // entirely) instead of the button itself, so a tap anywhere near the
+    // visible circle's true center — which is what a player naturally taps
+    // — silently misses. Centering the hitArea circle at (radius, radius)
+    // instead matches it to the button's actual visible bounds.
     this.cannonBase
-      .setInteractive({ useHandCursor: true, hitArea: new Phaser.Geom.Circle(0, 0, CANNON_BUTTON_RADIUS), hitAreaCallback: Phaser.Geom.Circle.Contains })
+      .setInteractive({
+        useHandCursor: true,
+        hitArea: new Phaser.Geom.Circle(CANNON_BUTTON_RADIUS, CANNON_BUTTON_RADIUS, CANNON_BUTTON_RADIUS),
+        hitAreaCallback: Phaser.Geom.Circle.Contains,
+      })
       .on('pointerdown', () => this.tryTriggerSpecialBurst());
   }
 
