@@ -101,11 +101,16 @@ aren't wired up yet (see Known Gaps).
 
 ## Known gaps / explicit follow-up work
 
-1. **Saga2/saga3 (stage11-30) are NOT rebalanced.** They still reference the
-   same `ENEMY_CONFIG` keys, whose stats are now dramatically different
-   (e.g. old `titan` enemy hp 260 → real Emperor Nyandam 99999). Nothing
-   crashes, but every `statMultiplier` in those 20 stages is now wildly
-   miscalibrated. This needs the same rebalancing pass saga1 just got.
+1. ~~Saga2/saga3 (stage11-30) are NOT rebalanced.~~ **Done in a follow-up
+   pass the same night**: saga2/saga3 now reuse saga1's own 10 real enemies
+   (no new types) at climbing `statMultiplier` (real Battle Cats repeats the
+   identical map across Chapters 1-3, just raising enemy strength — matched
+   here), same constant real economy, with Emperor Nyandam re-fought
+   (stronger each time) as both Chapter 2's and Chapter 3's final boss,
+   matching how the real game re-fights its own chapter-1 final boss at the
+   end of chapters 2 and 3. `zombie`/`colossus`/`behemoth` were dropped from
+   these stages' spawn scripts (still dormant, not fully rebalanced/wired
+   into real data) rather than left in at miscalibrated strength.
 2. **Only 10 of the guide's 24 early enemies are wired up.** Adding the
    other 14 (にょろ's cousins, 例のヤツ, メェメェ, ワニック, ウサ銀,
    一角くん, 赤羅我王, カオル君, カンバン娘, ガガガガ, ぶんぶん先生, etc.)
