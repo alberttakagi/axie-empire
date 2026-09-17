@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
-import { isMuted, setMuted } from './Audio.js';
+import { isMuted, setMuted, playUiTapSfx } from './Audio.js';
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
@@ -75,13 +75,19 @@ export default class HomeScene extends Phaser.Scene {
       .rectangle(this.scale.width - 60, 24, 96, 32, 0xcc9933)
       .setInteractive({ useHandCursor: true });
     this.add.text(this.scale.width - 60, 24, 'Treasure', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    treasureButton.on('pointerdown', () => this.scene.start('TreasureScene'));
+    treasureButton.on('pointerdown', () => {
+      playUiTapSfx();
+      this.scene.start('TreasureScene');
+    });
 
     const gachaButton = this.add
       .rectangle(this.scale.width - 164, 24, 96, 32, 0x33aacc)
       .setInteractive({ useHandCursor: true });
     this.add.text(this.scale.width - 164, 24, 'Gacha', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    gachaButton.on('pointerdown', () => this.scene.start('GachaScene'));
+    gachaButton.on('pointerdown', () => {
+      playUiTapSfx();
+      this.scene.start('GachaScene');
+    });
 
     this.add
       .text(16, 60, `Gems: ${playerProgress.gems.toLocaleString()}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#66ddff' })
@@ -114,7 +120,10 @@ export default class HomeScene extends Phaser.Scene {
         .rectangle(centerX, y, PRIMARY_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT, button.color)
         .setInteractive({ useHandCursor: true });
       this.add.text(centerX, y, button.label, { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
-      rect.on('pointerdown', () => this.scene.start(button.scene));
+      rect.on('pointerdown', () => {
+        playUiTapSfx();
+        this.scene.start(button.scene);
+      });
     });
   }
 
@@ -137,7 +146,10 @@ export default class HomeScene extends Phaser.Scene {
 
     const rect = this.add.rectangle(x, y, 200, 36, 0x669933).setInteractive({ useHandCursor: true });
     this.add.text(x, y, 'Sparring Grounds', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.scene.start('GameScene', { mode: 'dojo' }));
+    rect.on('pointerdown', () => {
+      playUiTapSfx();
+      this.scene.start('GameScene', { mode: 'dojo' });
+    });
   }
 
   createSecondaryIcons() {
@@ -169,6 +181,7 @@ export default class HomeScene extends Phaser.Scene {
       }
 
       rect.on('pointerdown', () => {
+        playUiTapSfx();
         if (icon.label === 'Menu') this.showMenuPopup();
         else if (icon.label === 'Missions') this.scene.start('MissionsScene');
         else this.showComingSoon(icon.label);
@@ -224,6 +237,7 @@ export default class HomeScene extends Phaser.Scene {
       // without this, tapping a guide button would fire both handlers.
       rect.on('pointerdown', (pointer, localX, localY, event) => {
         event.stopPropagation();
+        playUiTapSfx();
         this.scene.start('CatalogScene', { rosterType: guide.rosterType });
       });
       objects.push(rect, label);

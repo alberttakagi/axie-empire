@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { getMissionsWithStatus, claimMission } from './Missions.js';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { playUiTapSfx } from './Audio.js';
 
 // The bible §A.10.1 Missions icon — previously a "coming soon" toast (see
 // HomeScene.js's own header comment on why Gamatoto/Missions were deferred).
@@ -174,6 +175,7 @@ export default class MissionsScene extends Phaser.Scene {
     if (mission.isComplete) {
       rect.setInteractive({ useHandCursor: true });
       rect.on('pointerdown', () => {
+        playUiTapSfx();
         const claimed = claimMission(mission.id);
         if (claimed) this.showMessage(`+${claimed.rewardGems} Gems!`);
         this.refresh();

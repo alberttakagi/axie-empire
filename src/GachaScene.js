@@ -8,6 +8,7 @@ import {
   rollMulti,
 } from './Gacha.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { playUiTapSfx } from './Audio.js';
 
 // The bible's §A.10.7 Gacha screen — adapted per Gacha.js's scope note
 // (reward-tier pulls instead of unit rolls, since this build's roster has
@@ -68,6 +69,7 @@ export default class GachaScene extends Phaser.Scene {
         this.resultText.setText('Not enough Gems!');
         return;
       }
+      playUiTapSfx();
       this.resultText.setText(result.rewards.map((label, index) => `${index + 1}. ${label}`).join('\n'));
       this.refreshGems();
     });

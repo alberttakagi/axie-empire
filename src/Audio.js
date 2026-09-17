@@ -137,6 +137,13 @@ export function playDeploySfx() {
   playTone({ freq: 520, duration: 0.09, type: 'square', peakGain: 0.12 });
 }
 
+// A generic UI "tock" for menu navigation/confirm taps (Home's primary
+// buttons, a Mission claim, a Gacha roll) — distinct from Deploy's own sfx
+// above so an in-battle spawn still reads as its own, busier sound.
+export function playUiTapSfx() {
+  playTone({ freq: 340, duration: 0.05, type: 'triangle', peakGain: 0.1 });
+}
+
 // A short, low-gain percussive "thwack" for a normal hit landing — kept
 // quiet/short on purpose since many can overlap in a single frame (an AoE
 // hit, several units attacking at once), unlike the rarer stingers below.
