@@ -2561,15 +2561,13 @@ export default class GameScene extends Phaser.Scene {
     }
   }
 
-  // Resolves one hit's damage against `defender`'s trait, including this
-  // attacker's own Critical Hit roll and Weaken debuff (if any is currently
-  // active on it). Critical Hit is uniquely the one thing that bypasses the
-  // flat-damage-vs-alloy rule (bible §A.3.6), so it's rolled and checked
-  // FIRST — if it fires against an alloy defender, the flat-damage
-  // short-circuit is skipped entirely and damage is computed normally
-  // (alloy has no MATCHUP_BONUSES/RESIST_BONUSES entries either way, so
-  // that normal computation already reduces to plain attacker damage,
-  // doubled by the crit). Weaken multiplies the ATTACKER's outgoing damage
+  // Resolves one hit's damage against `defender`'s real Battle Cats
+  // attribute (see TRAIT_CONFIG.js), including this attacker's own Critical
+  // Hit roll and Weaken debuff (if any is currently active on it). Critical
+  // Hit is uniquely the one thing that bypasses Metal's flat-damage rule,
+  // so it's rolled and checked FIRST — if it fires against a Metal
+  // defender, the flat-damage short-circuit is skipped entirely and damage
+  // is computed normally. Weaken multiplies the ATTACKER's outgoing damage
   // (bible §A.3.8 — Weaken touches attack power only, never movement).
   computeDamage(attacker, defender) {
     const isCrit = Math.random() < (attacker.config.critChance || 0);
