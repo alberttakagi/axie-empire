@@ -861,3 +861,16 @@ export const STAGE_CONFIG = [
     ],
   },
 ];
+
+// Unit cost scales per stage/chapter (bible §A.3.7) — NEVER per unit level.
+// Battle Cats' own stated range is "commonly 1.0x in the earliest content,
+// rising to ~1.5x-2.0x in later chapters"; mapped directly onto this game's
+// 3 sagas (rather than a smooth per-stage ramp) since the bible describes it
+// in exactly those chapter-bucket terms. Applied at summon time
+// (GameScene.trySpawnUnit) on top of UNIT_CONFIG's own base cost — falls
+// back to 1.0x for a saga-less pseudo-stage (Sparring Grounds' dojo mode).
+const SAGA_COST_MULTIPLIERS = { saga1: 1.0, saga2: 1.5, saga3: 2.0 };
+
+export function getStageCostMultiplier(stage) {
+  return SAGA_COST_MULTIPLIERS[stage?.saga] ?? 1.0;
+}

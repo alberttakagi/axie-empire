@@ -14,12 +14,23 @@
 // `maxExtraCap`  — further levels reachable ONLY by consuming a Growth
 // Charm per level (bible §A.4.3's Catseye-equivalent) once baseLevelCap is
 // hit. True max level = baseLevelCap + maxExtraCap.
-// `growthPercentPerLevel` — bible §A.4.2 describes a real per-unit,
-// per-decade-bracket tapering curve (20%→10%→5% as level rises); this build
-// simplifies that to one flat rate for the unit's whole level range
-// (documented as a deliberate simplification, same spirit as the
-// foreswing/backswing split in UNIT_CONFIG.js). Applied as:
-//   effectiveStat = baseStat * evolutionMultiplier * (1 + growthPercentPerLevel * (level - 1))
+// `growthPercentPerLevel` / `growthPercentPerLevelExtra` — bible §A.4.2
+// describes a real per-unit, per-decade-bracket tapering curve (20%→10%→5%
+// as level rises), not a flat rate for the unit's whole life. This build's
+// level range (1..baseLevelCap via XP, baseLevelCap+1..+maxExtraCap via
+// Growth Charms) is much shorter than the bible's reference 1-60+ range, so
+// rather than force the bible's literal decade breakpoints onto a ~20-level
+// scale (which would put this whole game inside the bible's own single
+// "early" bracket and never taper at all), it steps down exactly once, at
+// the same level this game's own level-cap structure already steps: the
+// unit's usual rate applies through baseLevelCap, then
+// growthPercentPerLevelExtra (always half the base rate) applies to every
+// level past that. Applied as:
+//   levelsAtBaseRate = min(level, baseLevelCap) - 1
+//   levelsAtExtraRate = max(0, level - baseLevelCap)
+//   growthMultiplier = 1 + growthPercentPerLevel * levelsAtBaseRate
+//                        + growthPercentPerLevelExtra * levelsAtExtraRate
+//   effectiveStat = baseStat * evolutionMultiplier * growthMultiplier
 // to hp and damage ONLY — every other stat (cost, recharge, range, etc.)
 // stays level-invariant, per the bible.
 //
@@ -67,6 +78,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.08,
+    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 100,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 2500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -87,6 +99,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.06,
+    growthPercentPerLevelExtra: 0.03, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 1000,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 25000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -107,6 +120,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.08,
+    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 200,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 5000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -127,6 +141,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.07,
+    growthPercentPerLevelExtra: 0.035, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 800,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 20000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -147,6 +162,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.05,
+    growthPercentPerLevelExtra: 0.025, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 1300,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 32500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -171,6 +187,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.08,
+    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 50,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 1250, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -191,6 +208,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.06,
+    growthPercentPerLevelExtra: 0.03, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 900,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 22500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -211,6 +229,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.08,
+    growthPercentPerLevelExtra: 0.04, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 250,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 6250, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -231,6 +250,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.07,
+    growthPercentPerLevelExtra: 0.035, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 600,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 15000, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },
@@ -251,6 +271,7 @@ export const PROGRESSION_CONFIG = {
     baseLevelCap: 10,
     maxExtraCap: 10,
     growthPercentPerLevel: 0.05,
+    growthPercentPerLevelExtra: 0.025, // bible §A.4.2: growth rate steps DOWN past baseLevelCap (Growth-Charm-extended levels), not flat
     xpCostBase: 1500,
     evolutions: [
       { name: 'Evolved', unlockLevel: 5, xpCost: 37500, evoShardCost: 0, hpMultiplier: 1.25, damageMultiplier: 1.15 },

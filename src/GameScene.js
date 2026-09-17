@@ -3,7 +3,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
-import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
 import {
@@ -61,7 +61,16 @@ function getBaseUpgradeEffect(key) {
   return getBaseUpgradeLevel(key) * BASE_UPGRADE_CONFIG[key].perLevelEffect;
 }
 
-const MIN_RECHARGE_MS = 500; // Research can never push a unit's recharge below this
+const MIN_RECHARGE_MS = 2000; // bible §A.3.2: hard floor is 60 frames @ 30fps = 2.0s, across the whole game — Research can never push a unit's recharge below this
+
+// Global deploy limit (bible §A.3.11) — "a wide default ceiling" on every
+// stage, tightened by specific Restriction Stages' own (much smaller)
+// `restrictions.maxDeployed` value (see STAGE_CONFIG.js — those already use
+// 3/4/5). The bible doesn't pin an exact reference number for the
+// unrestricted default, only that it should rarely bind — 20 sits
+// comfortably above every Restriction Stage's own explicit cap while still
+// being a real ceiling against unlimited spam.
+const DEFAULT_MAX_DEPLOYED = 20;
 const SPEED_UP_MULTIPLIER = 2;
 
 // In-battle income ramps up over the fight rather than staying flat (bible
@@ -749,7 +758,7 @@ export default class GameScene extends Phaser.Scene {
         .setOrigin(0.5);
 
       const costText = this.add
-        .text(x, costY, `${Math.round(config.cost).toLocaleString()}円`, {
+        .text(x, costY, `${this.getUnitCost(config).toLocaleString()}円`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
           color: '#000000',
         })
@@ -1058,19 +1067,31 @@ export default class GameScene extends Phaser.Scene {
     return this.stage.startingMoney + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.walletCapPerLevel;
   }
 
+  // Unit cost scales per stage/chapter, never per unit level (bible §A.3.7,
+  // see STAGE_CONFIG.js's getStageCostMultiplier) — the single source every
+  // afford-check, spawn-button label, and deduction reads from, so they
+  // can't drift out of sync with each other.
+  getUnitCost(config) {
+    return Math.round(config.cost * getStageCostMultiplier(this.stage));
+  }
+
   trySpawnUnit(key) {
     if (this.isGameOver) return;
     if (this.unitCooldowns[key] > 0) return;
 
     // Cost never scales with level/evolution (bible §A.3.2/§A.4.2) — always
-    // checked/charged against the unit's plain UNIT_CONFIG cost, never the
-    // effective (leveled) config.
+    // checked/charged against the unit's plain UNIT_CONFIG cost (scaled only
+    // by this stage's cost multiplier, bible §A.3.7 — see getUnitCost),
+    // never the effective (leveled) config.
     const baseConfig = UNIT_CONFIG[key];
-    if (this.money < baseConfig.cost) return;
+    const cost = this.getUnitCost(baseConfig);
+    if (this.money < cost) return;
 
     // Restriction Stage checks (bible §A.6.5) — a no-op on any stage
     // without a `restrictions` block (including Sparring Grounds' synthetic
-    // pseudo-stage, which never has one).
+    // pseudo-stage, which never has one). costRange is checked against the
+    // unit's UNSCALED base cost, matching how the restriction's own min/max
+    // band was authored, independent of this stage's cost multiplier.
     const restrictions = this.stage.restrictions;
     if (restrictions?.bannedUnitTypes?.includes(key)) {
       this.showRestrictionMessage('Banned in this stage!');
@@ -1080,10 +1101,15 @@ export default class GameScene extends Phaser.Scene {
       this.showRestrictionMessage(`Cost must be ${restrictions.costRange.min}-${restrictions.costRange.max}円!`);
       return;
     }
-    if (restrictions?.maxDeployed) {
+    // Global deploy limit (bible §A.3.11): every stage has SOME ceiling on
+    // simultaneously-alive units, not just the ones that declare their own
+    // (tighter) Restriction Stage value — the bible calls for "a wide
+    // default ceiling," not "no ceiling at all," on ordinary stages.
+    {
+      const maxDeployed = restrictions?.maxDeployed ?? DEFAULT_MAX_DEPLOYED;
       const currentlyDeployed = this.playerUnits.filter((unit) => unit.hp > 0).length;
-      if (currentlyDeployed >= restrictions.maxDeployed) {
-        this.showRestrictionMessage(`Max ${restrictions.maxDeployed} units at once!`);
+      if (currentlyDeployed >= maxDeployed) {
+        this.showRestrictionMessage(`Max ${maxDeployed} units at once!`);
         return;
       }
     }
@@ -1111,7 +1137,7 @@ export default class GameScene extends Phaser.Scene {
       rechargeMs: recharge,
     };
 
-    this.money -= baseConfig.cost;
+    this.money -= cost;
     this.unitCooldowns[key] = recharge;
     this.unitCooldownDurations[key] = recharge;
     this.spawnUnit(key, finalConfig);
@@ -1519,7 +1545,7 @@ export default class GameScene extends Phaser.Scene {
 
   updateSpawnButtons() {
     for (const button of this.spawnButtons) {
-      const affordable = this.money >= button.config.cost;
+      const affordable = this.money >= this.getUnitCost(button.config);
       const alpha = affordable ? 1 : 0.4;
 
       button.rect.setAlpha(alpha);
@@ -2422,10 +2448,18 @@ export default class GameScene extends Phaser.Scene {
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
     objects.push(
       this.add
-        .text(width / 2, height / 2 - 50, `Your base was destroyed!\nContinue for ${cost} Gems?`, {
+        .text(width / 2, height / 2 - 60, `Your base was destroyed!\nContinue for ${cost} Gems?`, {
           fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
           color: '#ffffff',
           align: 'center',
+        })
+        .setOrigin(0.5),
+    );
+    objects.push(
+      this.add
+        .text(width / 2, height / 2 - 20, `You have ${loadPlayerProgress().gems.toLocaleString()} Gems`, {
+          fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
+          color: '#66ddff',
         })
         .setOrigin(0.5),
     );

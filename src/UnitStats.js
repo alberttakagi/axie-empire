@@ -51,7 +51,15 @@ export function getEffectiveUnitConfig(type) {
     if (meta.evolutions[i].critChanceBonus) critChance += meta.evolutions[i].critChanceBonus;
   }
 
-  const growthMultiplier = 1 + meta.growthPercentPerLevel * (unitProgress.level - 1);
+  // Stepped growth curve (bible §A.4.2 — see PROGRESSION_CONFIG.js's own
+  // header comment for the full reasoning): the unit's usual rate applies
+  // up through baseLevelCap, then the halved "extra" rate applies to every
+  // level reached only via Growth Charms beyond that — growth STEPS DOWN
+  // as level rises rather than staying flat for the unit's whole life.
+  const levelsAtBaseRate = Math.min(unitProgress.level, meta.baseLevelCap) - 1;
+  const levelsAtExtraRate = Math.max(0, unitProgress.level - meta.baseLevelCap);
+  const growthMultiplier =
+    1 + meta.growthPercentPerLevel * levelsAtBaseRate + meta.growthPercentPerLevelExtra * levelsAtExtraRate;
   hp *= growthMultiplier;
   damage *= growthMultiplier;
 

@@ -363,7 +363,13 @@ export const UNIT_CONFIG = {
     moveSpeed: 60,
     radius: 10,
     range: 10,
-    rechargeMs: 1500,
+    // 2500, not the roster-wide-cheapest 1500 this used to be: the bible's
+    // hard recharge floor is 2000ms (60 frames @ 30fps, see GameScene.js's
+    // MIN_RECHARGE_MS) — any base value at or below that floor makes
+    // Research's redeploy-time reduction a dead stat for this unit specifically.
+    // 2500 keeps swarm the fastest-recharging unit in the roster while still
+    // leaving Research room to do something (down to the 2000 floor).
+    rechargeMs: 2500,
     knockbackCount: 2,
     knockbackDistance: 10,
     knockbackType: 'normal',
