@@ -1277,7 +1277,11 @@ export default class GameScene extends Phaser.Scene {
   // itself, not the texture, so it survives every later setEntityPose
   // texture swap without needing to be re-applied.
   // `visualScaleMultiplier` (default 1) is a pure display multiplier on top
-  // of the usual radius-based fit — see BOSS_VISUAL_SCALE_MULTIPLIER.
+  // of the usual radius-based fit, currently unused by anything (a boss's
+  // bigger look now comes from its own pre-scaled config.radius instead —
+  // see spawnScriptedEnemy/BOSS_VISUAL_SCALE_MULTIPLIER) — kept as a
+  // general knob for whatever future entry wants to look bigger/smaller
+  // than its radius alone would imply, without needing a hitbox to match.
   // `isEvolved` (player units only — see spawnUnit) selects the unit's real
   // evolved ("awakened") texture set instead of its base one, when
   // `config.sprite.evolved` exists — see UNIT_CONFIG.js's field comment and
@@ -1317,13 +1321,36 @@ export default class GameScene extends Phaser.Scene {
 
   // Stage mode: fixed script — no randomness, no tier-based auto-scaling.
   // Only hp is scaled (by the script entry's own statMultiplier) — per
-  // STAGE_CONFIG.js's contract.
+  // STAGE_CONFIG.js's contract — EXCEPT for a boss's radius/range, which
+  // need to keep pace with its visual size (see below).
   spawnScriptedEnemy(entry) {
     const base = ENEMY_CONFIG[entry.enemyId];
     const config = {
       ...base,
       hp: Math.round(base.hp * entry.statMultiplier),
     };
+
+    if (entry.isBoss) {
+      // A boss needs to look BOSS_VISUAL_SCALE_MULTIPLIER bigger than its
+      // base config would normally render (createEnemy's own
+      // fitSpriteToRadius already sizes a sprite off config.radius alone,
+      // so inflating radius here is what makes it look bigger — no
+      // separate visual-only multiplier is applied on top anymore, which
+      // would double it up). Left unscaled, radius/range would still be
+      // pure numbers with no idea the sprite got bigger —
+      // inRange/getMaxRange only ever look at these fields, never the
+      // actual rendered pixel size — so a small enough unit's per-frame
+      // step could carry it from "not yet in range" to "already past the
+      // boss's position" without ever registering as in range at all,
+      // visibly walking through the oversized sprite and straight on
+      // toward the enemy base while the boss stands there undamaged.
+      // Scaling radius (and range too, for every boss role here, where
+      // range === radius —
+      // a pure melee identity) by the same multiplier keeps the hitbox
+      // honest against what's actually on screen.
+      config.radius = Math.round(base.radius * BOSS_VISUAL_SCALE_MULTIPLIER);
+      if (base.range === base.radius) config.range = config.radius;
+    }
 
     this.createEnemy(entry.enemyId, config, entry.isBoss);
 
@@ -1418,7 +1445,12 @@ export default class GameScene extends Phaser.Scene {
 
   createEnemy(type, config, isBoss = false) {
     const x = this.enemyBaseX - BASE_WIDTH / 2 - config.radius;
-    const visualScaleMultiplier = isBoss ? BOSS_VISUAL_SCALE_MULTIPLIER : 1;
+    // No separate visual-only multiplier here anymore — a boss's config
+    // already comes in with radius/range pre-scaled by
+    // BOSS_VISUAL_SCALE_MULTIPLIER (see spawnScriptedEnemy), so the normal
+    // radius-based sizing below already renders it bigger on its own;
+    // multiplying again on top of that would double-scale it.
+    const visualScaleMultiplier = 1;
     const { shape, label, spriteImage } = this.createEntityVisual(x, config, '#ffffff', false, visualScaleMultiplier);
 
     const entity = this.makeEntityState(type, config, shape, label, spriteImage, false, visualScaleMultiplier);
@@ -1449,10 +1481,11 @@ export default class GameScene extends Phaser.Scene {
       // setTexture calls. See updateEntityPoses/getDesiredPose/setEntityPose.
       // isPlayerSide is only needed here so setEntityPose can rebuild the
       // same 'unit_'/'enemy_' prefixed texture key createEntityVisual used.
-      // visualScaleMultiplier is a boss's size bump (see
-      // BOSS_VISUAL_SCALE_MULTIPLIER) — createEntityVisual is the only
-      // place it's actually applied (setEntityPose never touches scale;
-      // see its own comment), kept here only so it's available if a future
+      // visualScaleMultiplier is a pure display multiplier, currently
+      // always 1 in practice (see createEntityVisual's own comment) —
+      // createEntityVisual is the only place it's actually applied
+      // (setEntityPose never touches scale; see its own comment), kept
+      // here only so it's available if a future
       // caller needs to know an entity's boss-ness after the fact.
       // isEvolved (player units only) is the same idea for the real evolved
       // texture set — see createEntityVisual/UNIT_CONFIG.js's
