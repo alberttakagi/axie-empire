@@ -67,8 +67,13 @@ import { NO_STATUS } from './STATUS_CONFIG.js';
 //                   function, to a player unfamiliar with the reference
 //                   game — this keeps that at-a-glance clarity alongside
 //                   the real name instead of losing it.
-//   cost            yen to deploy one (real Lv1 price, Chapter 2-basis per
-//                   the guide's own convention — see its Chapter 05 note).
+//   cost            yen to deploy one — the real Chapter 1 BASELINE price
+//                   (guide's updated Chapter 14 data: "コストは章によって
+//                   変わります。第1章は基準値、第2章は1.5倍です"). Chapter
+//                   2/3 pricing isn't a different config value — it's
+//                   STAGE_CONFIG.js's own SAGA_COST_MULTIPLIERS (1.0/1.5/2.0)
+//                   applied on top of this same base at spawn time, exactly
+//                   reproducing the guide's real per-chapter numbers.
 //   hp/damage       Lv1, no treasure, no research — see UnitStats.js for how
 //                   PROGRESSION_CONFIG.js's real Lv-multiplier formula scales
 //                   these up from here.
@@ -89,7 +94,7 @@ export const UNIT_CONFIG = {
     characterName: 'Tripp', // ネコ／ネコビルダー／ネコモヒカン (Cat / Macho Cat / Mohawk Cat)
     role: 'basic',
     unlockRequirement: null, // available from the very start, matching real Battle Cats' own day-1 roster
-    cost: 75,
+    cost: 50,
     hp: 100,
     damage: 8,
     attackSpeed: 24.3, // dps ~1.95 — interval 1233ms (37F), split 267/966 below (real 8F/29F)
@@ -116,7 +121,7 @@ export const UNIT_CONFIG = {
     characterName: 'Olek', // タンクネコ／ネコカベ／ゴムネコ (Tank Cat / Wall Cat / Eraser Cat)
     role: 'tank',
     unlockRequirement: { stageId: 'stage1' },
-    cost: 150,
+    cost: 100,
     hp: 400,
     damage: 2,
     attackSpeed: 2.4, // dps ~0.9 — interval 2233ms (67F), split 267/1966 below (real 8F/59F)
@@ -142,8 +147,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Melee Attacker',
     characterName: 'Shillin', // バトルネコ／勇者ネコ／暗黒ネコ (Axe Cat / Brave Cat / Dark Cat)
     role: 'swarm',
-    unlockRequirement: { stageId: 'stage2' },
-    cost: 300,
+    unlockRequirement: { stageId: 'stage3' }, // real: 鹿児島県クリア
+    cost: 200,
     hp: 200,
     damage: 25,
     attackSpeed: 33.3, // dps ~9.3 — interval 900ms (27F), split 267/633 below (real 8F/19F)
@@ -172,8 +177,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Ranged Attacker',
     characterName: 'Puffy', // キモネコ／美脚ネコ／ムキあしネコ (Gross Cat / Sexy Legs Cat / Macho Leg Cat)
     role: 'ranged',
-    unlockRequirement: { stageId: 'stage3' },
-    cost: 600,
+    unlockRequirement: { stageId: 'stage6' }, // real: 大分県クリア
+    cost: 400,
     hp: 400,
     damage: 100,
     attackSpeed: 7.1, // dps ~23.6 — interval 4233ms (127F), split 267/3966 below (real 8F/119F)
@@ -199,8 +204,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Fast Melee',
     characterName: 'Buba', // ウシネコ／ネコキリン／ネコライオン (Cow Cat / Giraffe Cat / Lion Cat)
     role: 'fast',
-    unlockRequirement: { stageId: 'stage4' },
-    cost: 750,
+    unlockRequirement: { stageId: 'stage5' }, // real: "第1章の進行で解放" (vague) — placed here for even pacing
+    cost: 500,
     hp: 500,
     damage: 13,
     attackSpeed: 39, // dps ~39 — interval 333ms (10F), split 200/133 below (real 6F/4F)
@@ -226,8 +231,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Area Attacker',
     characterName: 'Noir', // ネコノトリ／ネコUFO／天空のネコ (Bird Cat / UFO Cat / The Flying Cat)
     role: 'aoe',
-    unlockRequirement: { stageId: 'stage5' },
-    cost: 975,
+    unlockRequirement: { stageId: 'stage9' }, // real: "第1章の進行で解放" (vague) — placed here for even pacing
+    cost: 650,
     hp: 300,
     damage: 140,
     attackSpeed: 25.5, // dps ~25.7 — interval 1633ms (49F), split 333/1300 below (real 10F/39F)
@@ -253,8 +258,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Heavy Attacker',
     characterName: 'Momo', // ネコフィッシュ／ネコクジラ／ネコ島 (Fish Cat / Whale Cat / Island Cat)
     role: 'sniper',
-    unlockRequirement: { stageId: 'stage6' },
-    cost: 1200,
+    unlockRequirement: { stageId: 'stage16' }, // real: 鳥取県クリア
+    cost: 800,
     hp: 700,
     damage: 180,
     attackSpeed: 10.2, // dps ~30.6 — interval 1767ms (53F), split 333/1434 below (real 10F/43F)
@@ -282,8 +287,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Long Range',
     characterName: 'Mit', // ネコトカゲ／ネコドラゴン／ネコキングドラゴン (Lizard Cat / Dragon Cat / King Dragon Cat)
     role: 'support',
-    unlockRequirement: { stageId: 'stage7' },
-    cost: 1500,
+    unlockRequirement: { stageId: 'stage20' }, // real: 京都府クリア
+    cost: 1000,
     hp: 800,
     damage: 350,
     attackSpeed: 8.1, // dps ~28.4 — interval 4300ms (129F), split 333/3967 below (real 10F/119F)
@@ -309,8 +314,8 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Titan',
     characterName: 'Temujin', // 巨神ネコ／ネコダラボッチ／ネコジャラミ (Titan Cat / Mythical Titan Cat / Jamiera Cat)
     role: 'titan',
-    unlockRequirement: { stageId: 'stage8' },
-    cost: 1950,
+    unlockRequirement: { stageId: 'stage43' }, // real: "第1章の最終盤で解放" — placed in the last stretch
+    cost: 1300,
     hp: 1000,
     damage: 280,
     attackSpeed: 12.5, // dps ~125.6 — interval 2233ms (67F), split 600/1633 below (real 18F/49F)

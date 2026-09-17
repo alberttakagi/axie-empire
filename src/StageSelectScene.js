@@ -65,6 +65,7 @@ export default class StageSelectScene extends Phaser.Scene {
     this.createBackButton();
     this.createEnergyDisplay();
     this.createStageGrid(progress);
+    this.setupGridScroll();
   }
 
   createBackButton() {
@@ -88,11 +89,21 @@ export default class StageSelectScene extends Phaser.Scene {
       .setOrigin(1, 0.5);
   }
 
+  // Real Battle Cats chapters run 48 stages long (see STAGE_CONFIG.js's
+  // saga1) — far more than a fixed 5-column, non-scrolling grid could ever
+  // show on an 800x450 canvas at once (48 stages is 10 rows; this grid
+  // alone would need ~870px of vertical space). Every card below goes into
+  // `this.gridContainer` instead of directly onto the scene, so the whole
+  // grid can be scrolled as one unit — see setupGridScroll. GRID_TOP/
+  // GRID_BOTTOM bound the visible window the container scrolls within;
+  // everything outside it (back button, energy readout, popups) is added
+  // straight to the scene and stays fixed regardless of scroll position.
   createStageGrid(progress) {
     const { width } = this.scale;
     const totalWidth = GRID_COLS * CARD_WIDTH + (GRID_COLS - 1) * CARD_GAP;
     const startX = (width - totalWidth) / 2 + CARD_WIDTH / 2;
     const startY = 110;
+    this.gridContainer = this.add.container(0, 0);
 
     this.sagaStages.forEach((stage, localIndex) => {
       const col = localIndex % GRID_COLS;
@@ -112,26 +123,33 @@ export default class StageSelectScene extends Phaser.Scene {
       const stageProgress = progress[stage.id];
       const isCleared = stageProgress?.cleared === true;
 
+      const cardObjects = [];
+
       const fillColor = isUnlocked ? DIFFICULTY_COLOR[stage.difficulty] : LOCKED_COLOR;
       const rect = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, fillColor).setAlpha(isUnlocked ? 1 : 0.6);
+      cardObjects.push(rect);
 
-      this.add
-        .text(x, y - 24, `${localIndex + 1}. ${stage.displayName}`, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-          color: '#ffffff',
-          align: 'center',
-          wordWrap: { width: CARD_WIDTH - 8 },
-        })
-        .setOrigin(0.5)
-        .setAlpha(isUnlocked ? 1 : 0.7);
+      cardObjects.push(
+        this.add
+          .text(x, y - 24, `${localIndex + 1}. ${stage.displayName}`, {
+            fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
+            color: '#ffffff',
+            align: 'center',
+            wordWrap: { width: CARD_WIDTH - 8 },
+          })
+          .setOrigin(0.5)
+          .setAlpha(isUnlocked ? 1 : 0.7),
+      );
 
-      this.add
-        .text(x, y - 6, `${stage.difficulty}  ·  E:${stage.energyCost}`, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
-          color: '#000000',
-        })
-        .setOrigin(0.5)
-        .setAlpha(isUnlocked ? 0.8 : 0.5);
+      cardObjects.push(
+        this.add
+          .text(x, y - 6, `${stage.difficulty}  ·  E:${stage.energyCost}`, {
+            fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
+            color: '#000000',
+          })
+          .setOrigin(0.5)
+          .setAlpha(isUnlocked ? 0.8 : 0.5),
+      );
 
       const statusLabel = !isUnlocked
         ? 'Locked'
@@ -139,21 +157,25 @@ export default class StageSelectScene extends Phaser.Scene {
           ? `Best: ${stageProgress.bestScore}`
           : 'Not cleared';
 
-      this.add
-        .text(x, y + 14, statusLabel, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-          color: '#ffffff',
-        })
-        .setOrigin(0.5)
-        .setAlpha(isUnlocked ? 1 : 0.7);
+      cardObjects.push(
+        this.add
+          .text(x, y + 14, statusLabel, {
+            fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
+            color: '#ffffff',
+          })
+          .setOrigin(0.5)
+          .setAlpha(isUnlocked ? 1 : 0.7),
+      );
 
       // Treasure tier dot (bible §A.6.3) — top-right corner of the tile,
       // only drawn once a tier has actually been obtained for this stage.
       const tier = getStageTier(stage.id);
       if (isUnlocked && tier > 0) {
-        this.add
-          .circle(x + CARD_WIDTH / 2 - 10, y - CARD_HEIGHT / 2 + 10, 6, TREASURE_TIER_COLORS[tier])
-          .setStrokeStyle(1, 0xffffff);
+        cardObjects.push(
+          this.add
+            .circle(x + CARD_WIDTH / 2 - 10, y - CARD_HEIGHT / 2 + 10, 6, TREASURE_TIER_COLORS[tier])
+            .setStrokeStyle(1, 0xffffff),
+        );
       }
 
       // Restriction Stage badge (bible §A.6.5) — top-left corner, mirroring
@@ -161,19 +183,60 @@ export default class StageSelectScene extends Phaser.Scene {
       // details show up as a message in GameScene when a blocked action is
       // actually attempted, rather than being spelled out on this small tile.
       if (isUnlocked && stage.restrictions) {
-        this.add
-          .circle(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 6, 0xcc3333)
-          .setStrokeStyle(1, 0xffffff);
-        this.add
-          .text(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 'R', { fontFamily: 'Rowdies, sans-serif', fontSize: '8px', color: '#ffffff' })
-          .setOrigin(0.5);
+        cardObjects.push(
+          this.add
+            .circle(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 6, 0xcc3333)
+            .setStrokeStyle(1, 0xffffff),
+        );
+        cardObjects.push(
+          this.add
+            .text(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 'R', { fontFamily: 'Rowdies, sans-serif', fontSize: '8px', color: '#ffffff' })
+            .setOrigin(0.5),
+        );
       }
 
       if (isUnlocked) {
         rect.setInteractive({ useHandCursor: true });
         rect.on('pointerdown', () => this.onStageSelected(stage));
       }
+
+      this.gridContainer.add(cardObjects);
     });
+
+    // Bottom edge of the last row, used by setupGridScroll to clamp how far
+    // the container can scroll (never past the grid's own actual content).
+    const totalRows = Math.ceil(this.sagaStages.length / GRID_COLS);
+    this.gridContentBottom = startY + (totalRows - 1) * (CARD_HEIGHT + ROW_GAP) + CARD_HEIGHT / 2 + 16;
+  }
+
+  // Mouse-wheel + drag-to-scroll for the stage grid (see createStageGrid's
+  // own header for why this exists — 48 real stages don't fit one screen).
+  // Deliberately simple/vertical-only, unlike GameScene's own zoom+pan
+  // camera controls: this is a single scrollable list, not a 2D battlefield.
+  setupGridScroll() {
+    const { height } = this.scale;
+    const visibleBottom = height - 16;
+    const maxScroll = Math.max(0, this.gridContentBottom - visibleBottom);
+    const clamp = (y) => Phaser.Math.Clamp(y, -maxScroll, 0);
+
+    this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+      this.gridContainer.y = clamp(this.gridContainer.y - deltaY);
+    });
+
+    let isDragging = false;
+    let dragStartY = 0;
+    let containerStartY = 0;
+    this.input.on('pointerdown', (pointer) => {
+      isDragging = true;
+      dragStartY = pointer.y;
+      containerStartY = this.gridContainer.y;
+    });
+    this.input.on('pointermove', (pointer) => {
+      if (!isDragging || !pointer.isDown) return;
+      this.gridContainer.y = clamp(containerStartY + (pointer.y - dragStartY));
+    });
+    this.input.on('pointerup', () => { isDragging = false; });
+    this.input.on('pointerupoutside', () => { isDragging = false; });
   }
 
   // Restriction Stages (bible §A.6.5/§A.10.2) show a detail popup listing

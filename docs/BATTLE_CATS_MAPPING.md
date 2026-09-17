@@ -5,6 +5,17 @@ Written during an overnight autonomous pass, driven by the user's own
 Claude artifact — battlecats-db-sourced). Scope for this pass, per the
 user's own explicit answers before going to sleep:
 
+## Update: full 48-stage saga1 (later same-day follow-up)
+
+The user sent an UPDATED guide (`nyanko_guide (1).html`) adding a complete
+real per-stage table for all 48 Empire of Cats Chapter 1 stages (real
+prefecture names/order, energy cost, XP, castle HP, max-deployed, real
+boss per stage, real enemy roster per stage) and asked for saga1 to be
+rebuilt to the full 48 stages using it. See "Full 48-stage saga1" section
+below for everything that changed in this follow-up — it supersedes some
+of the original pass's own "known gaps" (saga1's stage count, Emperor
+Nyandam being wrong about the final boss, several enemies still missing).
+
 - **Roster scope:** Chapter 1 core roster only (the real Basic-tier
   lineages + Empire of Cats' early enemy roster) — not the full 700+ unit
   real game.
@@ -45,25 +56,100 @@ sprites, real stats structure) but excluded from the active roster —
 unlocks. Reclaim it for a real Rare/Super-Rare-tier unit once a future pass
 covers the guide's Chapter 12 EX/Rare roster.
 
-## Enemy mapping — 10 of the real early Empire of Cats enemies
+## Enemy mapping — all 19 real enemies that appear across Chapter 1
+
+Corrected/expanded in the full-48-stage follow-up (see below) — the
+original pass only had 10 of these and got the final boss wrong.
 
 | ENEMY_CONFIG key | Real enemy | Notes |
 |---|---|---|
 | `basic` | わんこ (Doge) | first enemy in the real game |
 | `fast` | にょろ (Snache) | |
-| `tank` | カバちゃん (Hippoe) | real early "wall boss" |
-| `ranged` | パオン (Paon) | long-range artillery |
-| `aoe` | ブタヤロウ (Piggeh) | first Red-attribute enemy |
+| `thatguy` | 例のヤツ (That Guy) | KB1, doesn't retreat until beaten |
+| `tank` | カバちゃん (Hippoe) | real stage-7 boss, early "wall boss" |
+| `aoe` | ブタヤロウ (Piggeh) | real stage-10 boss, first Red-attribute enemy |
+| `gory` | ゴリさん (Gory) | real stage-16 boss, fast AoE |
+| `mehmeh` | メェメェ (Meh Meh) | plain filler |
+| `support` | ゴマさま (Gomasama) | real stage-23 boss, fast Red area attacker |
+| `wanikun` | ワニック (Wanikun) | weak but fast filler |
+| `ranged` | パオン (Paon) | real stage-29 boss, long-range artillery |
+| `usagin` | ウサ銀 (Usagin) | fast, Red-attribute |
+| `kangaroo` | カ・ンガリュ (Kangaroo) | real stage-35/Tokyo boss |
 | `swarm` | リッスントゥミー (Listen To Me) | cheap, extremely fast filler |
-| `sniper` | ジャッキー・ペン (Jackie Penguin) | fast attacker |
-| `guardian` | クマ先生 (Kuma-sensei) | long range, KB10 |
-| `support` | ゴマさま (Gomasama) | fast, Red-attribute area attacker |
-| `titan` | 悪の帝王ニャンダム (Emperor Nyandam) | **the real Empire of Cats Chapter 1 final boss** |
+| `gagagaga` | ガガガガ (Gagagaga) | real stage-38 boss, Floating |
+| `ikkaku` | 一角くん (Ikkaku-kun) | real stage-41 boss, ultra-close range, Red |
+| `guardian` | クマ先生 (Kuma-sensei) | real stage-44 boss, long range, KB10 |
+| `kanban` | カンバン娘 (Kanban Musume) | harmless "billboard" filler present in every real stage |
+| `titan` | カオル君 (Kaoru-kun) | **the REAL Chapter 1 final boss** (stage 48, 西表島/Iriomote Island) — corrects the original pass's wrong guess of Emperor Nyandam, who never actually appears in the real 48-stage boss list |
 
-`zombie`/`colossus`/`behemoth` are dormant this pass (not used by any
-rebuilt stage) — kept in place, reserved for an "Into the Future"-equivalent
-saga later. The guide lists 24 real early enemies total; the other 14
-aren't wired up yet (see Known Gaps).
+`zombie`/`colossus`/`behemoth` are still dormant (not used by any rebuilt
+stage) — kept in place, reserved for an "Into the Future"-equivalent saga
+later; they have no real Chapter 1 data to port.
+
+## Full 48-stage saga1 (follow-up pass, driven by the updated guide)
+
+The updated guide added a complete real per-stage table for all 48 Empire
+of Cats Chapter 1 stages. `STAGE_CONFIG.js`'s saga1 was rebuilt from it —
+one-off generator kept at `tools/gen_saga1_stages.py` for future retuning.
+
+- **Real per-stage data used directly**: prefecture name (translated to
+  English — Nagasaki, Saga, Kagoshima, ... Iriomote Island), energy cost,
+  XP, castle HP (→ `enemyBaseHp`), max-deployed (→
+  `restrictions.maxDeployed` when below 10), the real boss (→ a
+  `baseHpPercentTrigger: 99` entry), and the real enemy roster per stage
+  (in the real listed order).
+- **Chapter 1 uses a flat 100% strength magnification on every enemy,
+  every stage** — confirmed by the guide's own note. Every `statMultiplier`
+  in the new saga1 is `1`; difficulty comes entirely from castle HP/stage
+  composition/max-deployed, matching the real game exactly. (This
+  corrects the original pass's own saga1, which had climbing
+  `statMultiplier` across its 10 placeholder stages — not how real
+  Chapter 1 actually works.)
+- **Not real data**: per-enemy spawn TIMING. The guide gives one fully
+  worked example (stage 35/Tokyo) and confirms enemies appear in their
+  listed order, but not exact first-appearance/repeat frames for the
+  other 47 stages. The generator staggers each stage's real enemy list
+  ~2.6s apart with one repeat wave per type, ending on whichever enemy
+  the real data lists last — the engine's existing `scheduleTrickleWave`
+  fallback then keeps that one coming once the script ends, approximating
+  the real "無制限" (unlimited) repeat behavior.
+- **Unit costs corrected to the real Chapter 1 baseline**: `UNIT_CONFIG.js`
+  previously used Chapter-2-basis prices (the original guide's own stated
+  convention); the updated guide's real per-chapter cost table confirmed
+  Chapter 1's actual baseline is exactly costs÷1.5. Fixed directly in
+  `UNIT_CONFIG.js` — `STAGE_CONFIG.js`'s existing `SAGA_COST_MULTIPLIERS`
+  (1.0/1.5/2.0) now reproduces the real per-chapter prices exactly instead
+  of double-applying the Chapter 2 markup to Chapter 1 stages.
+- **Unit unlocks remapped to the real prefectures** named in the roster
+  table's own unlock notes: Tank Cat→real stage1 (Nagasaki), Axe Cat→
+  stage3 (Kagoshima), Gross Cat→stage6 (Oita), Fish Cat→stage16 (Tottori),
+  Lizard Cat→stage20 (Kyoto). Cow Cat/Bird Cat's real notes are vague
+  ("unlocked through progression") — placed at stage5/stage9 for even
+  pacing. Titan Cat's real note ("unlocked in the final stretch") — placed
+  at stage43.
+- **saga2/saga3 renumbered** from stage11-30/21-30 to stage49-58/59-68 to
+  make room for saga1's now-48 stages — `TREASURE_CONFIG.js`'s matching
+  `stageIds` were updated too, and saga1's own treasure sets were expanded
+  from 2 sets of 5 to 12 sets of 4 (stage1-48), matching real Battle Cats'
+  actual "~dozen sets per 48-stage chapter" shape.
+- **StageSelectScene now scrolls**: a fixed 5-column, non-scrolling grid
+  only fit ~13 stages on the 800x450 canvas — 48 stages need 10 rows
+  (~870px). All stage cards now live in a `gridContainer` that scrolls
+  vertically (mouse wheel + drag, clamped to the grid's real content
+  height) while the header (Back/Energy) stays fixed — same "click ends
+  up in ~0 movement" tradeoff GameScene's own drag-to-pan already accepts.
+  Verified live: all 48 stages, including stage 48, are reachable by
+  scrolling to the bottom of the list.
+- **`SAGA_CONFIG.js` descriptions updated** to stop claiming a "10-stage
+  campaign" and to correctly note that saga2/saga3 (still the older,
+  smaller 10-stage approximation) haven't had their own real-data pass yet.
+
+Verified live: all 48 stage IDs unique and correctly tagged `saga1`,
+Fukuoka's (stage7) real 2400 castle HP loads correctly, damaging it to 98%
+correctly triggers its real boss (Hippoe) via the 99% threshold, saga2/3's
+renumbered stage49/stage68 both load cleanly, and unit-unlock gating
+resolves correctly against the new stage IDs (e.g. Fish Cat's locked
+message now reads `Clear "Tottori" to unlock!`).
 
 ## What changed, file by file
 
@@ -102,26 +188,41 @@ aren't wired up yet (see Known Gaps).
 ## Known gaps / explicit follow-up work
 
 1. ~~Saga2/saga3 (stage11-30) are NOT rebalanced.~~ **Done in a follow-up
-   pass the same night**: saga2/saga3 now reuse saga1's own 10 real enemies
-   (no new types) at climbing `statMultiplier` (real Battle Cats repeats the
-   identical map across Chapters 1-3, just raising enemy strength — matched
-   here), same constant real economy, with Emperor Nyandam re-fought
-   (stronger each time) as both Chapter 2's and Chapter 3's final boss,
-   matching how the real game re-fights its own chapter-1 final boss at the
-   end of chapters 2 and 3. `zombie`/`colossus`/`behemoth` were dropped from
-   these stages' spawn scripts (still dormant, not fully rebalanced/wired
-   into real data) rather than left in at miscalibrated strength.
-2. **Only 10 of the guide's 24 early enemies are wired up.** Adding the
-   other 14 (にょろ's cousins, 例のヤツ, メェメェ, ワニック, ウサ銀,
-   一角くん, 赤羅我王, カオル君, カンバン娘, ガガガガ, ぶんぶん先生, etc.)
+   pass the same night, then renumbered to stage49-68 in the full-48-stage
+   follow-up**: saga2/saga3 reuse saga1's own real enemies at climbing
+   `statMultiplier` (real Battle Cats repeats the identical map across
+   Chapters 1-3, just raising enemy strength — matched here), same
+   constant real economy, with the `titan` slot's boss (now correctly
+   Kaoru-kun, not Emperor Nyandam — see the Enemy mapping table above)
+   re-fought, stronger each time, as both Chapter 2's and Chapter 3's final
+   boss. `zombie`/`colossus`/`behemoth` were dropped from these stages'
+   spawn scripts (still dormant, no real data) rather than left in at
+   miscalibrated strength. Saga2/saga3 STILL haven't had their own
+   real-per-stage-data pass (still the smaller 10-stage-per-chapter
+   approximation, just renumbered) — that's its own remaining gap below.
+2. ~~Only 10 of the guide's 24 early enemies are wired up.~~ **Resolved for
+   Chapter 1 specifically** in the full-48-stage follow-up: all 19 enemies
+   that actually appear across the real 48-stage Chapter 1 (per the
+   updated guide's own stage-by-stage table) are now in `ENEMY_CONFIG.js`.
+   The original guide's broader ~24-enemy list included a few that turned
+   out NOT to be part of Chapter 1 at all (ブラックマ/Blackma, 赤羅我王/Red
+   Rag'oh, 悪の帝王ニャンダム/Emperor Nyandam, ぶんぶん先生/Bun Bun
+   Sensei) — presumably later-chapter or event content, not wired up
+   since they'd need their own real per-stage data to place correctly.
+3. **Saga2/saga3 (stage49-68) still don't have their own real per-stage
+   data** — they're still the original pass's hand-authored 10-stage-per-
+   chapter approximation (just renumbered), not a real Chapter 2/3 stage
+   table like saga1 now has. Would need the same kind of guide update
+   (real per-stage data for JP Chapters 2-3) that made saga1's rebuild
+   possible.
    just needs new `ENEMY_CONFIG` entries following the same conversion
    approach — no architecture changes needed.
-3. **Trickle/spawn timing per stage is hand-tuned, not derived from real
+4. **Trickle/spawn timing per stage is hand-tuned, not derived from real
    per-stage data.** The guide's own data doesn't include full stage-by-
    stage spawn tables for all 48 real Chapter 1 stages (only the schema +
    roster + formulas) — this pass's 10 stages are a faithful
    *reconstruction* of real pacing/order, not a byte-exact dump.
-4. ~~Fish Cat's real 3rd-form "2% Critical Hit" and Titan Cat's real 3rd-form
+5. ~~Fish Cat's real 3rd-form "2% Critical Hit" and Titan Cat's real 3rd-form
    "30% Knockback all enemies" aren't modeled.~~ **Done in a follow-up
    pass**: `PROGRESSION_CONFIG.js` evolutions now support a generic
    `abilityGrant` field (merged in by `UnitStats.getEffectiveUnitConfig`,
@@ -136,15 +237,15 @@ aren't wired up yet (see Known Gaps).
    once evolutionStage reaches 2, and a live `dealDamage` against a target
    tough enough to survive the hit shows knockback firing at roughly the
    right rate.
-5. **The economy still starts every battle at full wallet, not real Battle
+6. **The economy still starts every battle at full wallet, not real Battle
    Cats' 0¥-at-battle-start.** This predates tonight's pass (pre-existing
    `this.money = this.getWalletCap() * ...` in `GameScene.js`) — flagged
    here since it's directly relevant to economy fidelity, not something
    introduced tonight.
-6. **CatalogScene.js** wasn't updated with lock/unlock visuals (LoadoutScene
+7. **CatalogScene.js** wasn't updated with lock/unlock visuals (LoadoutScene
    was) — browsing a locked unit's info there isn't harmful, just not
    labeled "Locked" yet.
-7. ~~Real Cannon mechanics weren't ported.~~ **Done in a follow-up pass**:
+8. ~~Real Cannon mechanics weren't ported.~~ **Done in a follow-up pass**:
    the Cat Cannon now charges on the real fixed TIME budget (guide Chapter
    08 — 50s base, -50F/≈1,667ms per Cannon Charge Base Upgrade level, hard
    floor 31.7s/31,667ms — see `SPECIAL_CHARGE_DURATION_MS`/
