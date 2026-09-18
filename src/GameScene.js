@@ -36,6 +36,7 @@ import { hasReachedPartEvolution } from './PartEvolution.js';
 import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
 import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './UITheme.js';
+import { describeUnit } from './UnitDescription.js';
 import {
   playDeploySfx,
   playCannonSfx,
@@ -728,6 +729,11 @@ export default class GameScene extends Phaser.Scene {
     // explicit ignore() call, same as every other HUD element above.
     this.lowHpVignette = this.add.rectangle(width / 2, height / 2, width, height, 0xff0000, 0);
 
+    // Hover tooltip (see createBattleTooltip/showBattleTooltip) — wired to
+    // both the spawn buttons and every live unit/enemy sprite, so "what
+    // does this thing actually do" is answerable without leaving the fight.
+    this.createBattleTooltip();
+
     // Split the two cameras now that every UI object create() itself builds
     // (pause button, stage name, wallet, spawn buttons, worker cat/cannon/
     // speed buttons, dojo timer or battle item buttons, game-over text) has
@@ -925,6 +931,67 @@ export default class GameScene extends Phaser.Scene {
     this.createEnemy(type, config);
   }
 
+  // Shared hover/long-press info tooltip (LoadoutScene's own tooltip does
+  // the same job for the roster-browsing screens) — a fixed panel near the
+  // top of the screen rather than one that follows the cursor/unit: a
+  // battle sprite moves continuously, so anchoring the tooltip to wherever
+  // it happened to be at hover-start would drift away from the pointer
+  // almost immediately, and a fixed screen-space panel needs no per-frame
+  // repositioning or world/camera coordinate math at all (this panel is a
+  // UI object — see setupZoomControls — so it never itself pans/zooms with
+  // the battlefield anyway).
+  createBattleTooltip() {
+    const { width } = this.scale;
+    const y = 92;
+    this.battleTooltipContainer = this.add.container(width / 2, y).setDepth(1000).setVisible(false);
+    this.battleTooltipBg = this.add.rectangle(0, 0, 260, 40, 0x000000, 0.92).setStrokeStyle(2, 0xffdd33);
+    this.battleTooltipText = this.add
+      .text(0, 0, '', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
+        color: '#ffffff',
+        align: 'left',
+        wordWrap: { width: 280 },
+        lineSpacing: 5,
+      })
+      .setOrigin(0.5);
+    this.battleTooltipContainer.add([this.battleTooltipBg, this.battleTooltipText]);
+  }
+
+  // `liveStats` (optional): { hp, maxHp } for an actual on-field entity, so
+  // its CURRENT (damaged) HP shows instead of just the max — omitted for a
+  // spawn-button hover, where nothing has been deployed yet and only the
+  // base stats mean anything.
+  showBattleTooltip(config, liveStats = null) {
+    const header = `${config.characterName}  (${config.abilityLabel || config.displayName})`;
+    const statsLine = liveStats
+      ? `HP: ${Math.max(0, Math.round(liveStats.hp))}/${liveStats.maxHp}   DMG: ${config.damage}`
+      : `HP: ${config.hp}   DMG: ${config.damage}   Cost: ${config.cost}円`;
+    const abilityLines = describeUnit(config);
+    const lines = [header, statsLine, ...abilityLines.map((line) => `• ${line}`)];
+    this.battleTooltipText.setText(lines.join('\n'));
+
+    const padding = 12;
+    const bounds = this.battleTooltipText.getBounds();
+    this.battleTooltipBg.setSize(bounds.width + padding * 2, bounds.height + padding * 2);
+    this.battleTooltipContainer.setVisible(true);
+  }
+
+  hideBattleTooltip() {
+    this.battleTooltipContainer.setVisible(false);
+  }
+
+  // Wires hover (desktop) — pointerover/pointerout — to show/hide the
+  // shared battle tooltip for one live unit/enemy sprite. Called after the
+  // entity's own state object exists (spawnUnit/createEnemy), not inside
+  // createEntityVisual itself, since the live-HP closure below needs to
+  // keep reading `entity.hp` for as long as the sprite is hovered, not
+  // just whatever it was at spawn time.
+  setupEntityHoverTooltip(shape, entity) {
+    shape.setInteractive({ useHandCursor: true });
+    shape.on('pointerover', () => this.showBattleTooltip(entity.config, { hp: entity.hp, maxHp: entity.config.hp }));
+    shape.on('pointerout', () => this.hideBattleTooltip());
+  }
+
   createSpawnButtons() {
     const { height } = this.scale;
     const keys = this.loadout;
@@ -1022,6 +1089,14 @@ export default class GameScene extends Phaser.Scene {
         .setAlpha(0.6);
 
       rect.on('pointerdown', () => this.trySpawnUnit(key));
+      // No liveStats — nothing's deployed yet, so the tooltip shows base
+      // stats/cost instead of a current HP reading (see showBattleTooltip).
+      // getEffectiveUnitConfig (not the raw UNIT_CONFIG `config` the icon/
+      // cost text above use) so the preview reflects this unit's real
+      // current level/evolution — the same stats trySpawnUnit will
+      // actually deploy, not always its base-level numbers.
+      rect.on('pointerover', () => this.showBattleTooltip(getEffectiveUnitConfig(key)));
+      rect.on('pointerout', () => this.hideBattleTooltip());
 
       this.spawnButtons.push({ key, config, rect, icon, costText, cooldownOverlay });
     }
@@ -1497,7 +1572,9 @@ export default class GameScene extends Phaser.Scene {
       shape.setStrokeStyle(EVOLUTION_RING_WIDTH[evolutionStage], EVOLUTION_RING_COLOR[evolutionStage]);
     }
 
-    this.playerUnits.push(this.makeEntityState(type, config, shape, label, spriteImage, true, 1, isEvolved));
+    const entity = this.makeEntityState(type, config, shape, label, spriteImage, true, 1, isEvolved);
+    this.playerUnits.push(entity);
+    this.setupEntityHoverTooltip(shape, entity);
   }
 
   // Builds this entity's visual: real sprite art if its config gave it one
@@ -1716,6 +1793,7 @@ export default class GameScene extends Phaser.Scene {
     const entity = this.makeEntityState(type, config, shape, label, spriteImage, false, visualScaleMultiplier);
     entity.isBoss = isBoss; // see spawnScriptedEnemy/onEnemyKilled — drives updateBossMusic
     this.enemies.push(entity);
+    this.setupEntityHoverTooltip(shape, entity);
   }
 
   // Shared initial-state shape for both player units and enemies (bible
