@@ -244,28 +244,34 @@ const TOWER_PLAYER_SPRITE_KEY = 'tower_player';
 const TOWER_PLAYER_NATIVE_RATIO = 421 / 938;
 const TOWER_ENEMY_SPRITE_KEY = 'tower_enemy';
 const TOWER_ENEMY_NATIVE_RATIO = 263 / 573;
-const TOWER_SPRITE_DISPLAY_HEIGHT = 190;
+// Shrunk from 190 — combined with the spawn-button row layout below, the
+// full-height tower's own bottom edge (laneY ± half this height) reached
+// down far enough to visibly overlap the ALWAYS-2-ROW spawn button grid's
+// top row (see createSpawnButtons — every Formation now always renders the
+// full 5x2 grid, so that top row is never absent the way a small Formation
+// used to make it).
+const TOWER_SPRITE_DISPLAY_HEIGHT = 165;
 const TOWER_PLAYER_DISPLAY_WIDTH = Math.round(TOWER_SPRITE_DISPLAY_HEIGHT * TOWER_PLAYER_NATIVE_RATIO);
 const TOWER_ENEMY_DISPLAY_WIDTH = Math.round(TOWER_SPRITE_DISPLAY_HEIGHT * TOWER_ENEMY_NATIVE_RATIO);
 const BASE_HP_TEXT_Y_OFFSET = 100; // above laneY — see the two HP text objects below
 
-const BUTTON_HEIGHT = 70;
+// Shrunk from 70 (see TOWER_SPRITE_DISPLAY_HEIGHT's own comment) — the
+// tower shrink alone wasn't quite enough clearance once the towers'
+// natural aspect ratio is accounted for, so the button grid gives up a
+// little height too rather than relying on the tower shrink alone.
+const BUTTON_HEIGHT = 62;
 // BUTTON_WIDTH is a CEILING, not a fixed size — createSpawnButtons shrinks
 // the actual per-button width to whatever fits SPAWN_BUTTONS_PER_ROW
 // buttons in one row, capped at this value.
 const BUTTON_WIDTH = 136;
 const BUTTON_GAP = 8;
-const SPAWN_ROW_LEFT_MARGIN = 16;
 const SPAWN_ROW_CANNON_GAP = 10; // clearance kept between the row and the Cannon button's own footprint
-const SPAWN_ROW_GAP = 6;
+const SPAWN_ROW_GAP = 5;
 // A Formation/Deck can hold up to MAX_LOADOUT_SIZE (10, matching the real
 // game's own Deck size) units — wrapped into rows of 5 (bible §A.10.3/real
 // Battle Cats' own deploy bar) rather than shrunk to fit one long row, so
 // each button stays large and legible regardless of Formation size.
 const SPAWN_BUTTONS_PER_ROW = 5;
-
-const CAP_BUTTON_WIDTH = 150;
-const CAP_BUTTON_HEIGHT = 44;
 
 const SCORE_PER_KILL = 10;
 
@@ -930,7 +936,11 @@ export default class GameScene extends Phaser.Scene {
     // easy-to-miss overlap caught while first checking this against a full
     // 10-unit row); centering within this narrower zone instead of the
     // whole canvas fixes both.
-    const zoneLeft = SPAWN_ROW_LEFT_MARGIN;
+    // Left bound now clears the Worker Cat circle (moved to bottom-left —
+    // see createWorkerCatButton) the exact same way zoneRight already
+    // clears the Cannon circle, instead of the old fixed left margin that
+    // assumed nothing but the row itself lived down here.
+    const zoneLeft = this.workerCatX + this.workerCatRadius + SPAWN_ROW_CANNON_GAP;
     const zoneRight = this.cannonX - CANNON_BUTTON_RADIUS - SPAWN_ROW_CANNON_GAP;
     const zoneWidth = zoneRight - zoneLeft;
 
@@ -949,7 +959,7 @@ export default class GameScene extends Phaser.Scene {
     // The BOTTOM row sits at the original single-row position (unchanged
     // for a Formation of 5 or fewer); any earlier row(s) stack upward from
     // there.
-    const bottomY = height - BUTTON_HEIGHT / 2 - 10;
+    const bottomY = height - BUTTON_HEIGHT / 2 - 8;
 
     this.spawnButtons = [];
 
@@ -1196,44 +1206,51 @@ export default class GameScene extends Phaser.Scene {
     this.isPaused = false;
   }
 
+  // Bottom-LEFT circular icon, mirroring the Cat Cannon's own bottom-right
+  // placement exactly (reference screenshot: a round "LEVEL N" icon with
+  // its cost in a pill underneath, sat at the same height as the spawn
+  // button row's far side) — this used to sit top-left instead as a wide
+  // rectangular card, which createCannonButton's OWN comment already
+  // called out as the wrong position ("mirroring Worker Cat's bottom-left
+  // placement") without anyone having actually moved it there.
   createWorkerCatButton() {
-    const x = 16 + CAP_BUTTON_WIDTH / 2;
-    const y = 76;
+    const { height } = this.scale;
+    const radius = CANNON_BUTTON_RADIUS;
+    const x = 16 + radius;
+    // Shifted up an extra 16px versus the Cannon's own Y (which has no
+    // text below it) — the cost pill drawn under this circle needs that
+    // room, or it renders right at (and gets clipped by) the canvas'
+    // bottom edge.
+    const y = height - 16 - radius - 16;
+    this.workerCatX = x;
+    this.workerCatRadius = radius;
 
-    // White/black-outline card (same convention as the spawn buttons —
-    // see UITheme.js) instead of a flat grey rectangle. A Graphics object
-    // (not a plain Rectangle) so the corners can be rounded; its own
-    // setAlpha still dims the whole drawn face correctly for
-    // updateWorkerCatButton's affordability dimming, same as before.
-    const rect = this.add.graphics();
-    rect.fillStyle(BC.ink, 0.2);
-    rect.fillRoundedRect(x - CAP_BUTTON_WIDTH / 2 + 2, y - CAP_BUTTON_HEIGHT / 2 + 3, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 10);
-    rect.fillStyle(0xffffff, 1);
-    rect.fillRoundedRect(x - CAP_BUTTON_WIDTH / 2, y - CAP_BUTTON_HEIGHT / 2, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 10);
-    rect.lineStyle(2, BC.ink, 1);
-    rect.strokeRoundedRect(x - CAP_BUTTON_WIDTH / 2, y - CAP_BUTTON_HEIGHT / 2, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 10);
-    rect.setInteractive(
-      new Phaser.Geom.Rectangle(x - CAP_BUTTON_WIDTH / 2, y - CAP_BUTTON_HEIGHT / 2, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT),
-      Phaser.Geom.Rectangle.Contains,
-    );
+    const face = this.add.circle(x, y, radius, 0xffffff).setStrokeStyle(3, BC.ink);
+    const hit = this.add.circle(x, y, radius, 0x000000, 0.001).setInteractive({ useHandCursor: true });
 
     const labelText = this.add
-      .text(x, y - 10, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
+      .text(x, y, '', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: BC.inkHex,
+        align: 'center',
+        lineSpacing: 1,
       })
       .setOrigin(0.5);
 
+    // Cost pill sits BELOW the circle rather than sharing it (the circle
+    // is barely big enough for the level line alone) — yellow-on-black-
+    // outline, matching the spawn buttons' own cost-text convention.
     const costText = this.add
-      .text(x, y + 10, '', {
+      .text(x, y + radius + 14, '', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
-        color: '#7a5c1e',
+        color: '#ffe066',
+        stroke: '#000000', strokeThickness: 3,
       })
       .setOrigin(0.5);
 
-    rect.on('pointerdown', () => this.tryUpgradeWorkerCat());
+    hit.on('pointerdown', () => this.tryUpgradeWorkerCat());
 
-    this.workerCatButton = { rect, labelText, costText };
+    this.workerCatButton = { rect: face, hit, labelText, costText };
   }
 
   // Bottom-right circular button (confirmed screenshot position, mirroring
@@ -1514,7 +1531,13 @@ export default class GameScene extends Phaser.Scene {
     if (config.sprite) {
       const prefix = isPlayerSide ? 'unit' : 'enemy';
       const evolvedTag = isEvolved && config.sprite.evolved ? '_evolved' : '';
-      const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}${evolvedTag}_idle`);
+      // Explicit '__BASE' frame — see SpriteIcon.js's own addUnitIcon
+      // comment: once any screen's faceZoom icon has registered a cropped
+      // face frame on this same shared texture, an implicit/no-frame
+      // add.image() on it can silently resolve to that crop instead of the
+      // real full image. This is the actual in-battle sprite, so it's the
+      // most visible place that bug showed up.
+      const sprite = this.add.image(x, this.laneY, `${prefix}_${config.id}${evolvedTag}_idle`, '__BASE');
       sprite.setFlipX(isPlayerSide);
       this.fitSpriteToRadius(sprite, config.radius, visualScaleMultiplier);
       // Every unit/enemy sprite is a world object (see setupZoomControls) —
@@ -1933,7 +1956,9 @@ export default class GameScene extends Phaser.Scene {
     const button = this.workerCatButton;
     const maxed = this.workerCatLevel >= MONEY_CONFIG.workerCat.maxLevel;
 
-    button.labelText.setText(`Land Worker Lv${this.workerCatLevel}`);
+    // Two short lines fit inside the circle (was one long "Land Worker
+    // Lv1" line that only fit in the old wide rectangular card).
+    button.labelText.setText(`Worker\nLv${this.workerCatLevel}`);
     button.costText.setText(maxed ? 'MAX' : `${Math.round(this.workerCatUpgradeCost).toLocaleString()}円`);
 
     const affordable = !maxed && this.money >= this.workerCatUpgradeCost;
@@ -2328,9 +2353,14 @@ export default class GameScene extends Phaser.Scene {
     if (pose === 'run') {
       entity.runFrame = 0;
       entity.runCycleMs = 0;
-      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_0`);
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_0`, '__BASE');
     } else {
-      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`);
+      // Explicit '__BASE' — see createEntityVisual's own comment. Pose
+      // cycles back to 'idle' constantly during combat (between attacks,
+      // before engaging), and a 2-arg setTexture on the 'idle' key has the
+      // exact same "silently resolves to another screen's cropped face
+      // frame" hazard as the sprite's initial creation.
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`, '__BASE');
     }
   }
 
@@ -2348,7 +2378,7 @@ export default class GameScene extends Phaser.Scene {
       entity.runFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
       const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
-      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`);
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`, '__BASE');
     }
   }
 

@@ -147,7 +147,20 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
   } else if (faceZoom) {
     icon = scene.add.image(x, y, idleKey, ensureFaceFrame(scene, idleKey));
   } else {
-    icon = scene.add.image(x, y, idleKey);
+    // Explicit '__BASE' (Phaser's own name for a single-image texture's
+    // one real frame), NOT the 2-arg form that lets Phaser pick a
+    // "default" frame — ensureFaceFrame's texture.add() reassigns that
+    // texture's OWN notion of "default frame" to the newly added crop the
+    // very first time it runs (Phaser's Texture.firstFrame updates to the
+    // most recently added frame while a texture has exactly one custom
+    // frame). Since textures are cached and shared across every scene, the
+    // instant ANY screen renders this unit with faceZoom once, every other
+    // 2-arg `add.image(x, y, idleKey)` anywhere in the game — including
+    // GameScene's own in-battle sprite — would silently start rendering
+    // the cropped face instead of the full body, scaled up as if it were
+    // the whole sprite. Real, observed bug: a unit whose deploy-button icon
+    // had rendered at least once looked cropped/zoomed in actual combat.
+    icon = scene.add.image(x, y, idleKey, '__BASE');
   }
   icon.setFlipX(isPlayerSide);
   icon.setScale(targetDiameter / Math.max(icon.width, icon.height));
@@ -160,7 +173,7 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
       loop: true,
       callback: () => {
         frame = (frame + 1) % frames.length;
-        icon.setTexture(frames[frame]);
+        icon.setTexture(frames[frame], '__BASE');
       },
     });
     // LoadoutScene/CatalogScene rebuild their cards repeatedly (tapping a
