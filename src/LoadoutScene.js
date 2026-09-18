@@ -266,13 +266,13 @@ export default class LoadoutScene extends Phaser.Scene {
     // see SpriteIcon.js. useEvolved matches UpgradeScene/GameScene's own
     // hasReachedPartEvolution check — this screen was showing every unit's
     // pre-evolution look even past level 10, out of sync with both of them.
-    // faceZoom matches GameScene's own spawn-button portraits (a tight face
-    // closeup, not the whole body) for the same "tell units apart at a
-    // glance" reason — traded off against the idle-float animation the
-    // previous version used, since SpriteIcon.js's faceZoom crop only
-    // applies to the plain static idle pose.
+    // Full body, NOT faceZoom — unlike GameScene's spawn buttons, this
+    // screen is about browsing/recognizing a specific character (its own
+    // name is already printed above), not a tiny in-battle deploy icon, so
+    // a face crop just read as "cut off" here. idleAnimated gives it a
+    // gentle float since this screen is nothing but static cards otherwise.
     const isEvolved = hasReachedPartEvolution(unitProgress.level);
-    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 46, true, isEvolved, false, true);
+    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 28, true, isEvolved, true);
 
     // Selected/benched state reads fine from the card's own dimming
     // (setAlpha below) — an explicit "IN FORMATION"/"benched" label was

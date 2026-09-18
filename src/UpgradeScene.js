@@ -151,7 +151,7 @@ export default class UpgradeScene extends Phaser.Scene {
     // split evenly) — icon centered well clear of that left edge so it
     // never pokes outside the row, text following it likewise pulled in
     // rather than leaving a dead gap between the icon and the name.
-    const icon = addUnitIcon(this, 54, y, base, ROW_HEIGHT - 22, true, isEvolved);
+    const icon = addUnitIcon(this, 54, y, base, ROW_HEIGHT - 10, true, isEvolved);
     if (icon) rowObjects.push(icon);
     else rowObjects.push(this.add.rectangle(30, y, 20, 20, base.color));
     rowObjects.push(

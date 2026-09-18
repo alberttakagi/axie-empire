@@ -4,7 +4,7 @@ import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
-import { BC, FONT, createBackButton, createBcCircleButton, createTitlePill, drawBcPanel } from './UITheme.js';
+import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, drawBcPanel } from './UITheme.js';
 
 // Battle Cats reference: にゃんこ図鑑 (Cat Guide) / 敵キャラ図鑑 (Enemy Character
 // Guide) — a browsable catalog of every unit/enemy: a grid of portraits,
@@ -20,11 +20,23 @@ import { BC, FONT, createBackButton, createBcCircleButton, createTitlePill, draw
 // still "what makes this one different," just mechanical rather than
 // narrative.
 
-const CARD_WIDTH = 120;
-const CARD_HEIGHT = 96;
-const CARD_GAP = 10;
-const CARDS_PER_ROW = 6;
-const GRID_START_Y = 110;
+// 4x2 (8/page) rather than an unbounded 6-wide grid — the enemy roster (22
+// entries) at the old fixed 6-per-row/no-pagination layout needed 4 rows of
+// content (534px) on a ~450px canvas, silently running its last row off the
+// bottom of the screen. Paginating also frees each card to be much bigger
+// (previously CARD_HEIGHT 96 with a 48px icon — cramped enough that the
+// full-body portrait read as "small/cropped" even though nothing was
+// actually cut off).
+const CARD_WIDTH = 176;
+const CARD_HEIGHT = 130;
+const CARD_GAP = 12;
+const CARDS_PER_ROW = 4;
+const ROWS_PER_PAGE = 2;
+const CARDS_PER_PAGE = CARDS_PER_ROW * ROWS_PER_PAGE;
+// Clears the title pill's own bottom edge (pill spans y 2-42) with margin —
+// GRID_START_Y=96 put the FIRST row's top edge (96-75=21) right underneath
+// the title text, overlapping it.
+const GRID_START_Y = 115;
 
 export default class CatalogScene extends Phaser.Scene {
   constructor() {
@@ -44,6 +56,7 @@ export default class CatalogScene extends Phaser.Scene {
     this.isPlayerSide = this.rosterType === 'units';
     this.keys = Object.keys(this.roster);
     this.detailIndex = 0;
+    this.page = 0;
 
     addBackground(this, 'temple');
     // Teal graph-paper tint (reference screenshot's にゃんこ図鑑 background)
@@ -54,6 +67,24 @@ export default class CatalogScene extends Phaser.Scene {
     createTitlePill(this, 24, 22, this.rosterType === 'enemies' ? 'Enemy Guide' : 'Unit Guide');
     createBackButton(this, () => this.scene.start('HomeScene'));
 
+    const pagerY = GRID_START_Y + ROWS_PER_PAGE * (CARD_HEIGHT + CARD_GAP) + 10;
+    this.pagerObjects = [
+      createBcButton(this, width / 2 - 90, pagerY, 70, 28, '< Prev', () => {
+        if (this.page > 0) {
+          this.page -= 1;
+          this.renderGrid();
+        }
+      }, { fill: 0x8a8a8a, highlight: 0xbbbbbb, textColor: '#ffffff', fontSize: 12 }),
+      createBcButton(this, width / 2 + 90, pagerY, 70, 28, 'Next >', () => {
+        const totalPages = Math.ceil(this.keys.length / CARDS_PER_PAGE);
+        if (this.page < totalPages - 1) {
+          this.page += 1;
+          this.renderGrid();
+        }
+      }, { fill: 0x8a8a8a, highlight: 0xbbbbbb, textColor: '#ffffff', fontSize: 12 }),
+    ];
+    this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: FONT, fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+
     this.contentContainer = this.add.container(0, 0);
     this.renderGrid();
   }
@@ -61,21 +92,27 @@ export default class CatalogScene extends Phaser.Scene {
   renderGrid() {
     this.contentContainer.removeAll(true);
     const { width } = this.scale;
-    const totalRows = Math.ceil(this.keys.length / CARDS_PER_ROW);
+    const totalPages = Math.ceil(this.keys.length / CARDS_PER_PAGE);
+    const pageKeys = this.keys.slice(this.page * CARDS_PER_PAGE, this.page * CARDS_PER_PAGE + CARDS_PER_PAGE);
+    this.pageText.setText(`Page ${this.page + 1}/${totalPages}`);
+    this.pagerObjects.forEach((obj) => obj.setVisible(true));
 
-    this.keys.forEach((key, index) => {
-      const row = Math.floor(index / CARDS_PER_ROW);
-      const col = index % CARDS_PER_ROW;
+    const totalRows = Math.ceil(pageKeys.length / CARDS_PER_ROW);
+    pageKeys.forEach((key, indexOnPage) => {
+      const globalIndex = this.page * CARDS_PER_PAGE + indexOnPage;
+      const row = Math.floor(indexOnPage / CARDS_PER_ROW);
+      const col = indexOnPage % CARDS_PER_ROW;
       // Each row is centered on ITS OWN card count, not a fixed
-      // CARDS_PER_ROW-wide block — a short final row (10 units -> 6+4, 13
-      // enemies -> 6+6+1) used to reuse the full-row startX regardless,
-      // rendering flush to the grid's left edge instead of centered.
-      const cardsInRow = row === totalRows - 1 ? this.keys.length - row * CARDS_PER_ROW : CARDS_PER_ROW;
+      // CARDS_PER_ROW-wide block — a short final row on the last page
+      // (e.g. 22 enemies -> 8+8+6) used to reuse the full-row startX
+      // regardless, rendering flush to the grid's left edge instead of
+      // centered.
+      const cardsInRow = row === totalRows - 1 ? pageKeys.length - row * CARDS_PER_ROW : CARDS_PER_ROW;
       const rowWidth = cardsInRow * CARD_WIDTH + (cardsInRow - 1) * CARD_GAP;
       const startX = (width - rowWidth) / 2 + CARD_WIDTH / 2;
       const x = startX + col * (CARD_WIDTH + CARD_GAP);
       const y = GRID_START_Y + row * (CARD_HEIGHT + CARD_GAP);
-      this.renderGridCard(key, x, y, index);
+      this.renderGridCard(key, x, y, globalIndex);
     });
   }
 
@@ -85,32 +122,31 @@ export default class CatalogScene extends Phaser.Scene {
     // in this pass) instead of a per-unit flat color fill.
     const g = this.add.graphics();
     g.fillStyle(BC.ink, 0.2);
-    g.fillRoundedRect(x - CARD_WIDTH / 2 + 2, y - CARD_HEIGHT / 2 + 3, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.fillRoundedRect(x - CARD_WIDTH / 2 + 2, y - CARD_HEIGHT / 2 + 3, CARD_WIDTH, CARD_HEIGHT, 12);
     g.fillStyle(0xffffff, 1);
-    g.fillRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.fillRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 12);
     g.lineStyle(2, BC.ink, 1);
-    g.strokeRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.strokeRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 12);
     // idleAnimated (last arg): a gentle float instead of a dead-still
-    // portrait — this guide is nothing but static cards otherwise.
-    const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 48, this.isPlayerSide, false, true);
+    // portrait — this guide is nothing but static cards otherwise. Full
+    // body (no faceZoom) sized to fill most of the now much bigger card.
+    const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 46, this.isPlayerSide, false, true);
     // Character name first (e.g. "Buba"), role second and smaller — this
     // guide is about browsing specific characters, not picking a role.
-    // Label sits a bit higher than a single-line name needs, since a few
-    // longer names (e.g. "Aquatic Flowering Slime") wrap to two lines.
     const label = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 24, config.characterName, {
-        fontFamily: FONT, fontSize: '10px',
+      .text(x, y + CARD_HEIGHT / 2 - 30, config.characterName, {
+        fontFamily: FONT, fontSize: '14px',
         color: BC.inkHex,
         align: 'center',
-        wordWrap: { width: CARD_WIDTH - 8 },
+        wordWrap: { width: CARD_WIDTH - 12 },
       })
       .setOrigin(0.5);
     const roleLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 6, `(${config.abilityLabel || config.displayName})`, {
-        fontFamily: FONT, fontSize: '8px',
+      .text(x, y + CARD_HEIGHT / 2 - 12, `(${config.abilityLabel || config.displayName})`, {
+        fontFamily: FONT, fontSize: '11px',
         color: '#5a5a5a',
         align: 'center',
-        wordWrap: { width: CARD_WIDTH - 8 },
+        wordWrap: { width: CARD_WIDTH - 12 },
       })
       .setOrigin(0.5);
 
@@ -129,26 +165,32 @@ export default class CatalogScene extends Phaser.Scene {
 
   renderDetail() {
     this.contentContainer.removeAll(true);
+    this.pagerObjects.forEach((obj) => obj.setVisible(false));
+    this.pageText.setText('');
     const { width, height } = this.scale;
     const key = this.keys[this.detailIndex];
     const config = this.roster[key];
 
     const panel = drawBcPanel(this, width / 2, height / 2 + 22, width - 60, height - 96, { radius: 24 });
 
-    const icon = addUnitIcon(this, width / 2, 138, config, 100, this.isPlayerSide, false, true); // idleAnimated
+    // Full body, sized big enough to actually look at (was 100px — now
+    // fills most of the panel's own width, matching the reference's own
+    // large single-character detail portrait) — idleAnimated for the same
+    // gentle-float reason as the grid cards.
+    const icon = addUnitIcon(this, width / 2, 170, config, 170, this.isPlayerSide, false, true);
     // Character name first (e.g. "Buba"), role second and smaller — same
     // ordering as the grid card and Character Formation.
     const nameText = this.add
-      .text(width / 2, 198, config.characterName, { fontFamily: FONT, fontSize: '16px', color: BC.inkHex })
+      .text(width / 2, 262, config.characterName, { fontFamily: FONT, fontSize: '18px', color: BC.inkHex })
       .setOrigin(0.5);
     const roleText = this.add
-      .text(width / 2, 216, `(${config.abilityLabel || config.displayName})`, { fontFamily: FONT, fontSize: '11px', color: '#7a5c1e' })
+      .text(width / 2, 282, `(${config.abilityLabel || config.displayName})`, { fontFamily: FONT, fontSize: '12px', color: '#7a5c1e' })
       .setOrigin(0.5);
 
     const lines = describeUnit(config);
     const descText = this.add
-      .text(width / 2, 236, lines.map((line) => `• ${line}`).join('\n'), {
-        fontFamily: FONT, fontSize: '11px',
+      .text(width / 2, 302, lines.map((line) => `• ${line}`).join('\n'), {
+        fontFamily: FONT, fontSize: '12px',
         color: BC.inkHex,
         align: 'left',
         wordWrap: { width: width - 120 },
@@ -167,7 +209,10 @@ export default class CatalogScene extends Phaser.Scene {
       this.renderDetail();
     });
 
-    const closeButton = createBcCircleButton(this, width - 30, 30, 16, '✕', () => this.renderGrid());
+    const closeButton = createBcCircleButton(this, width - 30, 30, 16, '✕', () => {
+      this.page = Math.floor(this.detailIndex / CARDS_PER_PAGE);
+      this.renderGrid();
+    });
 
     const objects = [panel, nameText, roleText, descText, prevButton, nextButton, closeButton];
     if (icon) objects.splice(1, 0, icon);
