@@ -5,7 +5,7 @@ import { loadStageProgress } from './StageProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
 import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
-import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
+import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 
 const DIFFICULTY_COLOR = {
   Easy: 0x4caf50,
@@ -16,13 +16,22 @@ const DIFFICULTY_COLOR = {
 
 const TREASURE_TIER_COLORS = [null, 0xcd7f32, 0xc0c0c0, 0xffd700]; // index 0 (none) never drawn
 
-const GRID_COLS = 5;
-const CARD_WIDTH = 130;
-const CARD_HEIGHT = 64;
-const CARD_GAP = 8;
-const ROW_GAP = 12;
-
 const INSUFFICIENT_ENERGY_MESSAGE_MS = 1600;
+
+// Map view (guide Chapter 06's own マップ選択: stage icons strung along a
+// path on a map, not a grid of cards) — a horizontally-scrollable strip of
+// small dot markers connected by a dotted line in stage order, echoing the
+// reference's own "red dots on a winding trail" look. No real Japan-map art
+// exists in this repo, so the "map" is the saga backdrop itself; the path's
+// gentle vertical wave (NODE_WAVE_*) is what reads as a trail rather than a
+// flat row of icons.
+const NODE_SPACING_X = 88;
+const NODE_WAVE_AMPLITUDE = 46;
+const NODE_WAVE_PERIOD = 6; // stages per full up/down cycle
+const MAP_VIEWPORT_TOP = 64;
+const MAP_VIEWPORT_BOTTOM = 396;
+const MAP_CENTER_Y = (MAP_VIEWPORT_TOP + MAP_VIEWPORT_BOTTOM) / 2;
+const DOT_TRAIL_STEP = 10; // px between each small dot of the connecting dotted line
 
 export default class StageSelectScene extends Phaser.Scene {
   constructor() {
@@ -55,11 +64,19 @@ export default class StageSelectScene extends Phaser.Scene {
     addSagaBackground(this, this.sagaId);
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
+    // Map container is created (and populated) BEFORE the header — its own
+    // geometry mask keeps it strictly inside MAP_VIEWPORT_TOP/BOTTOM, but a
+    // scrolled-past-content bug previously let stage cards visually cover
+    // the title/energy readout (added first, so the grid — added after —
+    // painted over it once scrolled). Building the header last guarantees
+    // it always draws on top regardless, and the mask is the real fix.
+    this.createStageMap(progress);
+    this.setupMapScroll();
+
     createTitlePill(this, 24, 26, 'Select Stage');
     createBackButton(this, () => this.scene.start('SagaSelectScene'));
     this.createEnergyDisplay();
-    this.createStageGrid(progress);
-    this.setupGridScroll();
+    this.createMapArrows();
   }
 
   // Energy/Stamina (bible §A.9) — the one piece of the old header worth
@@ -69,30 +86,67 @@ export default class StageSelectScene extends Phaser.Scene {
   createEnergyDisplay() {
     const { width } = this.scale;
     const { current, cap } = getEnergyState();
-    createResourceBadge(this, width - 24, 26, 'NRG', `${current}/${cap}`, { valueColor: '#8fffb0' });
+    createResourceBadge(this, width - 24, 26, 'ENERGY', `${current}/${cap}`, { valueColor: '#8fffb0' });
+  }
+
+  // A stage's position along the winding path — shared by node rendering
+  // and the dotted connector so both agree exactly on where each stage is.
+  nodePosition(localIndex) {
+    const x = 60 + localIndex * NODE_SPACING_X;
+    const y = MAP_CENTER_Y + Math.sin((localIndex / NODE_WAVE_PERIOD) * Math.PI * 2) * NODE_WAVE_AMPLITUDE;
+    return { x, y };
   }
 
   // Real Battle Cats chapters run 48 stages long (see STAGE_CONFIG.js's
-  // saga1) — far more than a fixed 5-column, non-scrolling grid could ever
-  // show on an 800x450 canvas at once (48 stages is 10 rows; this grid
-  // alone would need ~870px of vertical space). Every card below goes into
-  // `this.gridContainer` instead of directly onto the scene, so the whole
-  // grid can be scrolled as one unit — see setupGridScroll. GRID_TOP/
-  // GRID_BOTTOM bound the visible window the container scrolls within;
-  // everything outside it (back button, energy readout, popups) is added
-  // straight to the scene and stays fixed regardless of scroll position.
-  createStageGrid(progress) {
+  // saga1) — far more than one screen could ever show as full-size cards.
+  // Guide Chapter 06's own マップ選択 strings stage icons along a path on a
+  // map instead of a card grid; this reproduces that shape — small dot
+  // markers in stage order, connected by a dotted trail, laid out along a
+  // gentle sine wave (see nodePosition) so it reads as a winding path
+  // rather than a flat row — scrolled horizontally as one unit inside
+  // `this.mapContainer`. A geometry mask clips the container strictly to
+  // MAP_VIEWPORT_TOP/BOTTOM so scrolled content can never visually bleed
+  // into the header or footer, regardless of scroll position (see
+  // setupMapScroll's own note on the bug this replaces).
+  createStageMap(progress) {
     const { width } = this.scale;
-    const totalWidth = GRID_COLS * CARD_WIDTH + (GRID_COLS - 1) * CARD_GAP;
-    const startX = (width - totalWidth) / 2 + CARD_WIDTH / 2;
-    const startY = 110;
-    this.gridContainer = this.add.container(0, 0);
+    this.mapContainer = this.add.container(0, 0);
+
+    const maskShape = this.make.graphics({ x: 0, y: 0 }, false);
+    maskShape.fillStyle(0xffffff);
+    maskShape.fillRect(0, MAP_VIEWPORT_TOP, width, MAP_VIEWPORT_BOTTOM - MAP_VIEWPORT_TOP);
+    this.mapContainer.setMask(maskShape.createGeometryMask());
+
+    // Dotted connector FIRST (so every node's own marker/label draws on
+    // top of the line passing behind it, not the other way around).
+    const positions = this.sagaStages.map((_, i) => this.nodePosition(i));
+    const trailDots = this.add.graphics();
+    trailDots.fillStyle(0xffffff, 0.8);
+    for (let i = 0; i < positions.length - 1; i += 1) {
+      const a = positions[i];
+      const b = positions[i + 1];
+      const dist = Phaser.Math.Distance.Between(a.x, a.y, b.x, b.y);
+      const steps = Math.max(1, Math.round(dist / DOT_TRAIL_STEP));
+      for (let s = 1; s < steps; s += 1) {
+        const t = s / steps;
+        trailDots.fillCircle(Phaser.Math.Linear(a.x, b.x, t), Phaser.Math.Linear(a.y, b.y, t), 2);
+      }
+    }
+    this.mapContainer.add(trailDots);
+
+    // The first unlocked-but-not-yet-cleared stage is "current" — the one
+    // node that gets the bigger highlighted marker and an always-visible
+    // name card, matching the reference's own single enlarged stage tile.
+    const currentLocalIndex = this.sagaStages.findIndex((stage) => {
+      const globalIndex = STAGE_CONFIG.indexOf(stage);
+      const previousStage = STAGE_CONFIG[globalIndex - 1];
+      const isUnlocked = globalIndex === 0 || progress[previousStage.id]?.cleared === true;
+      return isUnlocked && progress[stage.id]?.cleared !== true;
+    });
+    this.currentLocalIndex = currentLocalIndex === -1 ? this.sagaStages.length - 1 : currentLocalIndex;
 
     this.sagaStages.forEach((stage, localIndex) => {
-      const col = localIndex % GRID_COLS;
-      const row = Math.floor(localIndex / GRID_COLS);
-      const x = startX + col * (CARD_WIDTH + CARD_GAP);
-      const y = startY + row * (CARD_HEIGHT + ROW_GAP);
+      const { x, y } = positions[localIndex];
 
       // Unlock state is resolved against STAGE_CONFIG's GLOBAL flat index,
       // not this screen's per-saga local index — this is what keeps a saga
@@ -105,136 +159,138 @@ export default class StageSelectScene extends Phaser.Scene {
       const isUnlocked = globalIndex === 0 || progress[previousStage.id]?.cleared === true;
       const stageProgress = progress[stage.id];
       const isCleared = stageProgress?.cleared === true;
+      const isCurrent = localIndex === this.currentLocalIndex;
 
-      const cardObjects = [];
+      const nodeObjects = [];
+      const radius = isCurrent ? 16 : 9;
+      const fill = !isUnlocked ? 0x777777 : DIFFICULTY_COLOR[stage.difficulty];
+      const ringColor = isCleared ? BC.gold : BC.ink;
 
-      // Cream rounded card, black outline, gold ring once cleared (the
-      // reference's own "CLEAR!" tiles get a distinct border rather than a
-      // different fill) — replaces the previous flat difficulty-color fill,
-      // which made cleared/uncleared/difficulty all fight for the same
-      // visual channel.
-      const g = this.add.graphics();
-      g.fillStyle(BC.ink, 0.25);
-      g.fillRoundedRect(x - CARD_WIDTH / 2 + 2, y - CARD_HEIGHT / 2 + 4, CARD_WIDTH, CARD_HEIGHT, 10);
-      g.fillStyle(isUnlocked ? BC.panel : 0x4a4a4a, 1);
-      g.fillRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
-      g.lineStyle(isCleared ? 3 : 2, isUnlocked ? (isCleared ? BC.gold : BC.ink) : 0x222222, 1);
-      g.strokeRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
-      cardObjects.push(g);
-
-      // Difficulty tab — a small colored ribbon along the card's own top
-      // edge instead of dyeing the whole card, so cleared/locked state
-      // (border/fill above) and difficulty (this ribbon) read independently.
-      if (isUnlocked) {
-        const ribbon = this.add.graphics();
-        ribbon.fillStyle(DIFFICULTY_COLOR[stage.difficulty], 1);
-        ribbon.fillRoundedRect(x - CARD_WIDTH / 2 + 4, y - CARD_HEIGHT / 2 + 4, 46, 14, 5);
-        cardObjects.push(ribbon);
-        cardObjects.push(
-          this.add
-            .text(x - CARD_WIDTH / 2 + 27, y - CARD_HEIGHT / 2 + 11, stage.difficulty, { fontFamily: FONT, fontSize: '8px', color: '#ffffff' })
-            .setOrigin(0.5),
-        );
+      nodeObjects.push(this.add.circle(x, y + 3, radius, 0x000000, 0.3)); // drop shadow
+      const dot = this.add.circle(x, y, radius, fill).setStrokeStyle(isCurrent ? 4 : 2.5, ringColor);
+      nodeObjects.push(dot);
+      if (isCleared) {
+        nodeObjects.push(this.add.text(x, y, '★', { fontFamily: FONT, fontSize: `${radius}px`, color: '#fff7cc' }).setOrigin(0.5));
       }
 
-      const textColor = isUnlocked ? BC.inkHex : '#999999';
-      cardObjects.push(
-        this.add
-          .text(x, y - 12, `${localIndex + 1}. ${stage.displayName}`, {
-            fontFamily: FONT, fontSize: '10px',
-            color: textColor,
-            align: 'center',
-            wordWrap: { width: CARD_WIDTH - 8 },
-          })
-          .setOrigin(0.5),
-      );
-
-      const statusLabel = !isUnlocked
-        ? 'Locked'
-        : isCleared
-          ? `Best: ${stageProgress.bestScore}`
-          : `Cost: ${stage.energyCost} NRG`;
-
-      cardObjects.push(
-        this.add
-          .text(x, y + 20, statusLabel, {
-            fontFamily: FONT, fontSize: '10px',
-            color: isUnlocked ? '#7a5c1e' : '#999999',
-          })
-          .setOrigin(0.5),
-      );
-
-      // Treasure tier dot (bible §A.6.3) — top-right corner of the tile,
-      // only drawn once a tier has actually been obtained for this stage.
+      // Treasure tier dot (bible §A.6.3) — small badge above-right of the
+      // node, only drawn once a tier has actually been obtained.
       const tier = getStageTier(stage.id);
       if (isUnlocked && tier > 0) {
-        cardObjects.push(
-          this.add
-            .circle(x + CARD_WIDTH / 2 - 10, y - CARD_HEIGHT / 2 + 10, 6, TREASURE_TIER_COLORS[tier])
-            .setStrokeStyle(1.5, BC.ink),
+        nodeObjects.push(
+          this.add.circle(x + radius - 2, y - radius, 5, TREASURE_TIER_COLORS[tier]).setStrokeStyle(1.5, BC.ink),
         );
       }
-
-      // Restriction Stage badge (bible §A.6.5) — top-left corner, mirroring
-      // the treasure dot's top-right placement. The specific restriction
-      // details show up in the deploy-confirmation popup (see
-      // showDeployPopup) rather than being spelled out on this small tile.
+      // Restriction Stage badge (bible §A.6.5) — small red "!" badge
+      // above-left, mirroring the treasure dot. Full details show in the
+      // deploy-confirmation popup (see showDeployPopup).
       if (isUnlocked && stage.restrictions) {
-        cardObjects.push(
+        nodeObjects.push(this.add.circle(x - radius + 2, y - radius, 5, BC.red).setStrokeStyle(1.5, 0xffffff));
+        nodeObjects.push(this.add.text(x - radius + 2, y - radius, '!', { fontFamily: FONT, fontSize: '7px', color: '#ffffff' }).setOrigin(0.5));
+      }
+
+      // Name label — alternates above/below the path per node so
+      // consecutive close-together labels don't collide, same idea a real
+      // hand-drawn map's own place-names use.
+      const labelUp = localIndex % 2 === 0;
+      const labelY = isCurrent ? y - radius - 34 : y + (labelUp ? -radius - 12 : radius + 12);
+      nodeObjects.push(
+        this.add
+          .text(x, labelY, `${localIndex + 1}. ${stage.displayName}`, {
+            fontFamily: FONT, fontSize: isCurrent ? '11px' : '9px',
+            color: isUnlocked ? '#ffffff' : '#aaaaaa',
+            align: 'center',
+            stroke: '#000000', strokeThickness: 3,
+            wordWrap: { width: NODE_SPACING_X + 20 },
+          })
+          .setOrigin(0.5, labelUp || isCurrent ? 1 : 0),
+      );
+
+      // The current node gets an always-visible little callout card
+      // (cost/best-score) — every other node relies on the deploy popup
+      // for that detail, same as the reference's own single enlarged tile.
+      if (isCurrent) {
+        const statusLabel = isCleared ? `Best: ${stageProgress.bestScore}` : `Cost: ${stage.energyCost} Energy`;
+        nodeObjects.push(
           this.add
-            .circle(x - CARD_WIDTH / 2 + 10, y + CARD_HEIGHT / 2 - 10, 7, BC.red)
-            .setStrokeStyle(1.5, 0xffffff),
-        );
-        cardObjects.push(
-          this.add
-            .text(x - CARD_WIDTH / 2 + 10, y + CARD_HEIGHT / 2 - 10, '!', { fontFamily: FONT, fontSize: '10px', color: '#ffffff' })
-            .setOrigin(0.5),
+            .text(x, y - radius - 18, statusLabel, { fontFamily: FONT, fontSize: '9px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
+            .setOrigin(0.5, 1),
         );
       }
 
       if (isUnlocked) {
-        const hit = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+        const hit = this.add.circle(x, y, radius + 10, 0x000000, 0.001).setInteractive({ useHandCursor: true });
         hit.on('pointerdown', () => this.onStageSelected(stage));
-        cardObjects.push(hit);
+        nodeObjects.push(hit);
       }
 
-      this.gridContainer.add(cardObjects);
+      this.mapContainer.add(nodeObjects);
     });
 
-    // Bottom edge of the last row, used by setupGridScroll to clamp how far
-    // the container can scroll (never past the grid's own actual content).
-    const totalRows = Math.ceil(this.sagaStages.length / GRID_COLS);
-    this.gridContentBottom = startY + (totalRows - 1) * (CARD_HEIGHT + ROW_GAP) + CARD_HEIGHT / 2 + 16;
+    // Rightmost content edge, used by setupMapScroll to clamp how far the
+    // container can scroll (never past the path's own actual end).
+    this.mapContentRight = positions[positions.length - 1].x + 80;
   }
 
-  // Mouse-wheel + drag-to-scroll for the stage grid (see createStageGrid's
+  // Auto-scroll (on load only) to center the current/next stage in the
+  // viewport, so a returning player sees their actual progress immediately
+  // instead of the saga's very first stage every time.
+  centerOnCurrentStage() {
+    const { width } = this.scale;
+    const { x } = this.nodePosition(this.currentLocalIndex);
+    const maxScroll = Math.max(0, this.mapContentRight - (width - 16));
+    this.mapContainer.x = -Phaser.Math.Clamp(x - width / 2, 0, maxScroll);
+  }
+
+  // Mouse-wheel + drag-to-scroll for the stage map (see createStageMap's
   // own header for why this exists — 48 real stages don't fit one screen).
-  // Deliberately simple/vertical-only, unlike GameScene's own zoom+pan
-  // camera controls: this is a single scrollable list, not a 2D battlefield.
-  setupGridScroll() {
-    const { height } = this.scale;
-    const visibleBottom = height - 16;
-    const maxScroll = Math.max(0, this.gridContentBottom - visibleBottom);
-    const clamp = (y) => Phaser.Math.Clamp(y, -maxScroll, 0);
+  // Horizontal-only, matching the reference's own left/right map scroll —
+  // unlike GameScene's zoom+pan battle camera, this is a single scrollable
+  // path, not a 2D battlefield.
+  setupMapScroll() {
+    const { width } = this.scale;
+    const maxScroll = Math.max(0, this.mapContentRight - (width - 16));
+    const clamp = (x) => Phaser.Math.Clamp(x, -maxScroll, 0);
+    this.mapMaxScroll = maxScroll;
+    this.mapScrollClamp = clamp;
+
+    this.centerOnCurrentStage();
 
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
-      this.gridContainer.y = clamp(this.gridContainer.y - deltaY);
+      this.mapContainer.x = clamp(this.mapContainer.x - (deltaX || deltaY));
     });
 
     let isDragging = false;
-    let dragStartY = 0;
-    let containerStartY = 0;
+    let dragStartX = 0;
+    let containerStartX = 0;
     this.input.on('pointerdown', (pointer) => {
+      if (pointer.y < MAP_VIEWPORT_TOP || pointer.y > MAP_VIEWPORT_BOTTOM) return;
       isDragging = true;
-      dragStartY = pointer.y;
-      containerStartY = this.gridContainer.y;
+      dragStartX = pointer.x;
+      containerStartX = this.mapContainer.x;
     });
     this.input.on('pointermove', (pointer) => {
       if (!isDragging || !pointer.isDown) return;
-      this.gridContainer.y = clamp(containerStartY + (pointer.y - dragStartY));
+      this.mapContainer.x = clamp(containerStartX + (pointer.x - dragStartX));
     });
     this.input.on('pointerup', () => { isDragging = false; });
     this.input.on('pointerupoutside', () => { isDragging = false; });
+  }
+
+  // Left/right arrow buttons at the map viewport's own edges (reference:
+  // big triangular arrows flanking the map) — a discoverable alternative
+  // to drag-scrolling, one "page" (a handful of stages) per tap.
+  createMapArrows() {
+    const { width } = this.scale;
+    const y = MAP_CENTER_Y;
+    const pageStep = NODE_SPACING_X * 3;
+
+    createBcCircleButton(this, 16, y, 20, '◀', () => {
+      this.mapContainer.x = this.mapScrollClamp(this.mapContainer.x + pageStep);
+    }, { fill: 0x8a8a8a, highlight: 0xbbbbbb });
+    createBcCircleButton(this, width - 16, y, 20, '▶', () => {
+      this.mapContainer.x = this.mapScrollClamp(this.mapContainer.x - pageStep);
+    }, { fill: 0x8a8a8a, highlight: 0xbbbbbb });
   }
 
   // Deploy-confirmation popup (guide Chapter 06's 出撃確認ポップアップ) — every
@@ -292,7 +348,7 @@ export default class StageSelectScene extends Phaser.Scene {
     );
     objects.push(
       this.add
-        .text(width / 2, panelY - panelHeight / 2 + 52, `${stage.difficulty}  ·  Cost: ${stage.energyCost} NRG`, {
+        .text(width / 2, panelY - panelHeight / 2 + 52, `${stage.difficulty}  ·  Cost: ${stage.energyCost} Energy`, {
           fontFamily: FONT, fontSize: '12px', color: '#7a5c1e',
         })
         .setOrigin(0.5),

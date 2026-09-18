@@ -63,25 +63,28 @@ export default class HomeScene extends Phaser.Scene {
       .setOrigin(0.5);
   }
 
+  // Reference layout: the lobby's top-right corner shows ONLY XP — every
+  // other stat (a rank-like number, Energy) sits in a secondary row
+  // top-LEFT, under the title, and currency (ネコカン) sits bottom-right,
+  // clear of everything else. The previous build stacked XP/Energy/Gems/
+  // Rank all in one tall right-edge column with two Treasure/Gacha buttons
+  // floating beside it — nothing there echoed the reference's actual
+  // grouping, which is why it read as "lost."
   createStatusBar() {
     const playerProgress = loadPlayerProgress();
     const { current, cap } = getEnergyState();
-    const { width } = this.scale;
+    const { width, height } = this.scale;
 
     createResourceBadge(this, width - 24, 26, 'XP', Math.floor(playerProgress.xp), { valueColor: '#7fe0ff' });
-    createResourceBadge(this, width - 24, 58, 'NRG', `${current}/${cap}`, { valueColor: '#8fffb0' });
-    createResourceBadge(this, width - 24, 90, 'GEM', playerProgress.gems, { valueColor: '#ffd27f' });
-    createResourceBadge(this, width - 24, 122, 'RANK', getUserRank(), { valueColor: '#e2b8ff' });
 
-    createBcButton(this, width - 158, 158, 96, 32, 'Treasure', () => {
-      playUiTapSfx();
-      this.scene.start('TreasureScene');
-    }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 });
+    // Secondary status row, top-left under the title — mirrors the
+    // reference's own "(i) 2502 [calendar]" cluster position.
+    createResourceBadge(this, 140, 66, 'RANK', getUserRank(), { valueColor: '#e2b8ff', fontSize: 16 });
+    createResourceBadge(this, 300, 66, 'ENERGY', `${current}/${cap}`, { valueColor: '#8fffb0', fontSize: 16 });
 
-    createBcButton(this, width - 158, 198, 96, 32, 'Gacha', () => {
-      playUiTapSfx();
-      this.scene.start('GachaScene');
-    }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 });
+    // Currency, bottom-right corner — mirrors the reference's ネコカン
+    // position, clear of the icon row (and its under-labels) beneath it.
+    createResourceBadge(this, width - 24, height - 110, 'GEM', playerProgress.gems, { valueColor: '#ffd27f' });
   }
 
   createPrimaryButtons() {
@@ -130,21 +133,28 @@ export default class HomeScene extends Phaser.Scene {
     }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 });
   }
 
+  // Two clusters on the same row (reference: the hub-feature icons sit
+  // left, under the primary buttons; Gacha/storage sit right, in their own
+  // group) — rather than Gacha/Treasure floating as isolated buttons with
+  // no visual relationship to anything else on the screen.
   createSecondaryIcons() {
     const { height } = this.scale;
     const y = height - 62;
     const icons = [
-      { label: 'Menu', x: 150 - 100, glyph: '☰' },
-      { label: 'Gamatoto', x: 150, glyph: '⛏' },
-      { label: 'Missions', x: 150 + 100, glyph: '📋' },
+      // Starts clear of the audio toggle's own bottom-left corner slot
+      // (x=40) — x:70 put "Menu"'s label close enough to visually collide
+      // with it.
+      { label: 'Menu', x: 110, glyph: '☰', action: () => this.showMenuPopup() },
+      { label: 'Gamatoto', x: 190, glyph: '⛏', action: () => this.showComingSoon('Gamatoto') },
+      { label: 'Missions', x: 270, glyph: '📋', action: () => this.scene.start('MissionsScene') },
+      { label: 'Gacha', x: 560, glyph: '🎰', action: () => this.scene.start('GachaScene') },
+      { label: 'Treasure', x: 650, glyph: '🏆', action: () => this.scene.start('TreasureScene') },
     ];
 
     icons.forEach((icon) => {
       createBcCircleButton(this, icon.x, y, 28, icon.glyph, () => {
         playUiTapSfx();
-        if (icon.label === 'Menu') this.showMenuPopup();
-        else if (icon.label === 'Missions') this.scene.start('MissionsScene');
-        else this.showComingSoon(icon.label);
+        icon.action();
       });
       this.add
         .text(icon.x, y + 38, icon.label, { fontFamily: FONT, fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
@@ -216,10 +226,14 @@ export default class HomeScene extends Phaser.Scene {
   // timbre than shipped sound assets would have, so an easy-to-find mute
   // toggle matters more here than it would for a finished game.
   createSoundToggle() {
-    const x = this.scale.width - 24 - 210;
-    const y = 158;
+    // Bottom-left corner — the one slot every other screen in this pass
+    // reserves for a circular icon button (their own Back button); Home is
+    // the root screen and has no "back" to put there, so the audio toggle
+    // takes that same visual slot instead of floating in the header.
+    const x = 40;
+    const y = this.scale.height - 34;
 
-    const toggle = createBcCircleButton(this, x, y, 18, isMuted() ? '🔇' : '🔊', () => {
+    const toggle = createBcCircleButton(this, x, y, 22, isMuted() ? '🔇' : '🔊', () => {
       const muted = !isMuted();
       setMuted(muted);
       toggle.list[3].setText(muted ? '🔇' : '🔊');
