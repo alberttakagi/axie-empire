@@ -758,6 +758,45 @@ enemy-base-HP over a real cannon fire showed blasts landing at ~267ms/
 visual check (bypassing the real per-shot delays) confirmed the aiming
 flash and the three overlapping purple blasts render as intended.
 
+## Spawn-button portraits: face closeup instead of whole-body
+
+The reference screenshot of the real game's own deploy bar shows each unit's
+icon as a tight face closeup filling nearly the whole button — no name, no
+ability tag, just the portrait and the cost in the bottom-right corner over a
+white, black-outlined tile. This build's spawn buttons previously showed the
+unit's full idle sprite (small, so a round body silhouette barely
+differentiates one unit from another) plus a 2-line "Name\n(Ability)" label
+and a flat per-unit color background — none of which the real game does.
+
+- `SpriteIcon.js`'s `addUnitIcon` gained an opt-in `faceZoom` parameter. It
+  registers a second Phaser texture frame per unit (`<key>__face`), cropped to
+  a fixed `FACE_ZOOM_RECT` (x 6%–94%, y 8%–66% of the source PNG) rather than
+  cropping and rescaling by hand — using Phaser's own multi-frame-per-texture
+  support means the resulting Image's width/height already equal the crop's
+  pixel size, so the existing `setScale(targetDiameter / max(w,h))` +
+  `setOrigin(0.5)` centering logic needed no changes.
+- The crop rect is a single universal ratio, not tuned per unit — checked by
+  eye against all 10 roster idle sprites (beast/plant/aquatic/reptile/
+  bird/dusk shapes all included): every one keeps its eyes/mouth/cheek
+  markings and most headgear within that band, while the bottom ~1/3 (legs,
+  tail, drop shadow) reliably falls outside it.
+- `GameScene.createSpawnButtons` now uses `faceZoom` for its portraits, gave
+  the button rect a white fill + black outline (was `config.color`, a flat
+  per-unit color), enlarged the icon to nearly fill the button, and dropped
+  the `characterName`/`abilityLabel` text entirely — cost is now the only
+  text, moved to the bottom-right corner in yellow with a black outline
+  (`stroke`/`strokeThickness`), matching the reference exactly instead of the
+  previous centered black-on-color text split across the top and bottom
+  edges.
+
+Verified live: sampled the actual generated crop frame's pixel dimensions for
+two different units and rendered the raw cropped source region directly (real
+crop math, not just the scaled-down in-game icon) — confirms the frame
+captures headgear/eyes/mouth with legs excluded, for both a tall-narrow (tank)
+and short-wide (basic) sprite. Also checked the cooldown-recharge dark wipe
+and the affordability dim-alpha still render correctly over the new white
+background + face icon.
+
 ## Chimera inventory (asset kit survey, added in a follow-up pass)
 
 The Origins Asset Kit (`tools/axie-origins-asset-kit`) is the ONLY asset kit

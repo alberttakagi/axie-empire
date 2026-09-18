@@ -945,42 +945,33 @@ export default class GameScene extends Phaser.Scene {
       const x = startX + col * (buttonWidth + BUTTON_GAP);
       const y = bottomY - (totalRows - 1 - row) * (BUTTON_HEIGHT + SPAWN_ROW_GAP);
 
+      // White fill + black outline (reference screenshot's real deploy-icon
+      // frame) — replaces the old per-unit flat-color background now that
+      // the icon itself (a tight face crop, not a colored silhouette) is
+      // what tells units apart.
       const rect = this.add
-        .rectangle(x, y, buttonWidth, BUTTON_HEIGHT, config.color)
+        .rectangle(x, y, buttonWidth, BUTTON_HEIGHT, 0xffffff)
+        .setStrokeStyle(2, 0x000000)
         .setInteractive({ useHandCursor: true });
 
-      // Portrait icon (bible's "cooldown fill on a unit's deploy icon"
-      // framing implies real per-unit art on these buttons, matching the
-      // reference game) — sits in the button's middle, with the name/cost
-      // text squeezed to the top/bottom edges to make room. Falls back to
-      // the original centered-text-only layout for any unit with no
-      // sprite (none currently, but keeps this robust to a future entry).
-      // Shrunk further than before (was BUTTON_HEIGHT - 22) to leave room
-      // for the label's now-2-line "Name\n(Ability)" text block above it.
-      const icon = addUnitIcon(this, x, y + 2, config, BUTTON_HEIGHT - 36);
-      const labelY = icon ? y - BUTTON_HEIGHT / 2 + 13 : y - 14;
-      const costY = icon ? y + BUTTON_HEIGHT / 2 - 9 : y + 14;
+      // Full-bleed face closeup (faceZoom — see SpriteIcon.js) filling
+      // nearly the whole button, matching the reference's "just the face,
+      // no name/ability text" framing. Falls back to nothing for any unit
+      // with no sprite (none currently).
+      const icon = addUnitIcon(this, x, y, config, Math.min(buttonWidth, BUTTON_HEIGHT) - 6, true, false, false, true);
 
-      // Character name first, ability tag in parens (see UNIT_CONFIG.js's
-      // own field reference) — the real Battle Cats lineage name
-      // (displayName) isn't shown here at all; abilityLabel keeps the
-      // at-a-glance "what does this button actually do" clarity the
-      // pre-rebuild roster's own displayName values used to carry.
-      const labelText = this.add
-        .text(x, labelY, `${config.characterName}\n(${config.abilityLabel})`, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
-          color: '#000000',
-          align: 'center',
-          wordWrap: { width: buttonWidth - 6 },
-        })
-        .setOrigin(0.5);
-
+      // Price only, bottom-right corner, yellow-on-black-outline (reference
+      // screenshot) — the name/ability label this button used to carry is
+      // dropped entirely now that the face closeup itself identifies the
+      // unit.
       const costText = this.add
-        .text(x, costY, `${this.getUnitCost(config).toLocaleString()}円`, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '9px' : '11px',
-          color: '#000000',
+        .text(x + buttonWidth / 2 - 4, y + BUTTON_HEIGHT / 2 - 3, `${this.getUnitCost(config).toLocaleString()}円`, {
+          fontFamily: 'Rowdies, sans-serif', fontSize: isCompact ? '10px' : '12px',
+          color: '#ffe066',
+          stroke: '#000000',
+          strokeThickness: 3,
         })
-        .setOrigin(0.5);
+        .setOrigin(1, 1);
 
       // Recharge cooldown overlay (bible §A.3.2/§A.10.4's "cooldown fill" on
       // a unit's deploy icon) — a dark wipe that shrinks from full button
@@ -992,7 +983,7 @@ export default class GameScene extends Phaser.Scene {
 
       rect.on('pointerdown', () => this.trySpawnUnit(key));
 
-      return { key, config, rect, icon, labelText, costText, cooldownOverlay };
+      return { key, config, rect, icon, costText, cooldownOverlay };
     });
   }
 
@@ -1896,7 +1887,6 @@ export default class GameScene extends Phaser.Scene {
 
       button.rect.setAlpha(alpha);
       if (button.icon) button.icon.setAlpha(alpha);
-      button.labelText.setAlpha(alpha);
       button.costText.setAlpha(alpha);
 
       const remaining = this.unitCooldowns[button.key] || 0;
