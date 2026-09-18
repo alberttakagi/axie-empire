@@ -64,7 +64,15 @@ import { addLifetimeStat } from './LifetimeStats.js';
 // create() time into flat numbers, since they only change between battles
 // (via UpgradeScene/BaseUpgradeScene), never mid-fight.
 function getBaseUpgradeEffect(key) {
-  return getBaseUpgradeLevel(key) * BASE_UPGRADE_CONFIG[key].perLevelEffect;
+  const config = BASE_UPGRADE_CONFIG[key];
+  const level = getBaseUpgradeLevel(key);
+  // Most categories are a flat perLevelEffect per level; baseDefense's real
+  // growth is tiered instead (see its own perLevelTiers comment) — sum
+  // however many tiers the current level has actually reached.
+  if (config.perLevelTiers) {
+    return config.perLevelTiers.slice(0, level).reduce((sum, tier) => sum + tier, 0);
+  }
+  return level * config.perLevelEffect;
 }
 
 // Normalizes a raw STAGE_CONFIG spawnScript entry into the one real spawn
@@ -475,11 +483,14 @@ export default class GameScene extends Phaser.Scene {
     this.continuesUsed = 0; // Continue (bible §A.3.9) — see CONTINUE_GEM_COSTS
     this.aliveBossCount = 0; // how many currently-alive enemies are boss-tagged — see spawnScriptedEnemy/onEnemyKilled/updateBossMusic
     this.bossMusicSound = null; // the real boss.wav Sound instance while one's playing, else null
-    // Combo's "Starting Money Up" is a bonus ON TOP of the normal starting
-    // fill — deliberately allowed to exceed getWalletCap() for this one
-    // initial value (a real "bonus," not just a differently-computed cap);
-    // every accrual tick afterward still clamps to the normal cap as usual.
-    this.money = this.getWalletCap() * (1 + comboStartingMoneyPercent / 100);
+    // Real Battle Cats always starts a battle at 0¥ regardless of Worker
+    // Cat level or wallet cap (guide's own "1プレイの流れ": "バトル開始：
+    // お金0円...から始まる") — there is no "start with a full wallet"
+    // mechanic at all. Combo's "Starting Money Up" is the one real
+    // exception: a genuine up-front bonus (a % of the wallet cap), not a
+    // top-up of an otherwise-full pool, so with no such combo active this
+    // correctly comes out to exactly 0.
+    this.money = this.getWalletCap() * (comboStartingMoneyPercent / 100);
     this.enemiesKilled = 0;
     this.specialMeter = 0;
     this.enemyBaseCurseMs = 0; // curse landed on the enemy base — currently a no-op, nothing to suppress there yet
@@ -2103,8 +2114,13 @@ export default class GameScene extends Phaser.Scene {
     // the kill via enemiesKilled above, just no economy payout.
     if (this.mode === 'dojo') return;
 
-    // Accounting Base Upgrade (bible §A.7.1) — % more money per kill.
-    const bonus = enemy.config.threat * MONEY_CONFIG.killBonusMultiplier * (1 + this.accountingBonusPercent / 100);
+    // Real per-enemy kill payout (guide Chapter 14's own money list) when
+    // available — only the 3 still-dormant enemies (no real Chapter 1 data,
+    // see ENEMY_CONFIG.js) fall back to the old invented threat-based
+    // formula. Accounting Base Upgrade (bible §A.7.1) still applies % more
+    // on top either way.
+    const baseReward = enemy.config.money ?? enemy.config.threat * MONEY_CONFIG.killBonusMultiplier;
+    const bonus = baseReward * (1 + this.accountingBonusPercent / 100);
     this.money = Math.min(this.getWalletCap(), this.money + bonus);
   }
 

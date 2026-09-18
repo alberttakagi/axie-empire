@@ -24,6 +24,12 @@
 // real Battle Cats data; the existing Origins Asset Kit sprites are reused
 // as-is per this pass's "reuse existing sprites" scope decision).
 //
+// `money` — real yen paid out for killing this enemy (guide Chapter 14's
+// own per-enemy payout list), read directly by GameScene's onEnemyKilled
+// instead of the old invented threat-based formula. Omitted on the 3
+// still-dormant enemies below (no real Chapter 1 data), which keep using
+// that formula as a fallback.
+//
 // `nonBlocking` (kanban only) — GameScene.js's lane model normally never
 // lets a unit advance past ANY live enemy ahead of it (bible-accurate
 // single-lane collision), which is fine for every real combat threat but
@@ -52,6 +58,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Slime', // わんこ (Doge) — the first enemy in the real game
     role: 'basic',
     threat: 2,
+    money: 15,
     hp: 90,
     damage: 8,
     attackSpeed: 5.1, // dps ~1.53 — interval 1567ms (47F), split 35/65 below (no real per-enemy foreswing data — see file header)
@@ -77,6 +84,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Gray Wolf', // にょろ (Snache)
     role: 'fast',
     threat: 4,
+    money: 30,
     hp: 100,
     damage: 15,
     attackSpeed: 12.2, // dps ~12.2 — interval 1233ms (37F), split 35/65 below
@@ -102,6 +110,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Treant', // カバちゃん (Hippoe) — real Battle Cats' own early "wall boss"
     role: 'tank',
     threat: 10,
+    money: 400,
     hp: 1000,
     damage: 100,
     attackSpeed: 4.5, // dps ~44.8 — interval 2233ms (67F), split 35/65 below
@@ -127,6 +136,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Aquatic Slime', // パオン (Paon) — real long-range artillery
     role: 'ranged',
     threat: 25,
+    money: 1300,
     hp: 4000,
     damage: 654,
     attackSpeed: 1.6, // dps ~104.9 — interval 6233ms (187F), split 35/65 below
@@ -152,6 +162,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Dryad Mage', // ブタヤロウ (Piggeh) — the first Red enemy
     role: 'aoe',
     threat: 12,
+    money: 400,
     hp: 1500,
     damage: 120,
     attackSpeed: 4.9, // dps ~49.3 — interval 2433ms (73F), split 35/65 below
@@ -179,6 +190,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Forest Slime Fighter', // リッスントゥミー — cheap, extremely fast swarm filler
     role: 'swarm',
     threat: 3,
+    money: 100,
     hp: 80,
     damage: 30,
     attackSpeed: 56.3, // dps ~56.3 — interval 533ms (16F), split 35/65 below
@@ -204,6 +216,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Dryad Ranger', // ジャッキー・ペン (Jackie Penguin) — a fast attacker
     role: 'sniper',
     threat: 14,
+    money: 450,
     hp: 1300,
     damage: 80,
     attackSpeed: 37.5, // dps ~37.5 — interval 800ms (24F), split 35/65 below
@@ -229,6 +242,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Flowering Treant', // クマ先生 (Kuma-sensei) — long range, KB10
     role: 'guardian',
     threat: 18,
+    money: 2000,
     hp: 3000,
     damage: 1000,
     attackSpeed: 8.4, // dps ~280.7 — interval 3567ms (107F), split 35/65 below
@@ -254,6 +268,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Aquatic Flowering Slime', // ゴマさま (Gomasama) — fast Red area attacker
     role: 'support',
     threat: 16,
+    money: 650,
     hp: 2500,
     damage: 150,
     attackSpeed: 39.1, // dps ~195.7 — interval 767ms (23F), split 35/65 below
@@ -286,6 +301,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Daddy Bear', // カオル君 (Kaoru-kun) — the real Empire of Cats Chapter 1 final boss (stage 48, 西表島)
     role: 'titan',
     threat: 80,
+    money: 4000,
     hp: 99999,
     damage: 2000,
     attackSpeed: 3.3, // dps ~106.9 — interval 9100ms (273F), split 35/65 below
@@ -312,6 +328,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Slime', // 例のヤツ (That Guy) — real early stage filler, KB1
     role: 'thatguy',
     threat: 5,
+    money: 75,
     hp: 200,
     damage: 20,
     attackSpeed: 20, // dps 20 — interval 1000ms (30F), split 35/65 below
@@ -337,6 +354,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Alpha Wolf', // ゴリさん (Gory) — real stage-16 boss, fast AoE
     role: 'gory',
     threat: 16,
+    money: 550,
     hp: 1000,
     damage: 80,
     attackSpeed: 45, // dps 45 — interval 533ms (16F), split 35/65 below
@@ -362,6 +380,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Slime', // メェメェ (Meh Meh) — plain early filler
     role: 'mehmeh',
     threat: 8,
+    money: 150,
     hp: 500,
     damage: 50,
     attackSpeed: 17, // dps 17 — interval 1767ms (53F), split 35/65 below
@@ -387,6 +406,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Gray Wolf', // ワニック (Wanikun) — weak but fast filler
     role: 'wanikun',
     threat: 3,
+    money: 50,
     hp: 70,
     damage: 30,
     attackSpeed: 50, // dps 50 — interval 600ms (18F), split 35/65 below
@@ -412,6 +432,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Gray Wolf', // ウサ銀 (Usagin) — real Red-attribute speedster
     role: 'usagin',
     threat: 9,
+    money: 180,
     hp: 500,
     damage: 50,
     attackSpeed: 22, // dps 22 — interval 1367ms (41F), split 35/65 below
@@ -438,6 +459,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Wolf', // カ・ンガリュ (Kangaroo) — real stage-35/Tokyo boss
     role: 'kangaroo',
     threat: 35,
+    money: 1400,
     hp: 4000,
     damage: 250,
     attackSpeed: 12.5, // dps ~125 — interval 1200ms (36F), split 35/65 below (real ability is a 3-hit combo, simplified to one hit per cycle)
@@ -463,6 +485,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Behemoth', // 一角くん (Ikkaku-kun) — real stage-41 boss, ultra-close range, Red
     role: 'ikkaku',
     threat: 45,
+    money: 2500,
     hp: 15000,
     damage: 500,
     attackSpeed: 22.5, // dps ~937.5 — interval 533ms (16F), split 35/65 below
@@ -489,6 +512,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Elder Aquatic Wolf', // ガガガガ (Gagagaga) — real stage-38 boss, Floating
     role: 'gagagaga',
     threat: 40,
+    money: 1800,
     hp: 5000,
     damage: 350,
     attackSpeed: 10.7, // dps ~107.2 — interval 2933ms (88F), split 35/65 below
@@ -522,6 +546,7 @@ export const ENEMY_CONFIG = {
     role: 'kanban',
     nonBlocking: true, // see file header — never lets her wall off the lane or drive the endless trickle
     threat: 2,
+    money: 1,
     hp: 10000,
     damage: 1,
     attackSpeed: 1.5, // dps ~1.5 — interval 20233ms (607F), split 35/65 below

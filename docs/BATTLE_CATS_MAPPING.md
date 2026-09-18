@@ -381,14 +381,64 @@ trickle fallback after its scripted list ends, unchanged from before.
    once evolutionStage reaches 2, and a live `dealDamage` against a target
    tough enough to survive the hit shows knockback firing at roughly the
    right rate.
-6. **The economy still starts every battle at full wallet, not real Battle
-   Cats' 0¥-at-battle-start.** This predates tonight's pass (pre-existing
-   `this.money = this.getWalletCap() * ...` in `GameScene.js`) — flagged
-   here since it's directly relevant to economy fidelity, not something
-   introduced tonight.
+6. ~~The economy still starts every battle at full wallet, not real Battle
+   Cats' 0¥-at-battle-start.~~ **Fixed** — see the Economy fixes section
+   below.
 7. **CatalogScene.js** wasn't updated with lock/unlock visuals (LoadoutScene
    was) — browsing a locked unit's info there isn't harmful, just not
    labeled "Locked" yet.
+
+## Economy fixes: 0¥ battle start, real per-enemy kill money, real Base Defense tiers
+
+Follow-up to a player question ("is the 6000¥ starting cap / 1000 tower HP /
+enemy HP all still correct?"). Cross-checking against the newest guide
+(`nyanko_guide (3).html`, which added a real Worker Cat income/wallet table)
+and a wiki lookup for the player's own Cat Base HP turned up three real,
+fixable gaps:
+
+- **Battle no longer starts with a full wallet.** Real Battle Cats always
+  starts a battle at 0¥ regardless of Worker Cat level or wallet cap (the
+  guide's own "1プレイの流れ": "バトル開始：お金0円...から始まる") — this
+  was a pre-existing gap (Known Gap #6 above), not something introduced by
+  the saga1 rebuild, but directly relevant to economy fidelity so fixed
+  here. `GameScene.js`'s starting-money line now reads
+  `this.getWalletCap() * (comboStartingMoneyPercent / 100)` instead of
+  `* (1 + comboStartingMoneyPercent / 100)` — with no "Starting Money Up"
+  combo active this is exactly 0, and that combo's bonus is now a genuine
+  up-front amount rather than a top-up of an already-full pool.
+- **Kill money now uses the real per-enemy payout** (guide Chapter 14's own
+  list: Doge 15¥, Snache 30¥, That Guy 75¥, Hippoe/Piggeh 400¥, Jackie
+  Penguin 450¥, Gory 550¥, Meh Meh 150¥, Gomasama 650¥, Wanikun 50¥, Usagin
+  180¥, Paon 1,300¥, Kangaroo 1,400¥, Ikkaku-kun 2,500¥, Kuma-sensei 2,000¥,
+  Listen To Me 100¥, Gagagaga 1,800¥, Kaoru-kun 4,000¥, Kanban Musume 1¥)
+  instead of the old invented `threat * killBonusMultiplier` formula.
+  `ENEMY_CONFIG.js`'s 19 active enemies each carry a real `money` field now;
+  `GameScene.js`'s `onEnemyKilled` reads it directly, falling back to the
+  old formula only for the 3 still-dormant enemies with no real data.
+  Verified live: killing a Doge now pays out exactly 15¥.
+- **Base Defense's real HP growth is tiered, not flat.** A wiki lookup
+  (battlecats.miraheze.org, since neither guide states this) confirmed the
+  player's own Cat Base HP is exactly 1,000 by default — matching
+  `STAGE_CONFIG.js`'s existing `baseHp: 1000` exactly, so that value turned
+  out already correct — but each upgrade level's real HP gain isn't a flat
+  +1,000: real Lv2-4 add 1,000/level, Lv5-8 add 2,000/level, Lv9-30 add
+  3,000/level (up to 78,000 at Lv30). `BASE_UPGRADE_CONFIG.js`'s
+  `baseDefense` now uses a `perLevelTiers` array instead of a flat
+  `perLevelEffect`, and `GameScene.js`'s `getBaseUpgradeEffect` sums
+  however many tiers the current level has reached — this build's own
+  10-level cap now tops out at +20,000 (real Lv11-equivalent) instead of
+  the old flat formula's +10,000. Verified the tier math directly
+  (level 10 → 20,000).
+
+Not fixed (no real number exists to fix it to): the enemy **castle** HP
+per stage (`enemyBaseHp`) is confirmed real, stage-specific data throughout
+saga1 — but neither guide nor the wiki lookup states what governs a fresh
+account's real Worker Cat income/wallet numbers before any Base Upgrades or
+treasures (the newest guide explicitly says this "couldn't be confirmed
+from public data"), so `STAGE_CONFIG.js`'s `moneyAccrualPerSec: 170`/
+`startingMoney: 6000` (the Worker Cat Lv1 income rate and wallet cap) stay
+the existing reasoned baseline rather than being swapped for an equally
+unconfirmed alternative.
 8. ~~Real Cannon mechanics weren't ported.~~ **Done in a follow-up pass**:
    the Cat Cannon now charges on the real fixed TIME budget (guide Chapter
    08 — 50s base, -50F/≈1,667ms per Cannon Charge Base Upgrade level, hard

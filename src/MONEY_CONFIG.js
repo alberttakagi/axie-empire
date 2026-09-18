@@ -12,10 +12,13 @@
 // needed).
 
 export const MONEY_CONFIG = {
-  // Killing an enemy grants enemy.config.threat * killBonusMultiplier yen.
-  // `threat` itself isn't a real Battle Cats stat (see ENEMY_CONFIG.js) so
-  // this multiplier is still just reasoned proportionally: ~11% of a basic
-  // unit's cost per basic-enemy kill.
+  // Killing an enemy grants its real ENEMY_CONFIG.js `money` value (guide
+  // Chapter 14's own per-enemy payout list) — see GameScene.js's
+  // onEnemyKilled. This multiplier is now only a FALLBACK, used solely for
+  // the 3 still-dormant enemies (zombie/colossus/behemoth) that have no
+  // real Chapter 1 data: enemy.config.threat * killBonusMultiplier. `threat`
+  // itself isn't a real Battle Cats stat, so this remains just reasoned
+  // proportionally (~11% of a basic unit's cost per basic-enemy kill).
   killBonusMultiplier: 3,
 
   // Worker Cat: starts every battle at level 1 (using the stage's own

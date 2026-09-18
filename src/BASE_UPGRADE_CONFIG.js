@@ -43,7 +43,17 @@ export const BASE_UPGRADE_CONFIG = {
     description: "Increases your Base's max HP.",
     maxLevel: 10,
     xpCostBase: 600,
-    perLevelEffect: 1000, // real value (guide Chapter 08): "城体力 1レベルごとに体力+1,000"
+    // Real per-level growth is TIERED, not a flat +1,000 (confirmed:
+    // default/unupgraded Cat Base HP is exactly 1,000 — matching this
+    // build's own STAGE_CONFIG.js baseHp — real Lv2-4 add 1,000/level,
+    // Lv5-8 add 2,000/level, Lv9-30 add 3,000/level, capping at 78,000 at
+    // Lv30). This build's own level 1 purchase maps to real Lv2 (Lv1 is
+    // already the stage's own baseHp), so perLevelTiers is this build's
+    // level→bonus table, shifted by that same 1 — level 10 here lands on
+    // real Lv11, still inside the +2,000/3,000 tiers, well short of real's
+    // Lv30 ceiling (same honest "smaller level cap" shortfall as Research/
+    // Cannon Charge above).
+    perLevelTiers: [1000, 1000, 1000, 2000, 2000, 2000, 2000, 3000, 3000, 3000],
     effectType: 'flat',
   },
   research: {
