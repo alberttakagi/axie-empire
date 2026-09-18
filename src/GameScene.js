@@ -231,6 +231,17 @@ const EVOLUTION_STAGE_GLOW_COLOR = { 1: 0x66ccff, 2: 0xaa66ff };
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
+// Both towers use the same guardian-statue art (Origins Asset Kit's PvE/
+// Backgrounds/events/arena layer set, "13_STATUE.png" — see
+// docs/BATTLE_CATS_MAPPING.md for how this was found/chosen), mirrored on
+// the enemy side (setFlipX) so the pair reads as two matching guardians
+// facing inward at each other across the lane, not both facing the same
+// way. Native art is 1024x530 (~1.93:1) — TOWER_STATUE_DISPLAY_HEIGHT sets
+// the on-screen size, width follows that same ratio.
+const TOWER_STATUE_KEY = 'tower_statue';
+const TOWER_STATUE_NATIVE_RATIO = 1024 / 530;
+const TOWER_STATUE_DISPLAY_HEIGHT = 130;
+const TOWER_STATUE_DISPLAY_WIDTH = Math.round(TOWER_STATUE_DISPLAY_HEIGHT * TOWER_STATUE_NATIVE_RATIO);
 
 const BUTTON_HEIGHT = 70;
 // BUTTON_WIDTH is a CEILING, not a fixed size — createSpawnButtons shrinks
@@ -251,10 +262,6 @@ const CAP_BUTTON_WIDTH = 150;
 const CAP_BUTTON_HEIGHT = 44;
 
 const SCORE_PER_KILL = 10;
-
-
-const BASE_COLOR = 0x3366cc;
-const ENEMY_BASE_COLOR = 0x992222;
 
 // How long a knockback slide takes to play out. A stagger sets a defender's
 // knockbackMs to this and computes a velocity (its `knockbackDistance` /
@@ -371,6 +378,7 @@ export default class GameScene extends Phaser.Scene {
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
     preloadBackgrounds(this);
     preloadAttackVfx(this);
+    if (!this.textures.exists(TOWER_STATUE_KEY)) this.load.image(TOWER_STATUE_KEY, '/sprites/structures/tower_statue.png');
     // Real boss battle theme (see updateBossMusic) — the only real audio
     // FILE this build plays; everything else in Audio.js is synthesized on
     // the fly and needs no preloading.
@@ -572,7 +580,9 @@ export default class GameScene extends Phaser.Scene {
       addBackground(this, this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id)),
     );
 
-    this.base = this.add.rectangle(this.baseX, this.laneY, BASE_WIDTH, 100, BASE_COLOR);
+    this.base = this.add
+      .image(this.baseX, this.laneY, TOWER_STATUE_KEY)
+      .setDisplaySize(TOWER_STATUE_DISPLAY_WIDTH, TOWER_STATUE_DISPLAY_HEIGHT);
     this.worldGameObjects.push(this.base);
     // Left-anchored (not centered on baseX): the base sits flush against the
     // canvas's left edge, so a centered "current/max" string would overflow
@@ -587,7 +597,10 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
     this.worldGameObjects.push(this.baseHpText);
 
-    this.enemyBase = this.add.rectangle(this.enemyBaseX, this.laneY, BASE_WIDTH, 100, ENEMY_BASE_COLOR);
+    this.enemyBase = this.add
+      .image(this.enemyBaseX, this.laneY, TOWER_STATUE_KEY)
+      .setDisplaySize(TOWER_STATUE_DISPLAY_WIDTH, TOWER_STATUE_DISPLAY_HEIGHT)
+      .setFlipX(true); // mirrored so both guardians face inward at each other — see TOWER_STATUE_KEY's own comment
     this.worldGameObjects.push(this.enemyBase);
     // Mirror of the above: right-anchored, growing leftward from the
     // canvas's right edge.
