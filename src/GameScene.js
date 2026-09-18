@@ -1110,7 +1110,7 @@ export default class GameScene extends Phaser.Scene {
       const config = BATTLE_ITEMS_CONFIG[id];
       const x = startX + index * (itemWidth + gap);
 
-      const rect = this.add.rectangle(x, y, itemWidth, 34, config.color).setInteractive({ useHandCursor: true });
+      const rect = this.add.rectangle(x, y, itemWidth, 34, config.color).setStrokeStyle(2, BC.ink).setInteractive({ useHandCursor: true });
       const label = this.add
         .text(x, y - 8, config.displayName, {
           fontFamily: 'Rowdies, sans-serif', fontSize: '8px',
@@ -1200,21 +1200,34 @@ export default class GameScene extends Phaser.Scene {
     const x = 16 + CAP_BUTTON_WIDTH / 2;
     const y = 76;
 
-    const rect = this.add
-      .rectangle(x, y, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 0x555555)
-      .setInteractive({ useHandCursor: true });
+    // White/black-outline card (same convention as the spawn buttons —
+    // see UITheme.js) instead of a flat grey rectangle. A Graphics object
+    // (not a plain Rectangle) so the corners can be rounded; its own
+    // setAlpha still dims the whole drawn face correctly for
+    // updateWorkerCatButton's affordability dimming, same as before.
+    const rect = this.add.graphics();
+    rect.fillStyle(BC.ink, 0.2);
+    rect.fillRoundedRect(x - CAP_BUTTON_WIDTH / 2 + 2, y - CAP_BUTTON_HEIGHT / 2 + 3, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 10);
+    rect.fillStyle(0xffffff, 1);
+    rect.fillRoundedRect(x - CAP_BUTTON_WIDTH / 2, y - CAP_BUTTON_HEIGHT / 2, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 10);
+    rect.lineStyle(2, BC.ink, 1);
+    rect.strokeRoundedRect(x - CAP_BUTTON_WIDTH / 2, y - CAP_BUTTON_HEIGHT / 2, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT, 10);
+    rect.setInteractive(
+      new Phaser.Geom.Rectangle(x - CAP_BUTTON_WIDTH / 2, y - CAP_BUTTON_HEIGHT / 2, CAP_BUTTON_WIDTH, CAP_BUTTON_HEIGHT),
+      Phaser.Geom.Rectangle.Contains,
+    );
 
     const labelText = this.add
       .text(x, y - 10, '', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
-        color: '#ffffff',
+        color: BC.inkHex,
       })
       .setOrigin(0.5);
 
     const costText = this.add
       .text(x, y + 10, '', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
-        color: '#ffffff',
+        color: '#7a5c1e',
       })
       .setOrigin(0.5);
 
@@ -1233,13 +1246,14 @@ export default class GameScene extends Phaser.Scene {
     this.cannonX = width - 16 - CANNON_BUTTON_RADIUS;
     this.cannonY = height - 16 - CANNON_BUTTON_RADIUS;
 
-    this.cannonBase = this.add.circle(this.cannonX, this.cannonY, CANNON_BUTTON_RADIUS, CANNON_NOT_READY_COLOR);
+    this.cannonBase = this.add.circle(this.cannonX, this.cannonY, CANNON_BUTTON_RADIUS, CANNON_NOT_READY_COLOR).setStrokeStyle(3, BC.ink);
     this.cannonChargeGraphics = this.add.graphics();
     this.add
       .text(this.cannonX, this.cannonY, 'RUNE\nCANNON', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#ffffff',
         align: 'center',
+        stroke: '#1d1a16', strokeThickness: 3,
       })
       .setOrigin(0.5);
 
@@ -1273,7 +1287,7 @@ export default class GameScene extends Phaser.Scene {
     // bottom edge, visibly overlapping it.
     const y = 58;
 
-    this.speedUpButton = this.add.rectangle(x, y, 68, 24, 0x555566).setInteractive({ useHandCursor: true });
+    this.speedUpButton = this.add.rectangle(x, y, 68, 24, 0x555566).setStrokeStyle(2, BC.ink).setInteractive({ useHandCursor: true });
     this.speedUpText = this.add.text(x, y, '1x SPEED', { fontFamily: 'Rowdies, sans-serif', fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
     this.speedUpButton.on('pointerdown', () => this.toggleSpeedUp());
   }
