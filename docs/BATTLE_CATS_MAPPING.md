@@ -95,9 +95,9 @@ one-off generator kept at `tools/gen_saga1_stages.py` for future retuning.
 - **Real per-stage data used directly**: prefecture name (translated to
   English — Nagasaki, Saga, Kagoshima, ... Iriomote Island), energy cost,
   XP, castle HP (→ `enemyBaseHp`), max-deployed (→
-  `restrictions.maxDeployed` when below 10), the real boss (→ a
-  `baseHpPercentTrigger: 99` entry), and the real enemy roster per stage
-  (in the real listed order).
+  `restrictions.maxDeployed` when below 20 — see the bug-fix note below),
+  the real boss (→ a `baseHpPercentTrigger: 99` entry), and the real enemy
+  roster per stage (in the real listed order).
 - **Chapter 1 uses a flat 100% strength magnification on every enemy,
   every stage** — confirmed by the guide's own note. Every `statMultiplier`
   in the new saga1 is `1`; difficulty comes entirely from castle HP/stage
@@ -150,6 +150,33 @@ correctly triggers its real boss (Hippoe) via the 99% threshold, saga2/3's
 renumbered stage49/stage68 both load cleanly, and unit-unlock gating
 resolves correctly against the new stage IDs (e.g. Fish Cat's locked
 message now reads `Clear "Tottori" to unlock!`).
+
+## Bug fix: max-deployed threshold silently dropped 17 stages' real restriction
+
+`tools/gen_saga1_stages.py`'s generator only emitted a `restrictions.
+maxDeployed` override when the real 出撃最大数 was below **10**, on the
+(wrong) assumption that anything ≥10 didn't need capping. `GameScene.js`'s
+actual fallback when no restriction is set is `DEFAULT_MAX_DEPLOYED = 20`,
+not 10 — so any real value in `[10, 19]` was silently replaced by the wrong
+default of 20 instead of its real, tighter cap. Real Battle Cats'
+出撃最大数 range is stated as 2–20 by the guide itself, so only a real value
+of exactly 20 needs no override at all.
+
+Fixed the generator's condition to `max_units < 20` and regenerated/spliced
+saga1 back into `STAGE_CONFIG.js`. This restored the real restriction on 17
+stages that were previously unrestricted by mistake: stage9 (Ehime, 10),
+stage13 (Hiroshima, 12), stage17 (Hyogo, 10), stage18 (Wakayama, 10),
+stage19 (Osaka, 10), stage20 (Kyoto, 10), stage21 (Nara, 10), stage29
+(Shizuoka, 10), stage30 (Yamanashi, 10), stage31 (Nagano, 10), stage34
+(Chiba, 10), stage35 (Tokyo, 10), stage36 (Saitama, 10), stage40
+(Fukushima, 10), stage41 (Miyagi, 10), stage43 (Iwate, 10), stage46
+(Hokkaido, 10). Stage1's (Nagasaki) 3-unit cap was already correct real
+data and is unaffected. Stage26 (Aichi) has a real 出撃最大数 of 20 and
+correctly has no restriction at all.
+
+Verified live: `STAGE_CONFIG` for stage1/stage9/stage26 matches the
+expected `{maxDeployed:3}` / `{maxDeployed:10}` / no-restriction values
+after the fix.
 
 ## What changed, file by file
 

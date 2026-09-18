@@ -308,6 +308,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 3000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -404,6 +405,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 12 },
     enemyBaseHp: 5000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -502,6 +504,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 7000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -530,6 +533,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 8000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -556,6 +560,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 9000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -578,6 +583,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 9000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -608,6 +614,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 10000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -829,6 +836,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 18000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -854,6 +862,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -888,6 +897,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 8000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -974,6 +984,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 18000,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -1008,6 +1019,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -1035,6 +1047,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -1163,6 +1176,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -1197,6 +1211,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -1255,6 +1270,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, spawnDelayMs: 1500 },
@@ -1344,6 +1360,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    restrictions: { maxDeployed: 10 },
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'aoe', statMultiplier: 1, spawnDelayMs: 1500 },

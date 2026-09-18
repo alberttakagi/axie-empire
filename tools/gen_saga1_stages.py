@@ -62,7 +62,13 @@ def gen_stage(row):
     lines.append(f"    startingMoney: {STARTING_MONEY},")
     lines.append(f"    moneyAccrualPerSec: {MONEY_ACCRUAL},")
     lines.append(f"    baseHp: {BASE_HP},")
-    if max_units < 10:
+    # GameScene.js's own DEFAULT_MAX_DEPLOYED is 20 — the real data's own
+    # range is "2〜20" (guide's own words), so ANY real value below 20 is a
+    # genuine tighter cap that needs an explicit restriction to actually
+    # take effect; only max_units == 20 needs no override (bug fixed after
+    # an earlier `< 10` threshold silently dropped every real 10-19 cap —
+    # 17 of the 48 stages, e.g. every real "出撃最大数: 10" stage).
+    if max_units < 20:
         lines.append(f"    restrictions: {{ maxDeployed: {max_units} }},")
     lines.append(f"    enemyBaseHp: {castle_hp},")
     lines.append(f"    spawnScript: [")
