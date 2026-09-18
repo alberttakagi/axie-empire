@@ -35,6 +35,7 @@ import { getComboBonusValue } from './Combo.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
 import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
+import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './UITheme.js';
 import {
   playDeploySfx,
   playCannonSfx,
@@ -665,16 +666,21 @@ export default class GameScene extends Phaser.Scene {
     this.createPauseButton();
     this.add.text(46, 16, this.stage.displayName, {
       fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
-      color: '#ffdd33',
+      color: '#ffcf3d',
+      stroke: '#1d1a16', strokeThickness: 4,
     });
 
     // Top-right: a single combined "current/cap円" wallet readout
     // (confirmed screenshot format/position — replaces this build's old
-    // separate top-left money text + small "Cap: ¥Y" line).
+    // separate top-left money text + small "Cap: ¥Y" line). Bold outlined
+    // text directly on the battle backdrop, no pill behind it — matches
+    // the reference screenshot exactly (unlike every other screen's dark
+    // resource pill, the battle HUD's own money readout has no background).
     this.walletText = this.add
       .text(width - 16, 16, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '20px',
-        color: '#ffffff',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '22px',
+        color: '#ffe58a',
+        stroke: '#1d1a16', strokeThickness: 5,
       })
       .setOrigin(1, 0);
 
@@ -682,11 +688,17 @@ export default class GameScene extends Phaser.Scene {
     this.createCannonButton();
     this.createSpeedUpButton();
 
+    // Backing bar (reference screenshot: a translucent black stripe behind
+    // the victory banner/reward lines, for legibility over the battle
+    // backdrop) — hidden until showEndScreen actually has something to show.
+    this.gameOverBackdrop = this.add.rectangle(width / 2, height / 2, width, 150, 0x000000, 0.55).setVisible(false);
     this.gameOverText = this.add
       .text(width / 2, height / 2, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '32px',
+        fontFamily: 'Rowdies, sans-serif', fontSize: '28px',
         color: '#ffffff',
         align: 'center',
+        stroke: '#1d1a16', strokeThickness: 6,
+        lineSpacing: 8,
       })
       .setOrigin(0.5);
 
@@ -1011,9 +1023,7 @@ export default class GameScene extends Phaser.Scene {
   // button with the real layout: Retreat now lives inside this popup
   // instead of its own top-level button.
   createPauseButton() {
-    const rect = this.add.circle(24, 16, 14, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(24, 16, '⏸', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.showSettingsPopup());
+    createBcCircleButton(this, 24, 16, 14, '⏸', () => this.showSettingsPopup(), { fontSize: 12 });
   }
 
   // Reference screenshot: a small modal card (title + close X, a Help
@@ -1032,56 +1042,44 @@ export default class GameScene extends Phaser.Scene {
     const panelY = height / 2 - 30;
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
-    objects.push(this.add.rectangle(width / 2, panelY, 340, 200, 0x333333).setStrokeStyle(2, 0xffdd33));
-    objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5));
+    objects.push(drawBcPanel(this, width / 2, panelY, 340, 200));
+    objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontFamily: FONT, fontSize: '20px', color: BC.inkHex }).setOrigin(0.5));
 
-    const closeButton = this.add
-      .rectangle(width / 2 + 155, panelY - 85, 28, 28, 0xcc3333)
-      .setInteractive({ useHandCursor: true });
+    objects.push(createBcCircleButton(this, width / 2 + 155, panelY - 85, 14, '✕', () => this.hideSettingsPopup()));
+
     objects.push(
-      closeButton,
-      this.add.text(width / 2 + 155, panelY - 85, 'X', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5),
+      this.add
+        .text(width / 2 - 130, panelY - 35, 'SFX Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
+        .setOrigin(0, 0.5),
     );
-    closeButton.on('pointerdown', () => this.hideSettingsPopup());
+    const sfxButton = createBcButton(
+      this, width / 2 + 100, panelY - 35, 100, 32, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()],
+      () => sfxButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]),
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(sfxButton);
 
-    const sfxLabel = this.add
-      .text(width / 2 - 130, panelY - 35, 'SFX Volume', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' })
-      .setOrigin(0, 0.5);
-    const sfxButton = this.add
-      .rectangle(width / 2 + 100, panelY - 35, 100, 32, 0x3388cc)
-      .setInteractive({ useHandCursor: true });
-    const sfxText = this.add
-      .text(width / 2 + 100, panelY - 35, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()], { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' })
-      .setOrigin(0.5);
-    sfxButton.on('pointerdown', () => sfxText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]));
-    objects.push(sfxLabel, sfxButton, sfxText);
-
-    const bgmLabel = this.add
-      .text(width / 2 - 130, panelY + 5, 'BGM Volume', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' })
-      .setOrigin(0, 0.5);
-    const bgmButton = this.add
-      .rectangle(width / 2 + 100, panelY + 5, 100, 32, 0x33aa66)
-      .setInteractive({ useHandCursor: true });
-    const bgmText = this.add
-      .text(width / 2 + 100, panelY + 5, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()], { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' })
-      .setOrigin(0.5);
-    bgmButton.on('pointerdown', () => bgmText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]));
-    objects.push(bgmLabel, bgmButton, bgmText);
-
-    const retreatButton = this.add
-      .rectangle(width / 2, panelY + 65, 220, 40, 0xcc3333)
-      .setInteractive({ useHandCursor: true });
     objects.push(
-      retreatButton,
-      this.add.text(width / 2, panelY + 65, 'Retreat', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5),
+      this.add
+        .text(width / 2 - 130, panelY + 5, 'BGM Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
+        .setOrigin(0, 0.5),
     );
+    const bgmButton = createBcButton(
+      this, width / 2 + 100, panelY + 5, 100, 32, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()],
+      () => bgmButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]),
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(bgmButton);
+
     // Hands off to the existing Yes/No confirm rather than retreating
     // immediately — same "don't throw away a live run on one accidental
     // tap" reasoning as before, just reached from inside Options now.
-    retreatButton.on('pointerdown', () => {
-      this.hideSettingsPopup({ keepPaused: true });
-      this.showQuitConfirm();
-    });
+    objects.push(
+      createBcButton(this, width / 2, panelY + 65, 220, 40, 'Retreat', () => {
+        this.hideSettingsPopup({ keepPaused: true });
+        this.showQuitConfirm();
+      }, { fill: BC.red, highlight: BC.redHighlight, textColor: '#ffffff', fontSize: 16 }),
+    );
 
     this.cameras.main.ignore(objects); // UI (see setupZoomControls) — stays fixed regardless of battle zoom
     this.settingsPopupObjects = objects;
@@ -1160,33 +1158,32 @@ export default class GameScene extends Phaser.Scene {
     const objects = [];
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setInteractive());
+    objects.push(drawBcPanel(this, width / 2, height / 2, 380, 160));
     objects.push(
       this.add
         .text(width / 2, height / 2 - 40, 'Quit this battle?\nProgress in this run will be lost.', {
-          fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
-          color: '#ffffff',
+          fontFamily: FONT, fontSize: '16px',
+          color: BC.inkHex,
           align: 'center',
         })
         .setOrigin(0.5),
     );
 
     const buttonY = height / 2 + 30;
-    const yesButton = this.add
-      .rectangle(width / 2 - 80, buttonY, 130, 48, 0xcc3333)
-      .setInteractive({ useHandCursor: true });
-    objects.push(yesButton, this.add.text(width / 2 - 80, buttonY, 'Quit', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
-
-    const noButton = this.add
-      .rectangle(width / 2 + 80, buttonY, 130, 48, 0x444444)
-      .setInteractive({ useHandCursor: true });
-    objects.push(noButton, this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' }).setOrigin(0.5));
-
     // Dojo wasn't reached via Stage Select at all (HomeScene launches it
     // directly), but unlike the post-battle Menu button, quitting mid-battle
     // always goes all the way back to the Home hub/lobby regardless of
     // mode — there's no "current saga's stage list" to return to mid-run.
-    yesButton.on('pointerdown', () => this.scene.start('HomeScene'));
-    noButton.on('pointerdown', () => this.hideQuitConfirm());
+    objects.push(
+      createBcButton(this, width / 2 - 80, buttonY, 130, 48, 'Quit', () => this.scene.start('HomeScene'), {
+        fill: BC.red, highlight: BC.redHighlight, textColor: '#ffffff', fontSize: 16,
+      }),
+    );
+    objects.push(
+      createBcButton(this, width / 2 + 80, buttonY, 130, 48, 'Cancel', () => this.hideQuitConfirm(), {
+        fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 16,
+      }),
+    );
 
     this.cameras.main.ignore(objects); // UI (see setupZoomControls) — stays fixed regardless of battle zoom
     this.quitConfirmObjects = objects;
@@ -3226,6 +3223,7 @@ export default class GameScene extends Phaser.Scene {
   // §A.10.5) alongside the always-present Restart/Menu pair.
   showEndScreen(lines, nextStage = null) {
     this.gameOverText.setText(lines.join('\n'));
+    this.gameOverBackdrop.setVisible(true);
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
 
     const { width, height } = this.scale;
@@ -3242,35 +3240,37 @@ export default class GameScene extends Phaser.Scene {
 
     labels.forEach((label, index) => {
       const x = startX + index * (buttonWidth + buttonGap);
-      // Next Stage gets its own accent color so it reads as the primary/
-      // recommended action, not just a third identical gray button.
-      const color = label === 'Next Stage' ? 0xffcc33 : 0x444444;
-      const textColor = label === 'Next Stage' ? '#000000' : '#ffffff';
-
-      const button = this.add.rectangle(x, buttonY, buttonWidth, 60, color).setInteractive({ useHandCursor: true });
-      const buttonLabel = this.add.text(x, buttonY, label, { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: textColor }).setOrigin(0.5);
-      this.cameras.main.ignore([button, buttonLabel]); // UI (see setupZoomControls)
-
+      // Next Stage gets the primary gold treatment (reference's own
+      // "OK"-style button) so it reads as the recommended action, not just
+      // a third identical gray button.
+      const isPrimary = label === 'Next Stage';
+      let onClick;
       if (label === 'Restart') {
-        button.on('pointerdown', () => this.scene.restart());
+        onClick = () => this.scene.restart();
       } else if (label === 'Next Stage') {
-        button.on('pointerdown', () => {
+        onClick = () => {
           if (!trySpendEnergy(nextStage.energyCost)) {
             this.showRestrictionMessage('Not enough Energy for the next stage!');
             return;
           }
           this.scene.start('GameScene', { stageId: nextStage.id });
-        });
+        };
       } else {
         // Dojo wasn't reached via Stage Select at all (HomeScene launches it
         // directly), so "Menu" should return there instead. A normal stage
         // battle returns to its OWN saga's stage list (bible §A.6.1), not
         // always saga1's — this.stage.saga is read straight off the stage
         // record STAGE_CONFIG already resolved in create().
-        button.on('pointerdown', () =>
-          this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga }),
-        );
+        onClick = () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga });
       }
+
+      const button = createBcButton(this, x, buttonY, buttonWidth, 60, label, onClick, {
+        fill: isPrimary ? BC.gold : 0x8a8a8a,
+        highlight: isPrimary ? BC.goldHighlight : 0xbbbbbb,
+        textColor: isPrimary ? BC.goldInk : '#ffffff',
+        fontSize: 18,
+      });
+      this.cameras.main.ignore(button); // UI (see setupZoomControls)
     });
   }
 }
