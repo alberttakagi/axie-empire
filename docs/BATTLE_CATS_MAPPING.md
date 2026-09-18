@@ -655,6 +655,48 @@ simulating Cannon Power Lv5 alone measured a charge time of ~58.3s
 Cannon Power Lv5 + Cannon Charge Lv5 together measured back to ~50.0s,
 confirming the real equal-and-opposite cancellation.
 
+## Rebuild: real 3-tier level-cap structure (10 → 20 → 50)
+
+The guide's Chapter 09 revision gave the real level-cap mechanics that
+were previously only vaguely known: every unit's level cap starts at 10
+(XP alone), jumps to 20 for free once the real Japan Chapter 2 final
+stage is cleared (no items involved — a pure story gate), and from there
+requires consuming Growth Charms (real "Catseyes") one per level up to
+real Lv45, two per level for the final 5 (Lv46-50) — landing on a real
+cap of 50 for most characters (60 for some higher rarities, not modeled
+since this roster has no such unit — see UNIT_CONFIG.js's rarity field).
+
+This build's existing two-tier system (`baseLevelCap` + `maxExtraCap`,
+Growth Charms 1-per-level, no story gate at all) turned out to already
+have `baseLevelCap: 10` exactly right by coincidence, but capped out at a
+flat 20 total with no gate and no cost escalation — a real but much
+smaller and differently-shaped ceiling.
+
+- **`PROGRESSION_CONFIG.js`**: `maxExtraCap` raised from 10 to 30 for
+  every unit (10 free story-gate levels + 30 Growth-Charm levels = the
+  real 50 total, on top of the unchanged `baseLevelCap: 10`). New exported
+  `STORY_GATE_LEVEL_CAP_BONUS` (10) and `STORY_GATE_STAGE_ID` (`'stage96'`
+  — this build's own equivalent of real Chapter 2's Iriomote Island final
+  stage, from the saga2/saga3 rebuild above).
+- **`PlayerProgress.js`**: new `hasStoryGateCleared()` (same
+  stage-clear-check pattern as the existing `isUnitUnlocked`).
+  `getUnitLevelCap` now adds the story-gate bonus only once that stage is
+  cleared. `tryUseGrowthCharm` is blocked entirely until the gate is
+  cleared (real Catseyes only ever apply past real Lv20), and now spends
+  2 charms instead of 1 once `extraCap` is within its own final 5 levels
+  (new exported `getGrowthCharmCost` helper) — real Lv46-50's higher cost.
+- **`UpgradeScene.js`**: reads the new `getUnitLevelCap` instead of
+  recomputing the old 2-term formula inline; a unit stuck at its Lv10
+  baseline before the story gate is cleared now shows "Clear '\<stage
+  name>' to level further" instead of an always-failing Use Charm button;
+  the Growth Charm button itself now shows its real cost (1 or 2) instead
+  of an unconditional "Use Charm."
+
+Verified live: a fresh save's level cap is 10 with the story gate
+unmet; marking the gate stage cleared raises it to 20 immediately; the
+Growth Charm cost helper returns 1 for `extraCap` 0-24 and 2 for 25-29
+(the real Lv46-50 range), with `maxExtraCap` confirmed at 30.
+
 ## Chimera inventory (asset kit survey, added in a follow-up pass)
 
 The Origins Asset Kit (`tools/axie-origins-asset-kit`) is the ONLY asset kit

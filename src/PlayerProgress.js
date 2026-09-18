@@ -24,7 +24,7 @@
 // on Gacha pulls (Gacha.js/GachaScene.js) — separate from XP (the
 // unit/base-upgrade currency) and from in-battle money.
 
-import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
+import { PROGRESSION_CONFIG, STORY_GATE_LEVEL_CAP_BONUS, STORY_GATE_STAGE_ID } from './PROGRESSION_CONFIG.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
@@ -88,13 +88,25 @@ export function isUnitUnlocked(unitType) {
   return stageProgress[requirement.stageId]?.cleared === true;
 }
 
-// Total level cap this unit can currently reach: the config's baseLevelCap,
-// plus 1 per Growth Charm already spent on it (bible §A.4.3 — a Charm
-// raises the CAP, XP still pays for the level itself).
+// Real level-cap story gate (guide Chapter 09): every unit's level cap is
+// stuck at 10 (baseLevelCap, XP alone) until the real Japan Chapter 2
+// final stage is cleared, at which point it jumps to 20 for everyone —
+// see PROGRESSION_CONFIG.js's STORY_GATE_STAGE_ID/STORY_GATE_LEVEL_CAP_BONUS.
+export function hasStoryGateCleared() {
+  const stageProgress = loadStageProgress();
+  return stageProgress[STORY_GATE_STAGE_ID]?.cleared === true;
+}
+
+// Total level cap this unit can currently reach: baseLevelCap (10, XP
+// alone), plus the story-gate bonus (10, once the real Chapter 2 final
+// stage is cleared — see hasStoryGateCleared), plus 1 per Growth Charm
+// already spent on it past that (bible §A.4.3 — a Charm raises the CAP,
+// XP still pays for the level itself).
 export function getUnitLevelCap(unitType) {
   const config = PROGRESSION_CONFIG[unitType];
   const unitProgress = getUnitProgress(loadPlayerProgress(), unitType);
-  return config.baseLevelCap + unitProgress.extraCap;
+  const storyGateBonus = hasStoryGateCleared() ? STORY_GATE_LEVEL_CAP_BONUS : 0;
+  return config.baseLevelCap + storyGateBonus + unitProgress.extraCap;
 }
 
 // XP cost to go from the unit's CURRENT level to the next one.
@@ -111,7 +123,7 @@ export function tryLevelUpUnit(unitType) {
   const config = PROGRESSION_CONFIG[unitType];
   const progress = loadPlayerProgress();
   const unitProgress = getUnitProgress(progress, unitType);
-  const cap = config.baseLevelCap + unitProgress.extraCap;
+  const cap = getUnitLevelCap(unitType);
 
   if (unitProgress.level >= cap) return { ok: false, reason: 'at-cap' };
 
@@ -125,19 +137,30 @@ export function tryLevelUpUnit(unitType) {
   return { ok: true };
 }
 
-// Spends one Growth Charm to raise one unit's level CAP by 1 (bible
-// §A.4.3) — only meaningful once the unit is already at its current cap;
-// consuming one when it isn't just wastes it, so the UI should gate this
-// the same way tryLevelUpUnit gates itself.
+// Real Catseye cost per extraCap level (guide Chapter 09): 1 for most of
+// the range, 2 for the final 5 levels of a unit's own maxExtraCap (real
+// Lv46-50) — see PROGRESSION_CONFIG.js's header for how extraCap maps
+// onto real level numbers.
+export function getGrowthCharmCost(unitProgress, config) {
+  return unitProgress.extraCap >= config.maxExtraCap - 5 ? 2 : 1;
+}
+
+// Spends Growth Charms to raise one unit's level CAP by 1 (bible §A.4.3) —
+// only meaningful once the unit is already at its current cap; consuming
+// one when it isn't just wastes it, so the UI should gate this the same
+// way tryLevelUpUnit gates itself. Blocked entirely until the story gate
+// is cleared — real Catseyes only ever apply past real Lv20.
 export function tryUseGrowthCharm(unitType) {
   const config = PROGRESSION_CONFIG[unitType];
   const progress = loadPlayerProgress();
   const unitProgress = getUnitProgress(progress, unitType);
 
-  if (progress.growthCharms < 1) return { ok: false, reason: 'no-charms' };
+  if (!hasStoryGateCleared()) return { ok: false, reason: 'story-gate-locked' };
   if (unitProgress.extraCap >= config.maxExtraCap) return { ok: false, reason: 'max-extra-cap' };
+  const cost = getGrowthCharmCost(unitProgress, config);
+  if (progress.growthCharms < cost) return { ok: false, reason: 'no-charms' };
 
-  progress.growthCharms -= 1;
+  progress.growthCharms -= cost;
   progress.units[unitType] = { ...unitProgress, extraCap: unitProgress.extraCap + 1 };
   save(progress);
   return { ok: true };

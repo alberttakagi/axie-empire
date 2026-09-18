@@ -9,23 +9,32 @@
 // no gacha yet — that's a later phase, §A.5.2), so rarity here ONLY affects
 // the growth-curve numbers below; it doesn't gate acquisition yet.
 //
-// `baseLevelCap` — the level reachable via XP alone, no items needed
-// (bible §A.4.2's "level 1→30 (ish) purely by spending XP").
-// `maxExtraCap`  — further levels reachable ONLY by consuming a Growth
-// Charm per level (bible §A.4.3's Catseye-equivalent) once baseLevelCap is
-// hit. True max level = baseLevelCap + maxExtraCap.
+// `baseLevelCap` — the level reachable via XP alone, no items or story
+// progress needed. Real value confirmed by the guide: 10.
+// `STORY_GATE_LEVEL_CAP` (module-level, below, not per-unit — this bonus
+// is a flat +10 for every unit alike) — clearing the real Japan Chapter 2
+// final stage (西表島/Iriomote Island, this build's own equivalent —
+// see PlayerProgress.js's hasStoryGateCleared) raises every unit's level
+// cap from 10 to 20, no items involved, matching the guide's own
+// "日本編第2章「西表島」クリアで20になる."
+// `maxExtraCap`  — further levels PAST the story-gated 20, reachable only
+// by consuming Growth Charms (bible §A.4.3 / the guide's "キャッツアイ"),
+// one per level for most of the range, two per level for the final 5
+// (real levels 46-50 cost 2 Catseyes each — see
+// PlayerProgress.js's tryUseGrowthCharm). True max level = baseLevelCap +
+// STORY_GATE_BONUS (10, once cleared) + maxExtraCap. Real cap is 50 for
+// most characters (30 here, landing on 10+10+30=50) — some real rarities
+// go to 60, not modeled since this roster has no such unit yet (see
+// UNIT_CONFIG.js's rarity field).
 // `growthPercentPerLevel` / `growthPercentPerLevelExtra` — bible §A.4.2
 // describes a real per-unit, per-decade-bracket tapering curve (20%→10%→5%
-// as level rises), not a flat rate for the unit's whole life. This build's
-// level range (1..baseLevelCap via XP, baseLevelCap+1..+maxExtraCap via
-// Growth Charms) is much shorter than the bible's reference 1-60+ range, so
-// rather than force the bible's literal decade breakpoints onto a ~20-level
-// scale (which would put this whole game inside the bible's own single
-// "early" bracket and never taper at all), it steps down exactly once, at
-// the same level this game's own level-cap structure already steps: the
-// unit's usual rate applies through baseLevelCap, then
-// growthPercentPerLevelExtra (always half the base rate) applies to every
-// level past that. Applied as:
+// as level rises), keyed off real breakpoints (Lv60, etc) that don't
+// correspond to any of the three tiers above — this build instead steps
+// down exactly once, at `baseLevelCap`, same as before: the unit's usual
+// rate applies through baseLevelCap, then growthPercentPerLevelExtra
+// (always half the base rate) applies to every level past that,
+// regardless of which of the two upper tiers a given level falls in.
+// Applied as:
 //   levelsAtBaseRate = min(level, baseLevelCap) - 1
 //   levelsAtExtraRate = max(0, level - baseLevelCap)
 //   growthMultiplier = 1 + growthPercentPerLevel * levelsAtBaseRate
@@ -72,11 +81,21 @@
 // plus a subtle glow (or glow alone, for the one unit with no real evolved
 // art). See that file for the full reasoning.
 
+// Flat bonus every unit's level cap gains once the story gate (see
+// PlayerProgress.js's hasStoryGateCleared) is cleared — same value for
+// every unit, so it lives here once rather than repeated per-entry below.
+export const STORY_GATE_LEVEL_CAP_BONUS = 10;
+// This build's own equivalent of real Japan Chapter 2's final stage
+// (西表島/Iriomote Island) — saga2's own stage96 (see STAGE_CONFIG.js's
+// saga2/saga3 rebuild), the same map as saga1's stage48 replayed at real
+// Chapter 2's 150% magnification.
+export const STORY_GATE_STAGE_ID = 'stage96';
+
 export const PROGRESSION_CONFIG = {
   basic: {
     rarity: 'Normal',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 100,
@@ -97,7 +116,7 @@ export const PROGRESSION_CONFIG = {
   fast: {
     rarity: 'Rare',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 1000,
@@ -118,7 +137,7 @@ export const PROGRESSION_CONFIG = {
   tank: {
     rarity: 'Normal',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 200,
@@ -139,7 +158,7 @@ export const PROGRESSION_CONFIG = {
   ranged: {
     rarity: 'Rare',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 800,
@@ -160,7 +179,7 @@ export const PROGRESSION_CONFIG = {
   aoe: {
     rarity: 'Super Rare',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 1300,
@@ -185,7 +204,7 @@ export const PROGRESSION_CONFIG = {
   swarm: {
     rarity: 'Normal',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 50,
@@ -206,7 +225,7 @@ export const PROGRESSION_CONFIG = {
   sniper: {
     rarity: 'Rare',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 900,
@@ -231,7 +250,7 @@ export const PROGRESSION_CONFIG = {
   guardian: {
     rarity: 'Normal',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 250,
@@ -252,7 +271,7 @@ export const PROGRESSION_CONFIG = {
   support: {
     rarity: 'Rare',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 600,
@@ -273,7 +292,7 @@ export const PROGRESSION_CONFIG = {
   titan: {
     rarity: 'Super Rare',
     baseLevelCap: 10,
-    maxExtraCap: 10,
+    maxExtraCap: 30,
     growthPercentPerLevel: 0.2, // real Battle Cats formula (guide Chapter 06 f-level): +20%/level up to Lv60
     growthPercentPerLevelExtra: 0.1, // real formula: +10%/level past Lv60 — applied here past this unit's own baseLevelCap instead (see this file's own header)
     xpCostBase: 1500,

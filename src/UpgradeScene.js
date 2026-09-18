@@ -1,14 +1,18 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
-import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
+import { PROGRESSION_CONFIG, STORY_GATE_STAGE_ID } from './PROGRESSION_CONFIG.js';
 import {
   loadPlayerProgress,
   getUnitProgress,
+  getUnitLevelCap,
   getNextLevelCost,
+  getGrowthCharmCost,
+  hasStoryGateCleared,
   tryLevelUpUnit,
   tryUseGrowthCharm,
   tryEvolveUnit,
 } from './PlayerProgress.js';
+import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
@@ -139,7 +143,7 @@ export default class UpgradeScene extends Phaser.Scene {
     const base = UNIT_CONFIG[type];
     const meta = PROGRESSION_CONFIG[type];
     const unitProgress = getUnitProgress(progress, type);
-    const cap = meta.baseLevelCap + unitProgress.extraCap;
+    const cap = getUnitLevelCap(type);
     const atCap = unitProgress.level >= cap;
     const effective = getEffectiveUnitConfig(type);
     const evoName =
@@ -178,7 +182,20 @@ export default class UpgradeScene extends Phaser.Scene {
     );
 
     rowObjects.push(...this.renderLevelUpButton(type, y, unitProgress, cap, atCap, progress));
-    if (atCap && unitProgress.extraCap < meta.maxExtraCap) {
+    // Growth Charms only ever apply past the real story-gated Lv20 (see
+    // PlayerProgress.js's hasStoryGateCleared) — below that, a unit stuck
+    // at its Lv10 baseLevelCap gets an explanatory hint instead of a
+    // charm button that would only ever fail.
+    if (atCap && !hasStoryGateCleared()) {
+      const gateStage = STAGE_CONFIG.find((s) => s.id === STORY_GATE_STAGE_ID);
+      rowObjects.push(
+        this.add
+          .text(590, y, `Clear\n"${gateStage?.displayName ?? STORY_GATE_STAGE_ID}"\nto level further`, {
+            fontFamily: 'Rowdies, sans-serif', fontSize: '9px', color: '#888888', align: 'center',
+          })
+          .setOrigin(0.5),
+      );
+    } else if (atCap && unitProgress.extraCap < meta.maxExtraCap) {
       rowObjects.push(...this.renderGrowthCharmButton(type, y, progress));
     }
     rowObjects.push(...this.renderEvolveButton(type, y, meta, unitProgress, progress));
@@ -212,14 +229,17 @@ export default class UpgradeScene extends Phaser.Scene {
 
   renderGrowthCharmButton(type, y, progress) {
     const x = 590;
-    const affordable = progress.growthCharms >= 1;
+    const meta = PROGRESSION_CONFIG[type];
+    const unitProgress = getUnitProgress(progress, type);
+    const cost = getGrowthCharmCost(unitProgress, meta);
+    const affordable = progress.growthCharms >= cost;
 
     const rect = this.add
       .rectangle(x, y, 100, BUTTON_HEIGHT, 0x996633)
       .setInteractive({ useHandCursor: true })
       .setAlpha(affordable ? 1 : 0.4);
     const label = this.add
-      .text(x, y, `Use Charm\n(${progress.growthCharms} held)`, {
+      .text(x, y, `Use ${cost} Charm${cost > 1 ? 's' : ''}\n(${progress.growthCharms} held)`, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
         color: '#ffffff',
         align: 'center',
