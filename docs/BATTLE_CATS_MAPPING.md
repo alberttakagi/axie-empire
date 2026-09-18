@@ -602,6 +602,59 @@ a new `describeLockedUnit` helper, reading `UNIT_CONFIG`'s
 (a permanently unsatisfiable requirement) gets its own "Not available yet!"
 message instead of naming a stage that doesn't actually grant it.
 
+## Rebuild: real Cat Cannon damage/charge/wave-count mechanics
+
+The guide's Chapter 08 revision added the real Cat Cannon formulas that
+were previously only described qualitatively. This build's Cat Cannon had
+three separate inaccuracies once compared against them:
+
+- **Damage was two invented flat values** (`SPECIAL_BURST_DAMAGE=30` for
+  hitting enemies, `SPECIAL_BURST_BASE_DAMAGE=25` for hitting the enemy
+  base) instead of the real single formula, `攻撃力 = 100 +
+  50×(Cannon Power Lv−1)` — real data never distinguishes a separate
+  unit-damage and base-damage number; it's one number the wave deals to
+  whatever it hits.
+- **Cannon Power was a pure buff** (flat +5 damage/level with no downside)
+  instead of the real trade-off: it also SLOWS the charge by the same
+  1,666.67ms/level that Cannon Charge speeds it up by, so raising both to
+  the same level exactly cancels out back to the 50s baseline — a real,
+  deliberate build-around choice ("the fastest cannon" strategy: max
+  Charge, leave Power at Lv1) that this build had no way to express before.
+- **The real Cat Cannon fires multiple discrete "waves"** (3 at baseline,
+  +1 per Cannon Range Base Upgrade level — a category this project had
+  previously skipped entirely as "no adjustable range concept in this
+  build") — this build fired one single instantaneous hit no matter what.
+
+Fix, in `GameScene.js` and `BASE_UPGRADE_CONFIG.js`:
+- `CANNON_BASE_DAMAGE = 100` and `CANNON_BASE_WAVE_COUNT = 3` replace the
+  old two-value split; `triggerSpecialBurst` now fires
+  `CANNON_BASE_WAVE_COUNT + cannonWaveBonus` waves via a new
+  `fireCannonWave` method, `CANNON_WAVE_STAGGER_MS` (150ms — no real
+  per-wave timing data exists, this is a reasoned "read as separate hits"
+  value) apart, each dealing the real formula's damage to every living
+  enemy AND the enemy base directly (unifying what used to be two
+  separate numbers).
+- `BASE_UPGRADE_CONFIG.cannonPower`'s `perLevelEffect` changed from an
+  invented flat 5 to the real +50/level; `GameScene.js`'s charge-duration
+  calc now also reads `cannonPowerLevel` directly and adds
+  `cannonPowerLevel * 1666.67ms` as a charge-time penalty, on top of (not
+  replacing) Cannon Charge's own existing reduction.
+- New `BASE_UPGRADE_CONFIG.cannonRange` category (its real range-extension
+  effect has no equivalent in this build's already-whole-lane-sweep
+  cannon, so only its wave-count effect is reproduced), read into
+  `cannonWaveBonus` at battle start.
+- A `waveImmune` config flag is now checked (and skipped) per hit, even
+  though no current enemy sets it — real Cat Cannon damage is itself a
+  wave attack that deals zero to a wave-immune enemy, so this is here for
+  whenever one is added rather than silently missing the interaction.
+
+Verified live: a full-meter cannon shot against a very-high-HP dummy
+enemy landed exactly 3 separate 100-damage hits, staggered as expected;
+simulating Cannon Power Lv5 alone measured a charge time of ~58.3s
+(50,000 + 5×1,666.67, matching the real formula almost exactly), and
+Cannon Power Lv5 + Cannon Charge Lv5 together measured back to ~50.0s,
+confirming the real equal-and-opposite cancellation.
+
 ## Chimera inventory (asset kit survey, added in a follow-up pass)
 
 The Origins Asset Kit (`tools/axie-origins-asset-kit`) is the ONLY asset kit

@@ -330,8 +330,23 @@ const SPECIAL_METER_MAX = 200;
 // (950F ≈ 31.7s) research/upgrades can never push the total time below.
 const SPECIAL_CHARGE_DURATION_MS = 50000; // real 1500F baseline
 const CANNON_CHARGE_FLOOR_MS = 31667; // real 950F
-const SPECIAL_BURST_DAMAGE = 30;
-const SPECIAL_BURST_BASE_DAMAGE = 25;
+// Real per-shot damage (guide Chapter 08): 攻撃力 = 100 + 50×(Cannon Power
+// Lv−1) — one number applied to whatever the wave hits, not two separate
+// invented values for units vs the enemy base (the old SPECIAL_BURST_DAMAGE
+// =30 / SPECIAL_BURST_BASE_DAMAGE=25 split). CANNON_BASE_WAVE_COUNT is the
+// real base wave count (guide: "波動の数3発"), raised by Cannon Range (see
+// BASE_UPGRADE_CONFIG.js). CANNON_WAVE_STAGGER_MS has no real timing data —
+// waves fire in quick succession in reality; this build spaces them just
+// enough to read as separate hits (and separate knockback opportunities)
+// rather than one instantaneous multiplied number.
+const CANNON_BASE_DAMAGE = 100;
+const CANNON_BASE_WAVE_COUNT = 3;
+const CANNON_WAVE_STAGGER_MS = 150;
+// Real Cannon Power also SLOWS the charge by the same amount Cannon Charge
+// speeds it up (guide Chapter 08's own charge formula) — same per-level
+// magnitude as BASE_UPGRADE_CONFIG.cannonCharge's perLevelEffect, applied
+// with the opposite sign in the charge-time calc below.
+const CANNON_POWER_CHARGE_PENALTY_MS_PER_LEVEL = 1666.67;
 const CANNON_BUTTON_RADIUS = 34;
 const CANNON_NOT_READY_COLOR = 0x555566;
 const CANNON_READY_COLOR = 0xffdd33;
@@ -406,6 +421,11 @@ export default class GameScene extends Phaser.Scene {
     // updateCannonButton/triggerSpecialBurst); baseDefense/research/
     // accounting/study are read where their effect actually applies below.
     this.cannonPowerBonus = getBaseUpgradeEffect('cannonPower');
+    // Cannon Power's own LEVEL (not just its damage bonus) is needed
+    // separately — it also slows the charge (see the update() charge
+    // formula below), a real trade-off this build didn't model before.
+    this.cannonPowerLevel = getBaseUpgradeLevel('cannonPower');
+    this.cannonWaveBonus = getBaseUpgradeEffect('cannonRange');
     // ms shaved off the cannon's total charge TIME (see
     // SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS above) — renamed
     // from the old rate-based cannonChargePerSecBonus now that
@@ -1763,13 +1783,19 @@ export default class GameScene extends Phaser.Scene {
 
     // Cat Cannon charges passively over a fixed TIME budget (bible §A.3.9,
     // guide Chapter 08's real formula), independent of combat performance.
-    // Cannon Charge Base Upgrade shaves flat time off that budget, down to
-    // a hard floor (see SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS
-    // above). Doesn't start until the player's first deploy (see
-    // battleStarted) — nothing to charge "during battle" before there's a
-    // battle.
+    // Cannon Charge Base Upgrade shaves flat time off that budget; Cannon
+    // Power adds an equal-and-opposite penalty per level (a real trade-off
+    // — raising both to the same level exactly cancels out, back to the
+    // 50s baseline), down to a hard floor (see
+    // SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS above). Doesn't
+    // start until the player's first deploy (see battleStarted) — nothing
+    // to charge "during battle" before there's a battle.
     if (this.battleStarted) {
-      const chargeDurationMs = Math.max(CANNON_CHARGE_FLOOR_MS, SPECIAL_CHARGE_DURATION_MS - this.cannonChargeReductionMs);
+      const cannonPowerPenaltyMs = this.cannonPowerLevel * CANNON_POWER_CHARGE_PENALTY_MS_PER_LEVEL;
+      const chargeDurationMs = Math.max(
+        CANNON_CHARGE_FLOOR_MS,
+        SPECIAL_CHARGE_DURATION_MS + cannonPowerPenaltyMs - this.cannonChargeReductionMs,
+      );
       this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_METER_MAX * deltaMs) / chargeDurationMs);
       if (this.mode !== 'dojo') this.updateSpawns();
     }
@@ -2780,28 +2806,52 @@ export default class GameScene extends Phaser.Scene {
     this.triggerSpecialBurst();
   }
 
-  // Flat damage + knockback to every living enemy plus a chip of enemy-base
-  // damage, then resets to 0. Enemy kills route through the normal
-  // removeDead/onEnemyKilled path so they still pay out money like any
-  // other kill; the base damage goes through damageEnemyBase so it still
-  // triggers a normal win if it finishes the base off. Knockback here is
-  // unconditional (not the HP-threshold "endurance" gate combat hits use)
-  // — the burst is a special, guaranteed effect, matching the bible's Cat
-  // Cannon including knockback (§A.3.9).
+  // Fires CANNON_BASE_WAVE_COUNT + Cannon Range waves (guide Chapter 08:
+  // real Cat Cannon shots are multiple discrete wave hits, not one), each
+  // CANNON_WAVE_STAGGER_MS apart so they read as separate hits — separate
+  // knockback opportunities against anything that survives the first.
+  // Resets the meter to 0 once, up front; each wave's damage/knockback and
+  // kill/base-damage bookkeeping happens in fireCannonWave below.
   triggerSpecialBurst() {
     this.specialMeter = 0;
     playCannonSfx();
     this.cameras.main.shake(200, 0.008);
     addLifetimeStat('cannonUses');
 
-    // Cannon Power Base Upgrade (bible §A.7.1) adds flat damage to both
-    // halves of the burst.
-    const burstDamage = SPECIAL_BURST_DAMAGE + this.cannonPowerBonus;
-    const burstBaseDamage = SPECIAL_BURST_BASE_DAMAGE + this.cannonPowerBonus;
+    const { width } = this.scale;
+    const flash = this.add.rectangle(width / 2, this.laneY, width, 80, SPECIAL_FLASH_COLOR).setAlpha(0.5);
+    this.uiCamera.ignore(flash); // world object (see setupZoomControls) — zooms/pans with the battlefield
+    this.time.delayedCall(SPECIAL_FLASH_DURATION_MS, () => flash.destroy());
 
+    const waveCount = CANNON_BASE_WAVE_COUNT + this.cannonWaveBonus;
+    for (let wave = 0; wave < waveCount; wave += 1) {
+      this.time.delayedCall(wave * CANNON_WAVE_STAGGER_MS, () => this.fireCannonWave());
+    }
+  }
+
+  // One wave of the Cat Cannon (see triggerSpecialBurst) — real per-shot
+  // damage (guide Chapter 08's formula) to every living enemy plus the
+  // same amount to the enemy base directly, since real data never
+  // distinguishes separate unit-damage/base-damage values the way this
+  // build's old SPECIAL_BURST_DAMAGE/SPECIAL_BURST_BASE_DAMAGE split did.
+  // Enemy kills route through the normal removeDead/onEnemyKilled path so
+  // they still pay out money like any other kill; the base damage goes
+  // through damageEnemyBase so it still triggers a normal win if it
+  // finishes the base off. Knockback here is unconditional (not the
+  // HP-threshold "endurance" gate combat hits use) — the burst is a
+  // special, guaranteed effect, matching the bible's Cat Cannon including
+  // knockback (§A.3.9).
+  fireCannonWave() {
+    if (this.isGameOver) return;
+
+    const burstDamage = CANNON_BASE_DAMAGE + this.cannonPowerBonus;
     const syntheticAttacker = { shape: { x: this.baseX } };
     for (const enemy of this.enemies) {
-      if (enemy.hp > 0) {
+      // Real Cat Cannon damage is a wave attack — a wave-immune enemy
+      // takes none of it at all (guide Chapter 08: "波動無効の敵には
+      // 一切効きません"). No enemy in this build's roster carries that
+      // flag yet, but the check is here so adding one later just works.
+      if (enemy.hp > 0 && !enemy.config.waveImmune) {
         enemy.hp -= burstDamage;
         enemy.lastAttacker = syntheticAttacker; // no .config at all — never counts as a zombieKiller finish, see processZombieRevives
         // Still bypasses the HP-threshold "endurance" gate (per this
@@ -2815,12 +2865,7 @@ export default class GameScene extends Phaser.Scene {
     }
     this.processZombieRevives(this.enemies);
     this.removeDead(this.enemies, (enemy) => this.onEnemyKilled(enemy));
-    this.damageEnemyBase(burstBaseDamage);
-
-    const { width } = this.scale;
-    const flash = this.add.rectangle(width / 2, this.laneY, width, 80, SPECIAL_FLASH_COLOR).setAlpha(0.5);
-    this.uiCamera.ignore(flash); // world object (see setupZoomControls) — zooms/pans with the battlefield
-    this.time.delayedCall(SPECIAL_FLASH_DURATION_MS, () => flash.destroy());
+    this.damageEnemyBase(burstDamage);
   }
 
   removeDead(list, onKill) {
