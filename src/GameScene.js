@@ -67,6 +67,33 @@ function getBaseUpgradeEffect(key) {
   return getBaseUpgradeLevel(key) * BASE_UPGRADE_CONFIG[key].perLevelEffect;
 }
 
+// Normalizes a raw STAGE_CONFIG spawnScript entry into the one real spawn
+// rule shape every stage now runs on (see updateSpawns): a first-appearance
+// time, an optional randomized repeat range (real Battle Cats re-rolls a
+// random interval inside [min,max] after every spawn — see guide Chapter
+// 14's "再登場F"), a total spawn cap (null = unlimited), and a castle-HP%
+// gate (checked continuously, not just once — a stage can have several
+// enemies/reinforcement bursts/multi-phase bosses gated at different
+// thresholds). saga1's real 48 stages author entries in this shape
+// directly; saga2/saga3/Sparring Grounds still use the older, simpler
+// one-shot shapes (a single spawnDelayMs, or a single baseHpPercentTrigger
+// boss), so those are translated into the same normalized shape here
+// rather than needing two separate spawn engines.
+function normalizeSpawnEntry(entry) {
+  if (entry.firstMs !== undefined) {
+    return {
+      firstMs: entry.firstMs,
+      repeatMs: entry.repeatMs ?? null,
+      maxCount: entry.maxCount ?? null,
+      castleHpBelowPercent: entry.castleHpBelowPercent ?? 100,
+    };
+  }
+  if (entry.baseHpPercentTrigger !== undefined) {
+    return { firstMs: 0, repeatMs: null, maxCount: 1, castleHpBelowPercent: entry.baseHpPercentTrigger };
+  }
+  return { firstMs: entry.spawnDelayMs ?? 0, repeatMs: null, maxCount: 1, castleHpBelowPercent: 100 };
+}
+
 const MIN_RECHARGE_MS = 2000; // bible §A.3.2: hard floor is 60 frames @ 30fps = 2.0s, across the whole game — Research can never push a unit's recharge below this
 
 // Global deploy limit (bible §A.3.11) — "a wide default ceiling" on every
@@ -78,14 +105,6 @@ const MIN_RECHARGE_MS = 2000; // bible §A.3.2: hard floor is 60 frames @ 30fps 
 // being a real ceiling against unlimited spam.
 const DEFAULT_MAX_DEPLOYED = 20;
 
-// Trickle-spawn fallback (see scheduleStageScript/scheduleTrickleWave) — how
-// long to wait after the last scripted wave before starting the repeat, and
-// how often it repeats after that. Reasoned to sit close to this game's own
-// scripted wave spacing (commonly 4000ms apart — see STAGE_CONFIG.js) rather
-// than a bible-cited number, since the bible only specifies that repeating
-// waves should exist, not their exact cadence.
-const TRICKLE_START_DELAY_MS = 6000;
-const TRICKLE_INTERVAL_MS = 7000;
 const SPEED_UP_MULTIPLIER = 2;
 
 // In-battle income ramps up over the fight rather than staying flat (bible
@@ -420,13 +439,33 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseHp = this.enemyBaseMaxHp;
     this.enemies = [];
     this.playerUnits = [];
-    // Base-HP%-triggered spawns (bible §A.3.9) — e.g. a scripted boss at
-    // 99% enemy base HP — checked in damageEnemyBase rather than on a timer.
-    // Dojo's synthetic pseudo-stage has no spawnScript at all, so this is
-    // always empty there.
-    this.pendingHpTriggers = (this.stage.spawnScript || [])
-      .filter((entry) => entry.baseHpPercentTrigger !== undefined)
-      .map((entry) => ({ entry, fired: false }));
+    // Real per-stage spawn rules (see updateSpawns/normalizeSpawnEntry) —
+    // each tracks its own progress (how many times it's fired, when it's
+    // next eligible) independently, driven off this.elapsedMs every frame
+    // rather than one-shot timers. Dojo's synthetic pseudo-stage has no
+    // spawnScript at all, so this is always empty there.
+    this.spawnState = (this.stage.spawnScript || []).map((entry) => {
+      const rule = normalizeSpawnEntry(entry);
+      return { entry, rule, spawnedCount: 0, nextMs: rule.firstMs };
+    });
+    // saga1's real 48 stages (firstMs-based entries) already author their
+    // own unlimited/counted repeat rules directly from real data — nothing
+    // more to do. saga2/saga3/Sparring Grounds still use the older, simpler
+    // one-shot spawnDelayMs format (a real-data pass for those is future
+    // work — see docs/BATTLE_CATS_MAPPING.md), which has no repeat fields
+    // of its own; without a fallback those stages would now go completely
+    // quiet once their fixed list ends. Preserve their prior behavior
+    // exactly: repeat the LAST scripted (non-nonBlocking) entry forever,
+    // 6s after its own first appearance, every 7s after that.
+    const isLegacyStage = this.spawnState.length > 0 && this.spawnState.every((state) => state.entry.firstMs === undefined);
+    if (isLegacyStage) {
+      const legacyTrickleState = this.spawnState
+        .filter((state) => !ENEMY_CONFIG[state.entry.enemyId]?.nonBlocking)
+        .reduce((latest, state) => (!latest || state.rule.firstMs > latest.rule.firstMs ? state : latest), null);
+      if (legacyTrickleState) {
+        legacyTrickleState.rule = { ...legacyTrickleState.rule, repeatMs: [7000, 7000], maxCount: null };
+      }
+    }
     // Battle Items (bible §A.8) — consumed mid-battle via useBattleItem;
     // these flags are what their effects actually read at the relevant
     // point (getMoneyRampMultiplier, getXpReward, winStage's Treasure roll).
@@ -448,10 +487,11 @@ export default class GameScene extends Phaser.Scene {
     // Nothing enemy-side should happen before the player deploys their
     // first unit — no scripted/dojo spawns, no Cat Cannon charge (bible
     // §A.3.9 describes the cannon as charging "during battle," and there's
-    // no battle yet). See trySpawnUnit (flips this true and kicks off
-    // scheduleStageScript/scheduleDojoWaves, which create() itself no
-    // longer calls) and update (gates specialMeter's charge on it).
+    // no battle yet). See trySpawnUnit (flips this true, sets
+    // battleStartMs, and kicks off scheduleDojoWaves for Dojo) and update
+    // (gates specialMeter's charge and updateSpawns on it).
     this.battleStarted = false;
+    this.battleStartMs = 0; // set for real when battleStarted flips true — see trySpawnUnit/updateSpawns
     this.isGameOver = false;
     this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
@@ -691,52 +731,36 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
-  scheduleStageScript() {
-    let lastTimedEntry = null;
+  // Real per-stage spawning (guide Chapter 14's own pseudocode) — every
+  // rule is checked every frame against the CURRENT castle HP% and elapsed
+  // time, rather than a fixed one-shot timer, so a rule armed at (say) 50%
+  // castle HP fires the instant that threshold is actually crossed, however
+  // long that takes, and an unlimited rule keeps re-rolling a fresh random
+  // interval inside its own repeat range forever. This is what makes
+  // reinforcement bursts, multi-phase bosses (several isBoss entries at
+  // different thresholds), and endless per-enemy-type trickle all "just
+  // work" from the same normalized shape (see normalizeSpawnEntry) without
+  // any of them needing special-cased scheduling of their own.
+  updateSpawns() {
+    if (this.isGameOver || this.spawnState.length === 0) return;
 
-    for (const entry of this.stage.spawnScript) {
-      // A baseHpPercentTrigger entry has no spawnDelayMs at all — it's
-      // handled entirely by checkHpTriggers (called from damageEnemyBase)
-      // instead of a timer.
-      if (entry.spawnDelayMs === undefined) continue;
+    const battleMs = this.elapsedMs - this.battleStartMs;
+    const percent = this.enemyBaseMaxHp > 0 ? (this.enemyBaseHp / this.enemyBaseMaxHp) * 100 : 0;
+    for (const state of this.spawnState) {
+      const { rule } = state;
+      if (rule.maxCount !== null && state.spawnedCount >= rule.maxCount) continue;
+      if (percent > rule.castleHpBelowPercent) continue;
+      if (battleMs < state.nextMs) continue;
 
-      this.time.delayedCall(entry.spawnDelayMs, () => {
-        if (this.isGameOver) return;
-        this.spawnScriptedEnemy(entry);
-      });
-      // A nonBlocking enemy (kanban — see ENEMY_CONFIG.js) is real
-      // background flavor, never the actual fight — every real stage lists
-      // her last, so without this exclusion she'd always become the
-      // template the trickle fallback repeats forever instead of the
-      // stage's actual last combat-relevant enemy.
-      if (
-        !ENEMY_CONFIG[entry.enemyId]?.nonBlocking
-        && (!lastTimedEntry || entry.spawnDelayMs > lastTimedEntry.spawnDelayMs)
-      ) {
-        lastTimedEntry = entry;
+      this.spawnScriptedEnemy(state.entry);
+      state.spawnedCount += 1;
+      if (rule.repeatMs) {
+        const [min, max] = rule.repeatMs;
+        state.nextMs = battleMs + (min >= max ? min : min + Math.random() * (max - min));
+      } else {
+        state.nextMs = Infinity;
       }
     }
-
-    // Trickle fallback (bible §A.3.11 — the reference schema's own
-    // `repeat_count`/`repeat_interval` fields exist specifically so a stage
-    // never leaves the enemy base standing with nothing left to fight; this
-    // build's spawnScript is a plain fixed list with no repeat fields of its
-    // own, so once every scripted timed wave has fired, keep re-spawning
-    // the stage's own last scripted enemy on a fixed interval for as long
-    // as the enemy base is still alive, rather than the field going silent).
-    if (lastTimedEntry) {
-      this.time.delayedCall(lastTimedEntry.spawnDelayMs + TRICKLE_START_DELAY_MS, () =>
-        this.scheduleTrickleWave(lastTimedEntry),
-      );
-    }
-  }
-
-  scheduleTrickleWave(entry) {
-    if (this.isGameOver || this.enemyBaseHp <= 0) return;
-    // Never re-trigger a boss shockwave/entrance a second time — only the
-    // enemy type/strength is reused, not its one-time boss behavior.
-    this.spawnScriptedEnemy({ ...entry, isBoss: false });
-    this.time.delayedCall(TRICKLE_INTERVAL_MS, () => this.scheduleTrickleWave(entry));
   }
 
   // Sparring Grounds' endless, escalating spawner (DOJO_CONFIG.js) — every
@@ -1250,7 +1274,13 @@ export default class GameScene extends Phaser.Scene {
       if (this.mode === 'dojo') {
         this.scheduleDojoWaves();
       } else {
-        this.scheduleStageScript();
+        // Real spawn rules are authored relative to "battle start" (frame
+        // 0 in the guide's own data), but this.elapsedMs has already been
+        // ticking since the scene loaded — capture the offset once here so
+        // updateSpawns (called every frame from update()) can compute a
+        // battle-relative clock instead of firing everything late by
+        // however long the player took to deploy their first unit.
+        this.battleStartMs = this.elapsedMs;
       }
     }
 
@@ -1499,24 +1529,6 @@ export default class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: text, alpha: 1, duration: 200, yoyo: true, hold: 500, onComplete: () => text.destroy() });
   }
 
-  // Base-HP%-triggered spawns (bible §A.3.9) — checked every time the enemy
-  // base actually takes damage rather than every frame, since that's the
-  // only thing that can change the percentage. See damageEnemyBase for the
-  // "don't let a fast burst skip a scripted boss" failsafe that works
-  // alongside this.
-  checkHpTriggers() {
-    if (this.pendingHpTriggers.length === 0) return;
-
-    const percent = this.enemyBaseMaxHp > 0 ? (this.enemyBaseHp / this.enemyBaseMaxHp) * 100 : 0;
-    for (const pending of this.pendingHpTriggers) {
-      if (pending.fired) continue;
-      if (percent <= pending.entry.baseHpPercentTrigger) {
-        pending.fired = true;
-        this.spawnScriptedEnemy(pending.entry);
-      }
-    }
-  }
-
   createEnemy(type, config, isBoss = false) {
     const x = this.enemyBaseX - BASE_WIDTH / 2 - config.radius;
     // No separate visual-only multiplier here anymore — a boss's config
@@ -1672,12 +1684,12 @@ export default class GameScene extends Phaser.Scene {
 
     // Speed Up (see toggleSpeedUp) scales every per-frame calculation below
     // by reassigning the parameter itself — everything downstream
-    // (updatePlayerUnits(deltaMs), updateEnemies(deltaMs), etc.) already
-    // just uses whatever's passed in, so nothing past this line needs to
-    // know Speed Up exists at all. Phaser's own timer clock
-    // (this.time.timeScale, set in toggleSpeedUp) handles the two
-    // delayedCall usages elsewhere (scheduleStageScript, the special-burst
-    // flash) consistently with this.
+    // (updatePlayerUnits(deltaMs), updateEnemies(deltaMs), updateSpawns's
+    // elapsedMs-driven clock, etc.) already just uses whatever's passed in,
+    // so nothing past this line needs to know Speed Up exists at all.
+    // Phaser's own timer clock (this.time.timeScale, set in toggleSpeedUp)
+    // handles the remaining delayedCall usages (scheduleDojoWaves, the
+    // special-burst flash) consistently with this.
     deltaMs *= this.speedMultiplier;
 
     this.elapsedMs += deltaMs;
@@ -1702,6 +1714,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.battleStarted) {
       const chargeDurationMs = Math.max(CANNON_CHARGE_FLOOR_MS, SPECIAL_CHARGE_DURATION_MS - this.cannonChargeReductionMs);
       this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_METER_MAX * deltaMs) / chargeDurationMs);
+      if (this.mode !== 'dojo') this.updateSpawns();
     }
     this.updateCannonButton();
     this.updateLowHpVignette(time);
@@ -2866,15 +2879,17 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode === 'dojo') return; // no destroy-the-base win condition in Sparring Grounds
 
     // Failsafe (bible §A.3.9): a fast burst shouldn't be able to skip a
-    // scripted boss spawn entirely — while any baseHpPercentTrigger entry
-    // hasn't fired yet, the base is held at 1 HP (never actually finished
-    // off) just long enough for checkHpTriggers to fire it below.
-    const hasPendingTrigger = this.pendingHpTriggers.some((pending) => !pending.fired);
+    // scripted boss spawn entirely — while any boss entry hasn't spawned
+    // yet, the base is held at 1 HP (never actually finished off) just
+    // long enough for the updateSpawns() call below to fire it.
+    const hasPendingBossTrigger = this.spawnState.some(
+      (state) => state.entry.isBoss && state.spawnedCount < (state.rule.maxCount ?? 1),
+    );
     let nextHp = this.enemyBaseHp - amount;
-    if (hasPendingTrigger && nextHp <= 0) nextHp = 1;
+    if (hasPendingBossTrigger && nextHp <= 0) nextHp = 1;
 
     this.enemyBaseHp = Math.max(0, nextHp);
-    this.checkHpTriggers();
+    this.updateSpawns();
 
     if (this.enemyBaseHp <= 0) {
       this.winStage();

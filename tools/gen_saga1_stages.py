@@ -1,8 +1,36 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """One-off generator for STAGE_CONFIG.js's saga1 (48 real Empire of Cats
-Chapter 1 stages), driven by the user's updated guide's real per-stage
-table. Not part of the app; run once, paste/verify the output, discard.
+Chapter 1 stages). Not part of the app; run once, paste/verify the output,
+discard.
+
+SPAWNS1 below is the EXACT real per-enemy spawn table for all 48 stages,
+fetched directly from battlecats-db.com's individual stage pages (the same
+source the user's guide cites, https://battlecats-db.com/stage/s03000-NN.html)
+rather than approximated — replacing this script's earlier version, which
+only had the guide's own two fully-worked examples (stage1/stage35) and
+invented a rough "stagger each enemy ~2.6s apart, repeat the last one
+forever" shape for the other 46 stages. That approximation is what caused
+real bugs: it used カンバン娘 (whose real spawn is a harmless one-off at
+15 real minutes in, a "time limit" signal, not a threat — see the guide's
+Chapter 14 "カンバン娘が出てくる条件") as an early, endlessly-repeating
+wall enemy on every stage.
+
+Each SPAWNS1 entry is (enemy_jp, strengthPercent, count, castleHpBelow,
+firstFrame, repeat) matching the real DB page's own 6 columns exactly:
+  enemy_jp       the enemy's real Japanese name (key into NAME_TO_KEY)
+  strengthPercent  strength magnification — real Chapter 1 is always 100
+  count          total spawn cap for this rule, or None for "unlimited"
+  castleHpBelow  this rule is only active while enemy castle HP% <= this
+                 (100 = active from the start, i.e. always)
+  firstFrame     first eligible frame (30F = 1 real second)
+  repeat         None (one-time only), a single int (fixed re-fire delay
+                 in frames), or an (min,max) int tuple (real re-fire delay
+                 is randomized in this range every time) — matches the
+                 real DB page's "再登場F" column
+An entry with isBoss=True in its dict form (added in gen_stage) triggers
+GameScene.js's boss shockwave/visual-scale treatment; several real stages
+have more than one (multi-phase bosses at different HP thresholds).
 """
 import json
 
@@ -37,22 +65,95 @@ STARTING_MONEY = 6000
 MONEY_ACCRUAL = 170
 BASE_HP = 1000
 
+# Real per-enemy spawn tables, one list per stage, fetched from
+# battlecats-db.com/stage/s03000-NN.html (NN = 2-digit stage no). Tuple
+# shape: (enemy_jp, strengthPercent, count, castleHpBelow, firstFrame, repeat)
+# count/repeat are None for "unlimited"/"none" respectively; repeat may also
+# be a single int (fixed) or an (min,max) tuple (randomized every re-fire).
+SPAWNS1 = {
+1: [("わんこ",100,1,100,0,None),("わんこ",100,None,100,600,(180,300)),("わんこ",100,8,50,0,30),("カンバン娘",100,None,100,27000,27000)],
+2: [("わんこ",100,None,100,0,(180,300)),("にょろ",100,None,100,600,(300,800)),("にょろ",100,4,50,0,(30,60)),("カンバン娘",100,None,100,27000,27000)],
+3: [("わんこ",100,None,100,0,(140,240)),("にょろ",100,None,100,600,(300,800)),("にょろ",100,4,50,0,(30,60)),("カンバン娘",100,None,100,27000,27000)],
+4: [("わんこ",100,None,100,0,(180,300)),("にょろ",100,None,100,0,(300,800)),("例のヤツ",100,None,100,1200,(300,800)),("例のヤツ",100,8,50,0,(30,120)),("カンバン娘",100,None,100,27000,27000)],
+5: [("わんこ",100,None,100,0,(180,300)),("にょろ",100,None,100,0,(300,800)),("例のヤツ",100,None,100,1200,(300,800)),("例のヤツ",100,8,50,0,(30,120)),("カンバン娘",100,None,100,27000,27000)],
+6: [("わんこ",100,None,100,0,(180,300)),("にょろ",100,None,100,0,(300,800)),("例のヤツ",100,None,100,1200,(300,800)),("例のヤツ",100,8,50,0,(30,120)),("カンバン娘",100,None,100,27000,27000)],
+7: [("わんこ",100,None,100,0,(320,560)),("にょろ",100,None,100,0,(600,1600)),("例のヤツ",100,None,100,1200,(600,1600)),("例のヤツ",100,6,90,0,(60,120)),("カバちゃん",100,1,90,0,None),("カンバン娘",100,None,100,27000,27000)],
+8: [("わんこ",100,None,100,0,(180,300)),("にょろ",100,None,100,300,(300,800)),("例のヤツ",100,None,100,600,(300,800)),("例のヤツ",100,20,90,0,(30,60)),("カンバン娘",100,None,100,27000,27000)],
+9: [("わんこ",100,None,100,0,(120,300)),("わんこ",100,None,100,900,(180,900)),("にょろ",100,None,100,1800,(300,900)),("例のヤツ",100,None,100,2700,(300,900)),("例のヤツ",100,20,60,0,(2,4)),("カンバン娘",100,None,100,27000,27000)],
+10: [("わんこ",100,None,100,0,(320,560)),("にょろ",100,None,100,240,(600,1600)),("例のヤツ",100,None,100,1200,(600,1600)),("例のヤツ",100,6,95,0,(60,120)),("ブタヤロウ",100,1,90,0,None),("カンバン娘",100,None,100,27000,27000)],
+11: [("わんこ",100,None,100,0,(320,560)),("にょろ",100,None,100,240,(600,1600)),("例のヤツ",100,None,100,1200,(300,1200)),("例のヤツ",100,6,90,0,(60,120)),("カバちゃん",100,1,80,0,None),("カバちゃん",100,1,40,0,None),("カンバン娘",100,None,100,27000,27000)],
+12: [("わんこ",100,None,100,0,(320,560)),("にょろ",100,None,100,240,(600,1600)),("例のヤツ",100,None,100,1200,(300,1200)),("例のヤツ",100,6,99,0,(60,120)),("ブタヤロウ",100,1,98,0,None),("ブタヤロウ",100,1,78,0,None),("カンバン娘",100,None,100,27000,27000)],
+13: [("わんこ",100,None,100,0,(200,400)),("にょろ",100,None,100,600,(200,400)),("例のヤツ",100,None,100,1200,(200,400)),("例のヤツ",100,6,90,0,(60,120)),("例のヤツ",100,None,88,0,(100,400)),("ジャッキー・ペン",100,1,90,0,None),("ジャッキー・ペン",100,1,88,0,None),("カンバン娘",100,None,100,27000,27000)],
+14: [("わんこ",100,None,100,0,(640,1120)),("にょろ",100,None,100,600,(1200,2400)),("例のヤツ",100,None,100,1200,(1200,2400)),("例のヤツ",100,6,99,0,(60,120)),("カバちゃん",100,1,100,0,None),("カバちゃん",100,1,50,0,None),("カンバン娘",100,None,100,27000,27000)],
+15: [("わんこ",100,None,100,0,(30,300)),("にょろ",100,None,100,600,(300,600)),("例のヤツ",100,None,100,1200,(600,1200)),("例のヤツ",100,8,99,600,(20,60)),("ブタヤロウ",100,1,100,4000,None),("カバちゃん",100,1,100,8400,None),("ブタヤロウ",100,1,100,1800,None),("カバちゃん",100,1,100,2400,None),("カンバン娘",100,None,100,27000,27000)],
+16: [("例のヤツ",100,None,100,0,(30,300)),("わんこ",100,None,100,0,(300,600)),("例のヤツ",100,None,100,0,(300,600)),("例のヤツ",100,12,85,600,(20,60)),("ゴリさん",100,1,85,0,None),("ゴリさん",100,1,60,0,None),("カンバン娘",100,None,100,27000,27000)],
+17: [("わんこ",100,None,100,0,(30,300)),("にょろ",100,None,100,0,(30,300)),("例のヤツ",100,None,100,0,(30,300)),("ジャッキー・ペン",100,1,100,3000,None),("ジャッキー・ペン",100,1,100,3060,None),("ブタヤロウ",100,None,100,4000,(1200,1800)),("カバちゃん",100,None,100,4000,(1200,1800)),("ジャッキー・ペン",100,1,20,0,None),("ジャッキー・ペン",100,1,20,0,None),("カンバン娘",100,None,100,27000,27000)],
+18: [("わんこ",100,None,100,0,(30,300)),("にょろ",100,None,100,0,(30,300)),("例のヤツ",100,None,100,0,(30,300)),("ジャッキー・ペン",100,1,100,3000,None),("ブタヤロウ",100,None,100,4000,(1200,1800)),("ジャッキー・ペン",100,None,100,4000,(1200,1800)),("ジャッキー・ペン",100,1,60,0,None),("ジャッキー・ペン",100,1,61,0,None),("ジャッキー・ペン",100,1,60,0,None),("ジャッキー・ペン",100,1,62,0,None),("カンバン娘",100,None,100,27000,27000)],
+19: [("例のヤツ",100,None,100,0,(30,600)),("例のヤツ",100,None,100,0,(30,600)),("例のヤツ",100,None,100,300,(30,300)),("ゴリさん",100,1,100,3000,None),("メェメェ",100,None,100,1800,(30,300)),("ゴリさん",100,2,100,4000,2),("メェメェ",100,10,60,0,(30,60)),("カンバン娘",100,None,100,27000,27000)],
+20: [("わんこ",100,None,100,0,(30,300)),("にょろ",100,None,100,0,(30,300)),("例のヤツ",100,None,100,300,(30,300)),("メェメェ",100,None,100,1800,(30,300)),("ブタヤロウ",100,None,100,1800,(1800,3600)),("カバちゃん",100,None,100,2400,(1800,3600)),("ゴリさん",100,4,100,4000,(1800,3600)),("カンバン娘",100,None,100,27000,27000)],
+21: [("わんこ",100,None,100,0,(30,300)),("にょろ",100,None,100,0,(30,300)),("例のヤツ",100,None,100,0,(30,300)),("メェメェ",100,None,100,1800,(30,300)),("ブタヤロウ",100,None,100,1800,(1800,3600)),("カバちゃん",100,None,100,2400,(1800,3600)),("ゴリさん",100,None,100,4000,(1800,3600)),("ジャッキー・ペン",100,None,100,2400,(1800,3600)),("カンバン娘",100,None,100,27000,27000)],
+22: [("にょろ",100,None,100,0,(30,300)),("にょろ",100,None,100,0,(30,300)),("例のヤツ",100,None,100,0,(30,300)),("メェメェ",100,None,100,0,(30,300)),("ジャッキー・ペン",100,1,100,0,None),("ゴリさん",100,2,80,0,(2,60)),("ゴリさん",100,2,70,0,(2,60)),("ゴリさん",100,2,60,0,(2,60)),("カンバン娘",100,None,100,27000,27000)],
+23: [("例のヤツ",100,None,100,0,(30,120)),("ブタヤロウ",100,1,100,300,None),("例のヤツ",100,None,95,0,(30,60)),("ゴマさま",100,1,93,0,None),("カンバン娘",100,None,100,27000,27000)],
+24: [("カバちゃん",100,None,90,0,(300,1200)),("ブタヤロウ",100,None,90,0,(300,1200)),("ジャッキー・ペン",100,None,90,0,(300,1200)),("ゴリさん",100,None,90,0,(300,1200)),("ゴリさん",100,1,100,5400,None),("ジャッキー・ペン",100,1,100,3600,None),("ブタヤロウ",100,1,100,1800,None),("カバちゃん",100,1,100,0,None),("カンバン娘",100,None,100,27000,27000)],
+25: [("わんこ",100,None,100,0,(30,300)),("にょろ",100,None,100,300,(30,300)),("例のヤツ",100,None,100,600,(30,60)),("カバちゃん",100,1,100,1200,None),("メェメェ",100,None,50,0,(130,240)),("ジャッキー・ペン",100,None,50,0,(130,240)),("カンバン娘",100,None,100,27000,27000)],
+26: [("ワニック",100,1,100,0,None),("ワニック",100,None,100,300,(160,240)),("ワニック",100,None,100,900,(120,240)),("ワニック",100,None,70,0,(90,240)),("ワニック",100,None,70,0,(90,240)),("ワニック",100,None,70,0,(2,60)),("ワニック",100,None,90,0,(120,300)),("ゴマさま",100,1,90,0,None),("カンバン娘",100,None,100,27000,27000)],
+27: [("わんこ",100,None,100,0,(100,400)),("にょろ",100,None,100,300,(200,800)),("例のヤツ",100,None,100,600,(360,1440)),("ワニック",100,None,100,1200,(600,2400)),("メェメェ",100,None,50,1800,(760,3040)),("ゴリさん",100,None,100,2400,(900,1800)),("ゴマさま",100,None,100,3600,(900,1800)),("カンバン娘",100,None,100,27000,27000)],
+28: [("わんこ",100,None,100,0,(100,400)),("にょろ",100,None,100,300,(150,200)),("例のヤツ",100,None,100,600,(200,300)),("ワニック",100,None,100,1200,(300,600)),("ジャッキー・ペン",100,None,100,2400,(900,1800)),("カバちゃん",100,None,100,3600,(900,1800)),("ブタヤロウ",100,None,100,3600,(900,1800)),("ゴリさん",100,None,100,4800,(900,1800)),("ゴマさま",100,None,100,6000,(900,1800)),("カンバン娘",100,None,100,27000,27000)],
+29: [("わんこ",100,None,100,0,(100,900)),("にょろ",100,None,100,300,(300,600)),("例のヤツ",100,None,100,600,300),("ワニック",100,None,100,1200,(300,1200)),("例のヤツ",100,None,90,0,(2,30)),("例のヤツ",100,20,90,0,2),("パオン",100,1,90,0,None),("カンバン娘",100,None,100,27000,27000)],
+30: [("にょろ",100,None,100,300,(150,200)),("例のヤツ",100,None,100,600,(200,300)),("ワニック",100,None,100,1200,(300,600)),("メェメェ",100,None,100,1800,(300,600)),("ゴリさん",100,None,100,4800,(900,1800)),("ゴマさま",100,None,100,6000,(900,1800)),("ジャッキー・ペン",100,None,100,2400,(900,1800)),("カバちゃん",100,None,100,3600,(900,1800)),("ブタヤロウ",100,None,100,3600,(900,1800)),("カンバン娘",100,None,100,27000,27000)],
+31: [("ワニック",100,None,100,100,(100,300)),("例のヤツ",100,None,100,300,(150,300)),("メェメェ",100,None,100,600,(200,300)),("パオン",100,1,100,1800,None),("ブタヤロウ",100,None,100,5400,(600,1200)),("カンバン娘",100,None,100,27000,27000)],
+32: [("例のヤツ",100,None,100,0,(100,400)),("ウサ銀",100,None,100,600,(60,300)),("ゴマさま",100,None,100,1800,(600,1200)),("ブタヤロウ",100,None,100,1200,(600,1200)),("ウサ銀",100,None,99,0,(60,300)),("ウサ銀",100,None,100,1200,(60,300)),("ブタヤロウ",100,1,100,0,None),("カンバン娘",100,None,100,27000,27000)],
+33: [("にょろ",100,None,100,300,(150,200)),("例のヤツ",100,None,100,600,(200,300)),("ワニック",100,None,100,1200,(300,600)),("メェメェ",100,None,100,1800,(300,600)),("ゴリさん",100,None,100,3000,(900,1800)),("ゴマさま",100,None,100,6000,(900,1800)),("ジャッキー・ペン",100,None,100,2400,(900,1800)),("カバちゃん",100,None,100,3600,(900,1800)),("ブタヤロウ",100,None,100,3600,(900,1800)),("ゴリさん",100,None,100,4000,(900,1800)),("ゴリさん",100,4,50,0,2),("カンバン娘",100,None,100,27000,27000)],
+34: [("にょろ",100,None,100,300,(150,200)),("例のヤツ",100,None,100,600,(200,300)),("ワニック",100,None,100,1200,(300,600)),("メェメェ",100,None,100,1800,(300,600)),("ゴリさん",100,None,100,3000,(900,1800)),("ゴマさま",100,None,100,6000,(2000,4000)),("ジャッキー・ペン",100,None,100,2400,(900,1800)),("カバちゃん",100,None,100,3600,(900,1800)),("ブタヤロウ",100,None,100,3600,(900,1800)),("ブタヤロウ",100,None,100,4000,(900,1800)),("ゴマさま",100,1,90,0,None),("ゴマさま",100,1,70,0,None),("ゴマさま",100,1,50,0,None),("ゴマさま",100,1,30,0,None),("カンバン娘",100,None,100,27000,27000)],
+35: [("わんこ",100,None,100,0,(120,400)),("にょろ",100,None,100,400,(120,400)),("例のヤツ",100,None,100,1800,(120,400)),("ワニック",100,None,100,2400,(300,600)),("ウサ銀",100,None,100,3000,(300,600)),("カ・ンガリュ",100,1,99,0,None),("カンバン娘",100,None,100,27000,27000)],
+36: [("わんこ",100,None,100,0,(100,300)),("にょろ",100,None,100,400,(100,300)),("例のヤツ",100,None,100,1800,(100,300)),("ワニック",100,None,100,2400,(100,300)),("ウサ銀",100,None,100,3000,(100,400)),("メェメェ",100,None,100,3000,(100,600)),("カバちゃん",100,None,100,3600,(600,1200)),("ブタヤロウ",100,None,100,3600,(600,1200)),("パオン",100,1,100,3000,None),("パオン",100,None,100,7000,(4000,6000)),("カンバン娘",100,None,100,27000,27000)],
+37: [("わんこ",100,None,100,0,(100,300)),("にょろ",100,None,100,400,(100,300)),("例のヤツ",100,None,100,200,(100,300)),("ワニック",100,None,100,2400,(100,300)),("ウサ銀",100,None,100,3000,(100,400)),("メェメェ",100,None,100,3000,(100,600)),("カバちゃん",100,None,100,3600,(600,1200)),("ブタヤロウ",100,None,100,3600,(600,1200)),("カ・ンガリュ",100,1,100,3000,None),("カ・ンガリュ",100,1,100,5000,None),("カンバン娘",100,None,100,27000,27000)],
+38: [("わんこ",100,None,100,0,(300,900)),("例のヤツ",100,None,100,0,(300,900)),("例のヤツ",100,None,95,0,(30,300)),("リッスントゥミー",100,None,100,900,(300,900)),("ゴリさん",100,1,99,0,None),("ゴリさん",100,1,97,0,None),("ゴリさん",100,1,95,0,None),("ゴリさん",100,1,93,0,None),("ワニック",100,None,92,0,(30,300)),("リッスントゥミー",100,None,92,0,(30,300)),("ガガガガ",100,1,92,0,None),("カンバン娘",100,None,100,27000,27000)],
+39: [("わんこ",100,None,100,0,(90,420)),("にょろ",100,None,100,0,(90,420)),("例のヤツ",100,None,100,1200,(180,420)),("リッスントゥミー",100,None,100,2400,(180,420)),("ゴリさん",100,None,100,2000,(2000,3000)),("ゴマさま",100,None,100,2600,(2000,3000)),("ジャッキー・ペン",100,None,100,3200,(2000,3000)),("ゴリさん",100,3,80,0,None),("ジャッキー・ペン",100,8,60,0,None),("例のヤツ",100,None,100,2,(2,40)),("カンバン娘",100,None,100,27000,27000)],
+40: [("わんこ",100,None,100,0,(90,420)),("にょろ",100,None,100,0,(90,420)),("例のヤツ",100,None,100,1200,(180,420)),("リッスントゥミー",100,None,100,2400,(180,420)),("ゴリさん",100,None,100,2000,(2000,3000)),("ゴマさま",100,None,100,2600,(2000,3000)),("ジャッキー・ペン",100,None,100,1200,(600,900)),("ゴリさん",100,None,100,2400,(1200,1800)),("パオン",100,None,100,3000,3000),("カ・ンガリュ",100,1,80,0,None),("カ・ンガリュ",100,1,60,0,None),("カンバン娘",100,None,100,27000,27000)],
+41: [("例のヤツ",100,None,100,0,(30,300)),("ワニック",100,None,100,600,(300,900)),("リッスントゥミー",100,None,100,0,(30,500)),("一角くん",100,1,100,0,None),("一角くん",100,1,80,0,None),("カンバン娘",100,None,100,27000,27000)],
+42: [("わんこ",100,None,100,0,(90,420)),("にょろ",100,None,100,0,(90,420)),("例のヤツ",100,None,100,1200,(180,420)),("リッスントゥミー",100,None,100,2400,(180,420)),("ゴリさん",100,None,100,2000,(1800,2400)),("ゴマさま",100,None,100,2600,(2000,3000)),("ジャッキー・ペン",100,None,100,1200,(600,900)),("ゴリさん",100,None,100,2400,(300,900)),("パオン",100,None,100,3000,3000),("カ・ンガリュ",100,1,100,4200,None),("カ・ンガリュ",100,1,50,0,None),("カ・ンガリュ",100,1,50,0,None),("カンバン娘",100,None,100,27000,27000)],
+43: [("わんこ",100,None,100,0,(90,600)),("にょろ",100,None,100,0,(90,600)),("例のヤツ",100,None,100,1200,(90,600)),("ワニック",100,None,100,600,(90,600)),("ウサ銀",100,None,100,600,(90,600)),("ブタヤロウ",100,None,100,900,(900,1800)),("ゴマさま",100,None,100,1800,(900,1800)),("ウサ銀",100,None,100,2700,(900,1800)),("一角くん",100,1,100,600,None),("一角くん",100,1,80,0,None),("一角くん",100,1,60,0,None),("カンバン娘",100,None,100,27000,27000)],
+44: [("わんこ",100,None,100,0,(90,420)),("にょろ",100,None,100,0,(90,420)),("例のヤツ",100,None,100,1200,(180,420)),("クマ先生",100,1,99,0,None),("リッスントゥミー",100,None,99,0,(30,60)),("カンバン娘",100,None,100,27000,27000)],
+45: [("カバちゃん",100,None,100,0,(30,60)),("ブタヤロウ",100,None,100,0,(30,60)),("ジャッキー・ペン",100,None,100,1200,(300,600)),("ゴリさん",100,None,100,1800,(400,900)),("ゴマさま",100,None,100,2400,(1200,1600)),("パオン",100,None,100,3000,(2200,3400)),("カ・ンガリュ",100,None,100,3600,(1300,2400)),("カンバン娘",100,None,100,27000,27000)],
+46: [("リッスントゥミー",100,20,100,0,(20,30)),("クマ先生",100,1,99,0,None),("リッスントゥミー",100,None,99,0,(100,300)),("クマ先生",100,2,100,3000,(3000,4000)),("ブタヤロウ",100,None,99,0,(1200,1800)),("ウサ銀",100,None,99,0,(600,1200)),("ガガガガ",100,1,90,0,None),("カンバン娘",100,None,100,27000,27000)],
+47: [("例のヤツ",100,None,100,0,2),("カバちゃん",100,None,100,0,(30,60)),("ジャッキー・ペン",100,None,100,0,(30,60)),("ゴリさん",100,None,100,1800,(400,900)),("ゴマさま",100,None,100,2400,(800,1600)),("パオン",100,None,100,3000,(1600,3000)),("カ・ンガリュ",100,None,100,3600,(900,1500)),("一角くん",100,None,100,4200,(2000,2600)),("クマ先生",100,None,100,4800,(4000,8000)),("カンバン娘",100,None,100,27000,27000)],
+48: [("例のヤツ",100,None,100,0,(30,60)),("カバちゃん",100,None,100,0,(200,400)),("ジャッキー・ペン",100,None,100,0,(300,600)),("ゴリさん",100,None,100,1400,(400,900)),("カ・ンガリュ",100,None,100,3600,(900,1500)),("カオル君",100,1,100,0,None),("カンバン娘",100,None,100,27000,27000)],
+}
+
+# Which SPAWNS1 entries (by 0-based index within that stage's list) are a
+# real boss ambush (shockwave + "BOSS!" banner + boss music) rather than an
+# ordinary reinforcement of the same enemy. This is NOT derivable from
+# STAGES1's own "boss" column (that column is the guide's own single
+# headline pick per stage and misses real secondary/multi-phase ambushes —
+# e.g. stage22/26/42/43 all have a real boss-flagged entry despite an empty
+# STAGES1 boss field) nor from enemy identity alone (the same enemy, e.g.
+# ゴリさん or カ・ンガリュ, is plain reinforcement in most stages and a boss
+# ambush in others, sometimes even different appearances of it within the
+# SAME stage — see stage16's two ゴリさん entries, only the second of which
+# is the boss). Indices come from battlecats-db.com's own per-row boss
+# marker, matched against SPAWNS1's entry order for that stage. カンバン娘
+# is never included here (and never boss-flagged at all — see file header).
+BOSS_INDICES = {
+    7: {4}, 10: {4}, 16: {5}, 22: {4}, 23: {3}, 26: {7}, 29: {6}, 35: {5},
+    38: {10}, 41: {4}, 42: {9, 10, 11}, 43: {8, 9, 10}, 44: {3}, 48: {5},
+}
+
 def js_str(s):
     return "'" + s.replace("'", "\\'") + "'"
 
+def frame_to_ms(f):
+    return round(f * 1000 / 30)
+
 def gen_stage(row):
     no, name, energy, xp, castle_hp, width, max_units, boss, enemies_csv, stars = row
-    enemy_names = [e for e in enemies_csv.split(",") if e]
-    # boss and its own regular-roster appearance (some bosses ALSO appear as a
-    # named entry in the enemies list, e.g. stage11's カバちゃん) are handled
-    # separately: boss gets a baseHpPercentTrigger:99 entry; every OTHER
-    # (non-boss) name in the list gets a timed introduction.
-    regular = [e for e in enemy_names if e != boss]
+    spawns = SPAWNS1[no]
+    boss_indices = BOSS_INDICES.get(no, set())
 
     lines = []
-    lines.append(f"  {{")
+    lines.append("  {")
     lines.append(f"    id: 'stage{no}',")
-    lines.append(f"    saga: 'saga1',")
+    lines.append("    saga: 'saga1',")
     lines.append(f"    displayName: {js_str(PREFECTURE_EN.get(name, name))},")
     diff_label = 'Boss' if boss else ('Hard' if stars >= 4 else ('Normal' if stars >= 2 else 'Easy'))
     lines.append(f"    difficulty: {js_str(diff_label)},")
@@ -62,42 +163,37 @@ def gen_stage(row):
     lines.append(f"    startingMoney: {STARTING_MONEY},")
     lines.append(f"    moneyAccrualPerSec: {MONEY_ACCRUAL},")
     lines.append(f"    baseHp: {BASE_HP},")
-    # GameScene.js's own DEFAULT_MAX_DEPLOYED is 20 — the real data's own
-    # range is "2〜20" (guide's own words), so ANY real value below 20 is a
-    # genuine tighter cap that needs an explicit restriction to actually
-    # take effect; only max_units == 20 needs no override (bug fixed after
-    # an earlier `< 10` threshold silently dropped every real 10-19 cap —
-    # 17 of the 48 stages, e.g. every real "出撃最大数: 10" stage).
     if max_units < 20:
         lines.append(f"    restrictions: {{ maxDeployed: {max_units} }},")
     lines.append(f"    enemyBaseHp: {castle_hp},")
-    lines.append(f"    spawnScript: [")
+    lines.append("    spawnScript: [")
 
-    delay = 1500
-    STEP = 2600
-    for i, ename in enumerate(regular):
-        key = NAME_TO_KEY[ename]
-        lines.append(f"      {{ enemyId: {js_str(key)}, statMultiplier: 1, spawnDelayMs: {delay} }},")
-        # one repeat wave for everything except the very last (trickle
-        # fallback continues the last entry's type once the script ends —
-        # see STAGE_CONFIG.js's own scheduleTrickleWave).
-        if i < len(regular) - 1:
-            lines.append(f"      {{ enemyId: {js_str(key)}, statMultiplier: 1, spawnDelayMs: {delay + STEP // 2} }},")
-        delay += STEP
+    for i, (enemy_jp, strength, count, trigger, first_frame, repeat) in enumerate(spawns):
+        key = NAME_TO_KEY[enemy_jp]
+        is_boss = i in boss_indices
+        parts = [f"enemyId: {js_str(key)}", "statMultiplier: 1"]
+        parts.append(f"firstMs: {frame_to_ms(first_frame)}")
+        if repeat is None:
+            parts.append("repeatMs: null")
+        elif isinstance(repeat, tuple):
+            parts.append(f"repeatMs: [{frame_to_ms(repeat[0])}, {frame_to_ms(repeat[1])}]")
+        else:
+            parts.append(f"repeatMs: [{frame_to_ms(repeat)}, {frame_to_ms(repeat)}]")
+        parts.append(f"maxCount: {count if count is not None else 'null'}")
+        if trigger != 100:
+            parts.append(f"castleHpBelowPercent: {trigger}")
+        if is_boss:
+            parts.append("isBoss: true")
+        lines.append(f"      {{ {', '.join(parts)} }},")
 
-    if boss:
-        boss_key = NAME_TO_KEY[boss]
-        lines.append(f"      {{ enemyId: {js_str(boss_key)}, statMultiplier: 1, baseHpPercentTrigger: 99, isBoss: true }},")
-
-    lines.append(f"    ],")
-    lines.append(f"  }},")
+    lines.append("    ],")
+    lines.append("  },")
     return "\n".join(lines)
 
 def main():
     out = []
     for row in STAGES1:
         out.append(gen_stage(row))
-    print(",\n".join([]) )  # noop
     print("\n".join(out))
 
 if __name__ == "__main__":

@@ -215,6 +215,86 @@ both walk straight through her position; the endless trickle now
 correctly re-spawns the stage's real filler enemy (`basic`/Doge for
 stage1) instead of another Kanban Musume.
 
+## Rebuild: real per-stage spawn timing for all 48 saga1 stages
+
+Follow-up to the two bug fixes above, once the user supplied a further-
+updated guide (`nyanko_guide (2).html`) that quoted battlecats-db.com's
+own real spawn-table schema and two fully-worked examples (stage1/
+Nagasaki, stage35/Tokyo) — `enemy, strength%, count, castleHpBelow%,
+firstFrame, repeatFrame`. Cross-checking that against `STAGE_CONFIG.js`
+confirmed the previous pass's saga1 spawn timing (a generator-invented
+"stagger each enemy ~2.6s apart, one repeat wave, then loop the last
+enemy forever" shape) was never real data — it just happened to produce
+a plausible-looking stage. The real mechanism is a set of independent,
+continuously-re-evaluated rules per enemy (see the guide's own Chapter 14
+pseudocode), several of which run **forever** in parallel once introduced,
+not "one wave, then the next."
+
+**Real data acquisition**: `battlecats-db.com/stage/s03000-NN.html` (the
+same source the guide cites) turned out to be directly fetchable, so
+rather than approximate the other 46 stages, all 48 real spawn tables
+were fetched and transcribed into `tools/gen_saga1_stages.py`'s new
+`SPAWNS1` dict — every stage's real `firstFrame`/`repeatFrame`/`count`/
+`castleHpBelow` for every enemy, not just the 2 the guide worked through
+by hand. `カンバン娘`'s real spawn data is especially important: `firstFrame:
+27000` (900 real seconds / 15 minutes), confirmed by the guide's own
+dedicated section as a harmless "time limit signal," never intended as a
+threat — the previous pass had her arriving in the first few seconds of
+EVERY stage and then repeating forever (see the two bug-fix sections
+above), which is now understood to be doubly wrong: wrong timing on top
+of the wrong role.
+
+**Engine rewrite (`GameScene.js`)**: the old model (`time.delayedCall` per
+scripted entry, plus a single global "guess the last entry and repeat it
+forever" trickle fallback — see the Kanban bug-fix section above for why
+that guess was unsound) is replaced by a unified per-tick spawn engine
+(`updateSpawns`, driven off `this.elapsedMs` every frame, matching the
+guide's own pseudocode almost line for line): every `spawnScript` entry
+normalizes (`normalizeSpawnEntry`) to `{firstMs, repeatMs:[min,max]|null,
+maxCount:number|null, castleHpBelowPercent}`, and is independently
+re-checked every frame against the current castle HP% and elapsed battle
+time — a rule fires once `elapsedMs>=firstMs` AND `castleHp% <=
+castleHpBelowPercent`, immediately re-arms if `repeatMs` is set (picking a
+fresh random delay in that range, exactly matching real Battle Cats'
+"re-roll a random re-appearance interval"), and stops forever once
+`maxCount` is reached. This single mechanism naturally covers every real
+shape found in the data with no special-casing: endless per-enemy-type
+trickle, a one-time reinforcement burst gated at a specific castle-HP%
+(e.g. stage1's "8 more Doge once the castle drops to 50%"), and
+multi-phase bosses (several real stages — e.g. stage42/Yamagata,
+stage43/Iwate — have the SAME boss enemy ambush 2-3 times at different
+HP thresholds, which `STAGE_CONFIG.js`'s old single-boss-column data
+never captured at all).
+
+**Backward compatibility**: saga2/saga3/Sparring Grounds still use the
+older, simpler one-shot shape (`spawnDelayMs` / `baseHpPercentTrigger`) —
+`normalizeSpawnEntry` translates those into the same normalized rule
+shape (`firstMs`/`repeatMs:null`/`maxCount:1`) rather than needing a
+second spawn engine, and a small compatibility shim reproduces the old
+"repeat the last (non-`nonBlocking`) scripted entry forever, unlimited"
+fallback specifically for stages built entirely from old-shape entries —
+saga2/3 haven't had their own real-data pass yet (see Known Gaps) and
+shouldn't have their existing, already-tuned difficulty change as a side
+effect of this saga1-focused rebuild.
+
+**Boss-ambush detection**: real per-entry "is this a boss shockwave" data
+turned out to be more complete than `STAGES1`'s own single "ボス" column
+(e.g. stage22/Mie, stage26/Aichi, stage42/Yamagata, stage43/Iwate all have
+a real boss-flagged entry despite an empty guide boss column) — the
+generator's new `BOSS_INDICES` maps each stage to the specific spawn-entry
+indices confirmed boss-flagged from the actual DB pages, since neither the
+guide's single-boss summary nor plain enemy identity (the same enemy is
+ordinary reinforcement in most stages and a boss ambush in others) is
+sufficient on its own.
+
+Verified live: stage1 (Nagasaki) now paces exactly per its real table —
+one Doge at battle start, silence until 20s, then an endless Doge trickle
+every 6-10s, with a real reinforcement burst of 8 more once the castle
+drops to 50% — and is genuinely winnable with continuous, ordinary play
+(tested destroying the castle from 1000 HP to 0 over ~150 real seconds).
+saga2's stage49 (old-format) confirmed still gets its legacy endless-
+trickle fallback after its scripted list ends, unchanged from before.
+
 ## What changed, file by file
 
 - **`UNIT_CONFIG.js`** — rebuilt: 9 real lineages + shelved `guardian`.
