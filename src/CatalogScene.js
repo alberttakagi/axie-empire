@@ -4,6 +4,7 @@ import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { BC, FONT, createBackButton, createBcCircleButton, createTitlePill, drawBcPanel } from './UITheme.js';
 
 // Battle Cats reference: にゃんこ図鑑 (Cat Guide) / 敵キャラ図鑑 (Enemy Character
 // Guide) — a browsable catalog of every unit/enemy: a grid of portraits,
@@ -45,18 +46,13 @@ export default class CatalogScene extends Phaser.Scene {
     this.detailIndex = 0;
 
     addBackground(this, 'temple');
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
+    // Teal graph-paper tint (reference screenshot's にゃんこ図鑑 background)
+    // instead of a flat dark scrim, so this guide reads visually distinct
+    // from the wood-frame hub screens.
+    this.add.rectangle(width / 2, height / 2, width, height, 0x0d3b44, 0.55);
 
-    this.add
-      .text(width / 2, 20, this.rosterType === 'enemies' ? 'Enemy Guide' : 'Unit Guide', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '20px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    const backButton = this.add.rectangle(50, 20, 80, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    backButton.on('pointerdown', () => this.scene.start('HomeScene'));
+    createTitlePill(this, 24, 22, this.rosterType === 'enemies' ? 'Enemy Guide' : 'Unit Guide');
+    createBackButton(this, () => this.scene.start('HomeScene'));
 
     this.contentContainer = this.add.container(0, 0);
     this.renderGrid();
@@ -85,10 +81,15 @@ export default class CatalogScene extends Phaser.Scene {
 
   renderGridCard(key, x, y, index) {
     const config = this.roster[key];
-    const card = this.add
-      .rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, config.color)
-      .setStrokeStyle(1, 0x666666)
-      .setInteractive({ useHandCursor: true });
+    // White/black-outline card (matches every other roster-browsing screen
+    // in this pass) instead of a per-unit flat color fill.
+    const g = this.add.graphics();
+    g.fillStyle(BC.ink, 0.2);
+    g.fillRoundedRect(x - CARD_WIDTH / 2 + 2, y - CARD_HEIGHT / 2 + 3, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.fillStyle(0xffffff, 1);
+    g.fillRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.lineStyle(2, BC.ink, 1);
+    g.strokeRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
     // idleAnimated (last arg): a gentle float instead of a dead-still
     // portrait — this guide is nothing but static cards otherwise.
     const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 48, this.isPlayerSide, false, true);
@@ -98,24 +99,25 @@ export default class CatalogScene extends Phaser.Scene {
     // longer names (e.g. "Aquatic Flowering Slime") wrap to two lines.
     const label = this.add
       .text(x, y + CARD_HEIGHT / 2 - 24, config.characterName, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-        color: '#000000',
+        fontFamily: FONT, fontSize: '10px',
+        color: BC.inkHex,
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
       .setOrigin(0.5);
     const roleLabel = this.add
       .text(x, y + CARD_HEIGHT / 2 - 6, `(${config.abilityLabel || config.displayName})`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '8px',
-        color: '#222222',
+        fontFamily: FONT, fontSize: '8px',
+        color: '#5a5a5a',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
       .setOrigin(0.5);
 
-    card.on('pointerdown', () => this.showDetail(index));
+    const hit = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', () => this.showDetail(index));
 
-    const objects = [card, label, roleLabel];
+    const objects = [g, label, roleLabel, hit];
     if (icon) objects.splice(1, 0, icon);
     this.contentContainer.add(objects);
   }
@@ -131,31 +133,23 @@ export default class CatalogScene extends Phaser.Scene {
     const key = this.keys[this.detailIndex];
     const config = this.roster[key];
 
-    const panel = this.add
-      .rectangle(width / 2, height / 2 + 22, width - 60, height - 96, 0x222222)
-      .setStrokeStyle(2, 0xffdd33);
+    const panel = drawBcPanel(this, width / 2, height / 2 + 22, width - 60, height - 96, { radius: 24 });
 
     const icon = addUnitIcon(this, width / 2, 138, config, 100, this.isPlayerSide, false, true); // idleAnimated
     // Character name first (e.g. "Buba"), role second and smaller — same
     // ordering as the grid card and Character Formation.
     const nameText = this.add
-      .text(width / 2, 198, config.characterName, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '16px',
-        color: '#ffffff',
-      })
+      .text(width / 2, 198, config.characterName, { fontFamily: FONT, fontSize: '16px', color: BC.inkHex })
       .setOrigin(0.5);
     const roleText = this.add
-      .text(width / 2, 216, `(${config.abilityLabel || config.displayName})`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
-        color: '#aaaaaa',
-      })
+      .text(width / 2, 216, `(${config.abilityLabel || config.displayName})`, { fontFamily: FONT, fontSize: '11px', color: '#7a5c1e' })
       .setOrigin(0.5);
 
     const lines = describeUnit(config);
     const descText = this.add
       .text(width / 2, 236, lines.map((line) => `• ${line}`).join('\n'), {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
-        color: '#dddddd',
+        fontFamily: FONT, fontSize: '11px',
+        color: BC.inkHex,
         align: 'left',
         wordWrap: { width: width - 120 },
         lineSpacing: 6,
@@ -164,28 +158,16 @@ export default class CatalogScene extends Phaser.Scene {
 
     // Nav arrows page through the whole roster without returning to the
     // grid each time — mirrors the reference guide's own left/right arrows.
-    const prevButton = this.add
-      .text(40, height / 2 + 22, '◀', { fontFamily: 'Rowdies, sans-serif', fontSize: '28px', color: '#ffdd33' })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    const nextButton = this.add
-      .text(width - 40, height / 2 + 22, '▶', { fontFamily: 'Rowdies, sans-serif', fontSize: '28px', color: '#ffdd33' })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    prevButton.on('pointerdown', () => {
+    const prevButton = createBcCircleButton(this, 40, height / 2 + 22, 22, '◀', () => {
       this.detailIndex = (this.detailIndex - 1 + this.keys.length) % this.keys.length;
       this.renderDetail();
     });
-    nextButton.on('pointerdown', () => {
+    const nextButton = createBcCircleButton(this, width - 40, height / 2 + 22, 22, '▶', () => {
       this.detailIndex = (this.detailIndex + 1) % this.keys.length;
       this.renderDetail();
     });
 
-    const closeButton = this.add
-      .text(width - 24, 20, '✕', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ffffff' })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    closeButton.on('pointerdown', () => this.renderGrid());
+    const closeButton = createBcCircleButton(this, width - 30, 30, 16, '✕', () => this.renderGrid());
 
     const objects = [panel, nameText, roleText, descText, prevButton, nextButton, closeButton];
     if (icon) objects.splice(1, 0, icon);
