@@ -17,6 +17,7 @@ import { getEffectiveUnitConfig } from './UnitStats.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 
 // The bible's §A.10.6(a) per-unit leveling screen — shows every unit's
 // current level/cap, evolution stage, and a live stat preview, with
@@ -33,7 +34,7 @@ import { preloadBackgrounds, addBackground } from './Backdrop.js';
 // anywhere else yet).
 
 const ROW_HEIGHT = 74;
-const ROW_START_Y = 86;
+const ROW_START_Y = 98;
 const ROW_WIDTH_MARGIN = 32;
 const ROWS_PER_PAGE = 4;
 
@@ -59,62 +60,36 @@ export default class UpgradeScene extends Phaser.Scene {
 
     addBackground(this, 'metamorph2');
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
+    drawWoodFrame(this, width, height);
 
-    this.add
-      .text(width / 2, 20, 'Upgrade', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '22px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
+    createTitlePill(this, 24, 22, 'Power Up');
+    createBackButton(this, () => this.scene.start('HomeScene'));
 
-    const backButton = this.add
-      .rectangle(50, 20, 80, 32, 0x444444)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    backButton.on('pointerdown', () => this.scene.start('HomeScene'));
-
-    const baseUpgradesButton = this.add
-      .rectangle(175, 20, 150, 32, 0x336699)
-      .setInteractive({ useHandCursor: true });
-    this.add.text(175, 20, 'Base Upgrades', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
-    baseUpgradesButton.on('pointerdown', () => this.scene.start('BaseUpgradeScene'));
-
-    // Its own row below the header (not sharing a row with the centered
-    // title) — the full currency string is too wide to sit beside "Upgrade"
-    // without overlapping it.
-    this.currencyText = this.add
-      .text(width - 16, 46, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
-        color: '#ffdd33',
-        align: 'right',
-      })
-      .setOrigin(1, 0.5);
+    createBcButton(this, width - 90, 22, 150, 30, 'Base Upgrades', () => this.scene.start('BaseUpgradeScene'), {
+      fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 12,
+    });
 
     this.rowContainer = this.add.container(0, 0);
 
     // Pagination controls (see file header) — sit below the last possible
     // row on any page, so they never fight the row grid for vertical space.
-    const pagerY = ROW_START_Y + ROWS_PER_PAGE * ROW_HEIGHT + 10;
-    const prevButton = this.add.rectangle(width / 2 - 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2 - 90, pagerY, '< Prev', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
-    prevButton.on('pointerdown', () => {
+    const pagerY = ROW_START_Y + ROWS_PER_PAGE * ROW_HEIGHT + 12;
+    createBcButton(this, width / 2 - 90, pagerY, 70, 28, '< Prev', () => {
       if (this.page > 0) {
         this.page -= 1;
         this.refresh();
       }
-    });
+    }, { fill: 0x8a8a8a, highlight: 0xbbbbbb, textColor: '#ffffff', fontSize: 12 });
 
-    const nextButton = this.add.rectangle(width / 2 + 90, pagerY, 70, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(width / 2 + 90, pagerY, 'Next >', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
-    nextButton.on('pointerdown', () => {
+    createBcButton(this, width / 2 + 90, pagerY, 70, 28, 'Next >', () => {
       const totalPages = Math.ceil(Object.keys(UNIT_CONFIG).length / ROWS_PER_PAGE);
       if (this.page < totalPages - 1) {
         this.page += 1;
         this.refresh();
       }
-    });
+    }, { fill: 0x8a8a8a, highlight: 0xbbbbbb, textColor: '#ffffff', fontSize: 12 });
 
-    this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff' }).setOrigin(0.5);
+    this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: FONT, fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
 
     this.refresh();
   }
@@ -123,9 +98,15 @@ export default class UpgradeScene extends Phaser.Scene {
     this.rowContainer.removeAll(true);
 
     const progress = loadPlayerProgress();
-    this.currencyText.setText(
-      `XP: ${Math.floor(progress.xp).toLocaleString()}    Evo Shards: ${progress.evoShards}    Growth Charms: ${progress.growthCharms}`,
-    );
+    if (this.currencyText) this.currencyText.destroy();
+    const { width } = this.scale;
+    this.currencyText = this.add
+      .text(
+        width - 24, 54,
+        `XP ${Math.floor(progress.xp).toLocaleString()}    Shards ${progress.evoShards}    Charms ${progress.growthCharms}`,
+        { fontFamily: FONT, fontSize: '12px', color: '#ffcf6b', stroke: '#000000', strokeThickness: 3 },
+      )
+      .setOrigin(1, 0.5);
 
     const allKeys = Object.keys(UNIT_CONFIG);
     const totalPages = Math.ceil(allKeys.length / ROWS_PER_PAGE);
@@ -156,7 +137,16 @@ export default class UpgradeScene extends Phaser.Scene {
     // any (currently nonexistent) sprite-less unit.
     const isEvolved = hasReachedPartEvolution(unitProgress.level);
     const rowObjects = [];
-    rowObjects.push(this.add.rectangle(width / 2, y, width - ROW_WIDTH_MARGIN, ROW_HEIGHT - 8, 0x222222));
+    // Cream card, black outline — matches every other list/card screen in
+    // this pass instead of the previous flat dark-grey rectangle.
+    const g = this.add.graphics();
+    g.fillStyle(BC.ink, 0.2);
+    g.fillRoundedRect(width / 2 - (width - ROW_WIDTH_MARGIN) / 2 + 2, y - (ROW_HEIGHT - 8) / 2 + 3, width - ROW_WIDTH_MARGIN, ROW_HEIGHT - 8, 12);
+    g.fillStyle(BC.panel, 1);
+    g.fillRoundedRect(width / 2 - (width - ROW_WIDTH_MARGIN) / 2, y - (ROW_HEIGHT - 8) / 2, width - ROW_WIDTH_MARGIN, ROW_HEIGHT - 8, 12);
+    g.lineStyle(2, BC.ink, 1);
+    g.strokeRoundedRect(width / 2 - (width - ROW_WIDTH_MARGIN) / 2, y - (ROW_HEIGHT - 8) / 2, width - ROW_WIDTH_MARGIN, ROW_HEIGHT - 8, 12);
+    rowObjects.push(g);
     // Row's own background sits from x=16 to x=width-16 (ROW_WIDTH_MARGIN,
     // split evenly) — icon centered well clear of that left edge so it
     // never pokes outside the row, text following it likewise pulled in
@@ -167,21 +157,21 @@ export default class UpgradeScene extends Phaser.Scene {
     rowObjects.push(
       this.add
         .text(92, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
-          color: '#ffffff',
+          fontFamily: FONT, fontSize: '13px',
+          color: BC.inkHex,
         })
         .setOrigin(0, 0.5),
     );
     rowObjects.push(
       this.add
         .text(92, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
-          fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
-          color: '#aaaaaa',
+          fontFamily: FONT, fontSize: '11px',
+          color: '#5a5a5a',
         })
         .setOrigin(0, 0.5),
     );
 
-    rowObjects.push(...this.renderLevelUpButton(type, y, unitProgress, cap, atCap, progress));
+    rowObjects.push(this.renderLevelUpButton(type, y, unitProgress, cap, atCap, progress));
     // Growth Charms only ever apply past the real story-gated Lv20 (see
     // PlayerProgress.js's hasStoryGateCleared) — below that, a unit stuck
     // at its Lv10 baseLevelCap gets an explanatory hint instead of a
@@ -191,14 +181,15 @@ export default class UpgradeScene extends Phaser.Scene {
       rowObjects.push(
         this.add
           .text(590, y, `Clear\n"${gateStage?.displayName ?? STORY_GATE_STAGE_ID}"\nto level further`, {
-            fontFamily: 'Rowdies, sans-serif', fontSize: '9px', color: '#888888', align: 'center',
+            fontFamily: FONT, fontSize: '9px', color: '#7a7a7a', align: 'center',
           })
           .setOrigin(0.5),
       );
     } else if (atCap && unitProgress.extraCap < meta.maxExtraCap) {
-      rowObjects.push(...this.renderGrowthCharmButton(type, y, progress));
+      rowObjects.push(this.renderGrowthCharmButton(type, y, progress));
     }
-    rowObjects.push(...this.renderEvolveButton(type, y, meta, unitProgress, progress));
+    const evolveButton = this.renderEvolveButton(type, y, meta, unitProgress, progress);
+    if (evolveButton) rowObjects.push(evolveButton);
 
     this.rowContainer.add(rowObjects);
   }
@@ -208,23 +199,14 @@ export default class UpgradeScene extends Phaser.Scene {
     const cost = getNextLevelCost(type);
     const affordable = !atCap && progress.xp >= cost;
 
-    const rect = this.add
-      .rectangle(x, y, 100, BUTTON_HEIGHT, 0x3366cc)
-      .setInteractive({ useHandCursor: true })
-      .setAlpha(atCap ? 0.4 : affordable ? 1 : 0.5);
-    const label = this.add
-      .text(x, y, atCap ? 'MAX LEVEL' : `Level Up\n${cost.toLocaleString()} XP`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-        color: '#ffffff',
-        align: 'center',
-      })
-      .setOrigin(0.5);
-
-    rect.on('pointerdown', () => {
+    return createBcButton(this, x, y, 100, BUTTON_HEIGHT, atCap ? 'MAX LEVEL' : `Level Up\n${cost.toLocaleString()} XP`, () => {
       if (tryLevelUpUnit(type).ok) this.refresh();
+    }, {
+      fontSize: 10,
+      fill: atCap ? 0x8a8a8a : affordable ? BC.blue : 0x6a6a6a,
+      highlight: atCap ? 0xbbbbbb : BC.blueHighlight,
+      textColor: '#ffffff',
     });
-
-    return [rect, label];
   }
 
   renderGrowthCharmButton(type, y, progress) {
@@ -234,53 +216,29 @@ export default class UpgradeScene extends Phaser.Scene {
     const cost = getGrowthCharmCost(unitProgress, meta);
     const affordable = progress.growthCharms >= cost;
 
-    const rect = this.add
-      .rectangle(x, y, 100, BUTTON_HEIGHT, 0x996633)
-      .setInteractive({ useHandCursor: true })
-      .setAlpha(affordable ? 1 : 0.4);
-    const label = this.add
-      .text(x, y, `Use ${cost} Charm${cost > 1 ? 's' : ''}\n(${progress.growthCharms} held)`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-        color: '#ffffff',
-        align: 'center',
-      })
-      .setOrigin(0.5);
-
-    rect.on('pointerdown', () => {
+    return createBcButton(this, x, y, 100, BUTTON_HEIGHT, `Use ${cost} Charm${cost > 1 ? 's' : ''}\n(${progress.growthCharms} held)`, () => {
       if (tryUseGrowthCharm(type).ok) this.refresh();
-    });
-
-    return [rect, label];
+    }, { fontSize: 10, fill: affordable ? BC.gold : 0x8a8a8a, textColor: affordable ? BC.goldInk : '#ffffff' });
   }
 
   renderEvolveButton(type, y, meta, unitProgress, progress) {
     const x = 715;
     const nextEvolution = meta.evolutions[unitProgress.evolutionStage];
-    if (!nextEvolution) return [];
+    if (!nextEvolution) return null;
 
     const eligible = unitProgress.level >= nextEvolution.unlockLevel;
     const affordable = eligible && progress.xp >= nextEvolution.xpCost && progress.evoShards >= nextEvolution.evoShardCost;
 
-    const rect = this.add
-      .rectangle(x, y, 130, BUTTON_HEIGHT, 0x9933cc)
-      .setInteractive({ useHandCursor: true })
-      .setAlpha(!eligible ? 0.3 : affordable ? 1 : 0.5);
-    const label = this.add
-      .text(
-        x,
-        y,
-        eligible
-          ? `Evolve: ${nextEvolution.name}\n${nextEvolution.xpCost.toLocaleString()} XP + ${nextEvolution.evoShardCost} Shards`
-          : `Evolve: ${nextEvolution.name}\nNeeds Lv ${nextEvolution.unlockLevel}`,
-        { fontFamily: 'Rowdies, sans-serif', fontSize: '9px', color: '#ffffff', align: 'center' },
-      )
-      .setOrigin(0.5);
-
-    rect.on('pointerdown', () => {
-      if (!eligible) return;
-      if (tryEvolveUnit(type).ok) this.refresh();
-    });
-
-    return [rect, label];
+    return createBcButton(
+      this, x, y, 130, BUTTON_HEIGHT,
+      eligible
+        ? `Evolve: ${nextEvolution.name}\n${nextEvolution.xpCost.toLocaleString()} XP + ${nextEvolution.evoShardCost} Shards`
+        : `Evolve: ${nextEvolution.name}\nNeeds Lv ${nextEvolution.unlockLevel}`,
+      () => {
+        if (!eligible) return;
+        if (tryEvolveUnit(type).ok) this.refresh();
+      },
+      { fontSize: 9, fill: !eligible ? 0x8a8a8a : affordable ? 0xb98cff : 0x9a7ab0, textColor: '#2a1a3a' },
+    );
   }
 }
