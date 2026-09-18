@@ -6,6 +6,7 @@ import {
   getNextBaseUpgradeCost,
   tryLevelUpBaseUpgrade,
 } from './PlayerProgress.js';
+import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 
 // The account-wide half of the bible's §A.7.1 Upgrade Menu — Cannon Power/
 // Charge, Base Defense, Research, Accounting, Study, Stamina Cap. Reachable
@@ -13,8 +14,13 @@ import {
 // its own "Base Upgrades" button, mirroring how the confirmed screenshots
 // showed these as a separate tab/section from per-unit leveling.
 
-const ROW_HEIGHT = 58;
-const ROW_START_Y = 62;
+// Tight enough that all 8 real BASE_UPGRADE_CONFIG rows fit above the
+// bottom-left Back button on an 800x450 canvas with no scrolling — this
+// screen previously ran 58px/row from y=66 (530px of content on a 450px
+// canvas), pushing the last 2 rows and the Back button off-screen entirely
+// and undiscovered until this pass's live check surfaced it.
+const ROW_HEIGHT = 40;
+const ROW_START_Y = 58;
 
 export default class BaseUpgradeScene extends Phaser.Scene {
   constructor() {
@@ -22,15 +28,15 @@ export default class BaseUpgradeScene extends Phaser.Scene {
   }
 
   create() {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
 
-    this.add.text(width / 2, 20, 'Base Upgrades', { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: '#ffffff' }).setOrigin(0.5);
+    drawWoodFrame(this, width, height);
+    createTitlePill(this, 24, 22, 'Base Upgrades');
+    createBackButton(this, () => this.scene.start('UpgradeScene'));
 
-    const backButton = this.add.rectangle(50, 20, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    backButton.on('pointerdown', () => this.scene.start('UpgradeScene'));
-
-    this.xpText = this.add.text(width - 16, 20, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffdd33' }).setOrigin(1, 0.5);
+    this.xpText = this.add
+      .text(width - 24, 22, '', { fontFamily: FONT, fontSize: '15px', color: '#7fe0ff', stroke: '#000000', strokeThickness: 3 })
+      .setOrigin(1, 0.5);
 
     this.rowContainer = this.add.container(0, 0);
     this.refresh();
@@ -40,7 +46,7 @@ export default class BaseUpgradeScene extends Phaser.Scene {
     this.rowContainer.removeAll(true);
 
     const progress = loadPlayerProgress();
-    this.xpText.setText(`XP: ${Math.floor(progress.xp).toLocaleString()}`);
+    this.xpText.setText(`XP ${Math.floor(progress.xp).toLocaleString()}`);
 
     Object.keys(BASE_UPGRADE_CONFIG).forEach((key, index) => {
       this.renderRow(key, ROW_START_Y + index * ROW_HEIGHT, progress);
@@ -56,34 +62,37 @@ export default class BaseUpgradeScene extends Phaser.Scene {
     const affordable = !atCap && progress.xp >= cost;
 
     const rowObjects = [];
-    rowObjects.push(this.add.rectangle(width / 2, y, width - 32, ROW_HEIGHT - 8, 0x222222));
+    const rowWidth = width - 32;
+    const cardHeight = ROW_HEIGHT - 6;
+    const g = this.add.graphics();
+    g.fillStyle(BC.ink, 0.2);
+    g.fillRoundedRect(width / 2 - rowWidth / 2 + 2, y - cardHeight / 2 + 2, rowWidth, cardHeight, 10);
+    g.fillStyle(BC.panel, 1);
+    g.fillRoundedRect(width / 2 - rowWidth / 2, y - cardHeight / 2, rowWidth, cardHeight, 10);
+    g.lineStyle(2, BC.ink, 1);
+    g.strokeRoundedRect(width / 2 - rowWidth / 2, y - cardHeight / 2, rowWidth, cardHeight, 10);
+    rowObjects.push(g);
+
     rowObjects.push(
       this.add
-        .text(30, y - 12, `${config.label}  (Lv ${level}/${config.maxLevel})`, { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' })
+        .text(30, y - 9, `${config.label}  (Lv ${level}/${config.maxLevel})`, { fontFamily: FONT, fontSize: '12px', color: BC.inkHex })
         .setOrigin(0, 0.5),
     );
     rowObjects.push(
-      this.add.text(30, y + 10, config.description, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#aaaaaa' }).setOrigin(0, 0.5),
+      this.add.text(30, y + 8, config.description, { fontFamily: FONT, fontSize: '9px', color: '#5a5a5a' }).setOrigin(0, 0.5),
     );
 
-    const buttonX = width - 130;
-    const rect = this.add
-      .rectangle(buttonX, y, 160, 40, 0x3366cc)
-      .setInteractive({ useHandCursor: true })
-      .setAlpha(atCap ? 0.4 : affordable ? 1 : 0.5);
-    const label = this.add
-      .text(buttonX, y, atCap ? 'MAX LEVEL' : `Upgrade\n${cost.toLocaleString()} XP`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
-        color: '#ffffff',
-        align: 'center',
-      })
-      .setOrigin(0.5);
-
-    rect.on('pointerdown', () => {
-      if (tryLevelUpBaseUpgrade(key).ok) this.refresh();
-    });
-
-    rowObjects.push(rect, label);
+    const buttonX = width - 110;
+    rowObjects.push(
+      createBcButton(this, buttonX, y, 150, cardHeight - 2, atCap ? 'MAX LEVEL' : `Upgrade — ${cost.toLocaleString()} XP`, () => {
+        if (tryLevelUpBaseUpgrade(key).ok) this.refresh();
+      }, {
+        fontSize: 10,
+        fill: atCap ? 0x8a8a8a : affordable ? BC.blue : 0x6a6a6a,
+        highlight: atCap ? 0xbbbbbb : BC.blueHighlight,
+        textColor: '#ffffff',
+      }),
+    );
     this.rowContainer.add(rowObjects);
   }
 }
