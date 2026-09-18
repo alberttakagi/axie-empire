@@ -16,6 +16,16 @@ real bugs: it used カンバン娘 (whose real spawn is a harmless one-off at
 Chapter 14 "カンバン娘が出てくる条件") as an early, endlessly-repeating
 wall enemy on every stage.
 
+STAGES1's own 7th column (出撃最大数) was ALSO misread when this generator
+was first written: it's the ENEMY side's simultaneous-on-field cap, not a
+player deployment restriction — the user later corrected this after
+double-checking against a clarified guide. It's now emitted as
+`maxEnemiesOnField` on every stage (never skipped), read by GameScene.js's
+spawn engine to gate new spawns, while the player's own deploy cap for all
+48 stages is the real universal 50 (GameScene.js's DEFAULT_MAX_DEPLOYED),
+not the STAGES1 column at all. See docs/BATTLE_CATS_MAPPING.md for the
+full writeup of what this broke and how it was fixed.
+
 Each SPAWNS1 entry is (enemy_jp, strengthPercent, count, castleHpBelow,
 firstFrame, repeat) matching the real DB page's own 6 columns exactly:
   enemy_jp       the enemy's real Japanese name (key into NAME_TO_KEY)
@@ -146,7 +156,7 @@ def frame_to_ms(f):
     return round(f * 1000 / 30)
 
 def gen_stage(row):
-    no, name, energy, xp, castle_hp, width, max_units, boss, enemies_csv, stars = row
+    no, name, energy, xp, castle_hp, width, max_enemies_on_field, boss, enemies_csv, stars = row
     spawns = SPAWNS1[no]
     boss_indices = BOSS_INDICES.get(no, set())
 
@@ -163,8 +173,15 @@ def gen_stage(row):
     lines.append(f"    startingMoney: {STARTING_MONEY},")
     lines.append(f"    moneyAccrualPerSec: {MONEY_ACCRUAL},")
     lines.append(f"    baseHp: {BASE_HP},")
-    if max_units < 20:
-        lines.append(f"    restrictions: {{ maxDeployed: {max_units} }},")
+    # 出撃最大数 (this column) is the ENEMY side's own simultaneous-on-field
+    # cap, NOT a player deployment restriction — a mistranslation this
+    # generator originally made (see docs/BATTLE_CATS_MAPPING.md's bug-fix
+    # writeup). Real Japan Chapter 1 has no Restriction Stages at all; the
+    # player's own deploy cap is a flat 50 everywhere (GameScene.js's
+    # DEFAULT_MAX_DEPLOYED). This is a genuine per-stage value on every one
+    # of the 48 stages, never omitted (unlike the old, wrong maxDeployed
+    # skip-if-20 logic).
+    lines.append(f"    maxEnemiesOnField: {max_enemies_on_field},")
     lines.append(f"    enemyBaseHp: {castle_hp},")
     lines.append("    spawnScript: [")
 

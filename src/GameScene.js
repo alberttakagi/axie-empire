@@ -104,14 +104,18 @@ function normalizeSpawnEntry(entry) {
 
 const MIN_RECHARGE_MS = 2000; // bible §A.3.2: hard floor is 60 frames @ 30fps = 2.0s, across the whole game — Research can never push a unit's recharge below this
 
-// Global deploy limit (bible §A.3.11) — "a wide default ceiling" on every
-// stage, tightened by specific Restriction Stages' own (much smaller)
-// `restrictions.maxDeployed` value (see STAGE_CONFIG.js — those already use
-// 3/4/5). The bible doesn't pin an exact reference number for the
-// unrestricted default, only that it should rarely bind — 20 sits
-// comfortably above every Restriction Stage's own explicit cap while still
-// being a real ceiling against unlimited spam.
-const DEFAULT_MAX_DEPLOYED = 20;
+// Global deploy limit (bible §A.3.11) — confirmed real: real Battle Cats'
+// own player deploy cap is a flat 50 on every stage that isn't a
+// "Restriction Stage" (条件付きステージ, a later-introduced mechanic that
+// doesn't exist anywhere in Japan Chapter 1 — see STAGE_CONFIG.js's saga2/
+// saga3 for this build's own invented examples of that gimmick, tightened
+// via `restrictions.maxDeployed`). This was originally a guessed
+// placeholder of 20 based on a misreading of STAGE_CONFIG's own real
+// per-stage 出撃最大数 column as a player restriction — that column is
+// actually the ENEMY side's own simultaneous-on-field cap (see
+// `maxEnemiesOnField`/updateSpawns below), corrected after the user
+// double-checked against a clarified source.
+const DEFAULT_MAX_DEPLOYED = 50;
 
 const SPEED_UP_MULTIPLIER = 2;
 
@@ -757,13 +761,24 @@ export default class GameScene extends Phaser.Scene {
 
     const battleMs = this.elapsedMs - this.battleStartMs;
     const percent = this.enemyBaseMaxHp > 0 ? (this.enemyBaseHp / this.enemyBaseMaxHp) * 100 : 0;
+    // maxEnemiesOnField (real per-stage 出撃最大数 — see STAGE_CONFIG.js's
+    // header note on what that column actually means) caps how many
+    // enemies can be alive on the field AT ONCE, not how many the player
+    // may deploy. A rule that's otherwise due just waits — it doesn't
+    // consume its turn or reroll its repeat delay — so it fires the
+    // instant a slot frees up (an enemy dies) rather than possibly missing
+    // a whole extra repeat interval.
+    const maxEnemiesOnField = this.stage.maxEnemiesOnField ?? Infinity;
+    let aliveEnemyCount = this.enemies.reduce((count, enemy) => count + (enemy.hp > 0 ? 1 : 0), 0);
     for (const state of this.spawnState) {
       const { rule } = state;
       if (rule.maxCount !== null && state.spawnedCount >= rule.maxCount) continue;
       if (percent > rule.castleHpBelowPercent) continue;
       if (battleMs < state.nextMs) continue;
+      if (aliveEnemyCount >= maxEnemiesOnField) continue;
 
       this.spawnScriptedEnemy(state.entry);
+      aliveEnemyCount += 1;
       state.spawnedCount += 1;
       if (rule.repeatMs) {
         const [min, max] = rule.repeatMs;

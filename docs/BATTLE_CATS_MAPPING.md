@@ -94,17 +94,21 @@ one-off generator kept at `tools/gen_saga1_stages.py` for future retuning.
 
 - **Real per-stage data used directly**: prefecture name (translated to
   English — Nagasaki, Saga, Kagoshima, ... Iriomote Island), energy cost,
-  XP, castle HP (→ `enemyBaseHp`), max-deployed (→
-  `restrictions.maxDeployed` when below 20 — see the bug-fix note below),
-  the real boss (→ a `baseHpPercentTrigger: 99` entry), and the real enemy
-  roster per stage (in the real listed order).
+  XP, castle HP (→ `enemyBaseHp`), ~~max-deployed (→
+  `restrictions.maxDeployed` when below 20 — see the bug-fix note
+  below)~~ **the 出撃最大数 column (→ `maxEnemiesOnField`) — see the later,
+  much bigger correction further down; every mention of "max-deployed" in
+  this section and the two bug-fix notes right below it describes what
+  this was WRONGLY believed to be at the time**, the real boss (→ a
+  `baseHpPercentTrigger: 99` entry), and the real enemy roster per stage
+  (in the real listed order).
 - **Chapter 1 uses a flat 100% strength magnification on every enemy,
   every stage** — confirmed by the guide's own note. Every `statMultiplier`
-  in the new saga1 is `1`; difficulty comes entirely from castle HP/stage
-  composition/max-deployed, matching the real game exactly. (This
-  corrects the original pass's own saga1, which had climbing
-  `statMultiplier` across its 10 placeholder stages — not how real
-  Chapter 1 actually works.)
+  in the new saga1 is `1`; difficulty comes entirely from castle HP, stage
+  composition, and the enemy field's own simultaneous-count cap, matching
+  the real game exactly. (This corrects the original pass's own saga1,
+  which had climbing `statMultiplier` across its 10 placeholder stages —
+  not how real Chapter 1 actually works.)
 - **Not real data**: per-enemy spawn TIMING. The guide gives one fully
   worked example (stage 35/Tokyo) and confirms enemies appear in their
   listed order, but not exact first-appearance/repeat frames for the
@@ -479,6 +483,57 @@ enemy base's engagement boundary no longer gets a fresh same-radius-or-
 smaller enemy spawning behind it (spawn now correctly lands ahead of the
 unit in every tested case — small enemy behind a parked unit, large enemy
 behind a parked unit, and the normal unblocked case, which is unaffected).
+
+## Major correction: 出撃最大数 is the ENEMY field cap, not a player restriction
+
+The single biggest correction of this whole saga1 effort. The user
+directly asked "is it intended that stage1 has a 3-unit limit?" earlier in
+this project, and — going only off the guide's phrasing at the time
+("出撃最大数は場に同時に出せる味方の数" — "the number of ALLIES you can
+have on the field at once") — the answer given was yes, treated as
+confirmed real per-stage data, and implemented as `restrictions.maxDeployed`
+on 47 of the 48 saga1 stages (the two prior bug-fix sections above, about
+a `<10` threshold and about Kanban Musume, both describe fixes made
+*within* that wrong framing). The user later independently verified this
+against battlecats-db.com and the game itself, and corrected the guide:
+**出撃最大数 is the ENEMY side's own simultaneous-on-field cap** (how many
+enemies can be alive on screen at once for that stage) — it has nothing to
+do with how many units the player may deploy. Real Japan Chapter 1 has no
+per-stage player deploy restriction at all; the player's own cap is a flat
+**50** everywhere, because "Restriction Stages" (条件付きステージ, the
+real mechanic that DOES limit player deploy count on specific stages) are
+a later addition that doesn't exist anywhere in Chapter 1.
+
+This means stage1's real "3" was never a player-facing restriction — a
+brand-new account with just the starter Cat was never actually limited to
+3 simultaneous Cats on Nagasaki; the real constraint is that Nagasaki
+never has more than 3 enemies on the field at once (matching its
+`knownSpawns` table: one Doge, a slow trickle from 20s, an 8-Doge burst at
+50% castle HP — genuinely never more than 3 alive given that pacing).
+
+Fix, across three files:
+- **`tools/gen_saga1_stages.py`**: `STAGES1`'s 7th column now emits
+  `maxEnemiesOnField` on every stage (never skipped/omitted, unlike the
+  old buggy `restrictions.maxDeployed` logic that dropped it below a
+  threshold) instead of `restrictions.maxDeployed`.
+- **`STAGE_CONFIG.js`**: all 48 saga1 stages regenerated — none carry
+  `restrictions.maxDeployed` anymore; all 48 carry a top-level
+  `maxEnemiesOnField` (e.g. stage1/Nagasaki: 3, stage26/Aichi: 20,
+  stage45/Aomori: 2).
+- **`GameScene.js`**: `DEFAULT_MAX_DEPLOYED` raised from the old guessed
+  placeholder (20) to the real confirmed universal value (50).
+  `updateSpawns` now tracks how many enemies are currently alive and skips
+  (without consuming/rerolling) any otherwise-due spawn rule once the
+  stage's `maxEnemiesOnField` is reached — the rule fires the instant a
+  slot opens back up (an enemy dies), matching real behavior rather than
+  possibly missing a whole extra repeat interval. saga2/saga3's own two
+  genuine Restriction-Stage `restrictions.maxDeployed` gimmicks (real
+  mechanic, just not real Chapter-1 data — see Known Gaps) are untouched.
+
+Verified live on stage1: 10 player Cats can now be deployed simultaneously
+(previously hard-blocked at 3), while the enemy field itself never
+exceeded 3 enemies alive at once over a sustained test, exactly matching
+the real per-stage cap now applied to the correct side.
 
 ## UI naming convention (added in a follow-up pass)
 

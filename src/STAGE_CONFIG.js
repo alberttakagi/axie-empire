@@ -131,7 +131,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 3 },
+    maxEnemiesOnField: 3,
     enemyBaseHp: 1000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: null, maxCount: 1 },
@@ -151,7 +151,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 4 },
+    maxEnemiesOnField: 4,
     enemyBaseHp: 1000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [6000, 10000], maxCount: null },
@@ -171,7 +171,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 1000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [4667, 8000], maxCount: null },
@@ -191,7 +191,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 1000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [6000, 10000], maxCount: null },
@@ -212,7 +212,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 6 },
+    maxEnemiesOnField: 6,
     enemyBaseHp: 1500,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [6000, 10000], maxCount: null },
@@ -233,7 +233,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 7 },
+    maxEnemiesOnField: 7,
     enemyBaseHp: 1500,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [6000, 10000], maxCount: null },
@@ -254,7 +254,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 6 },
+    maxEnemiesOnField: 6,
     enemyBaseHp: 2400,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [10667, 18667], maxCount: null },
@@ -276,7 +276,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 1500,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [6000, 10000], maxCount: null },
@@ -297,7 +297,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 3000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [4000, 10000], maxCount: null },
@@ -319,7 +319,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 2500,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [10667, 18667], maxCount: null },
@@ -341,7 +341,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 6 },
+    maxEnemiesOnField: 6,
     enemyBaseHp: 3500,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [10667, 18667], maxCount: null },
@@ -364,7 +364,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 7 },
+    maxEnemiesOnField: 7,
     enemyBaseHp: 4000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [10667, 18667], maxCount: null },
@@ -387,7 +387,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 12 },
+    maxEnemiesOnField: 12,
     enemyBaseHp: 5000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },
@@ -411,7 +411,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 3 },
+    maxEnemiesOnField: 3,
     enemyBaseHp: 6000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [21333, 37333], maxCount: null },
@@ -434,7 +434,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 4 },
+    maxEnemiesOnField: 4,
     enemyBaseHp: 6100,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -459,7 +459,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 6 },
+    maxEnemiesOnField: 6,
     enemyBaseHp: 7000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -482,7 +482,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 7000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -508,7 +508,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 8000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -535,7 +535,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 9000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 20000], maxCount: null },
@@ -559,7 +559,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 9000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -583,7 +583,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 10000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -608,7 +608,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 4 },
+    maxEnemiesOnField: 4,
     enemyBaseHp: 12000,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -633,7 +633,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 4000], maxCount: null },
@@ -654,7 +654,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 3 },
+    maxEnemiesOnField: 3,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'tank', statMultiplier: 1, firstMs: 0, repeatMs: [10000, 40000], maxCount: null, castleHpBelowPercent: 90 },
@@ -679,7 +679,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -702,6 +702,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
+    maxEnemiesOnField: 20,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'wanikun', statMultiplier: 1, firstMs: 0, repeatMs: null, maxCount: 1 },
@@ -726,7 +727,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 8 },
+    maxEnemiesOnField: 8,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3333, 13333], maxCount: null },
@@ -750,7 +751,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 8 },
+    maxEnemiesOnField: 8,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3333, 13333], maxCount: null },
@@ -776,7 +777,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 18000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3333, 30000], maxCount: null },
@@ -800,7 +801,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 15000,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1, firstMs: 10000, repeatMs: [5000, 6667], maxCount: null },
@@ -826,7 +827,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 8000,
     spawnScript: [
       { enemyId: 'wanikun', statMultiplier: 1, firstMs: 3333, repeatMs: [3333, 10000], maxCount: null },
@@ -848,7 +849,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 8 },
+    maxEnemiesOnField: 8,
     enemyBaseHp: 18000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [3333, 13333], maxCount: null },
@@ -872,7 +873,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 6 },
+    maxEnemiesOnField: 6,
     enemyBaseHp: 18000,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1, firstMs: 10000, repeatMs: [5000, 6667], maxCount: null },
@@ -900,7 +901,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 18000,
     spawnScript: [
       { enemyId: 'fast', statMultiplier: 1, firstMs: 10000, repeatMs: [5000, 6667], maxCount: null },
@@ -931,7 +932,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [4000, 13333], maxCount: null },
@@ -954,7 +955,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3333, 10000], maxCount: null },
@@ -981,7 +982,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 4 },
+    maxEnemiesOnField: 4,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3333, 10000], maxCount: null },
@@ -1008,7 +1009,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 8 },
+    maxEnemiesOnField: 8,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [10000, 30000], maxCount: null },
@@ -1036,7 +1037,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3000, 14000], maxCount: null },
@@ -1063,7 +1064,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3000, 14000], maxCount: null },
@@ -1091,7 +1092,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 10000], maxCount: null },
@@ -1113,7 +1114,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 5 },
+    maxEnemiesOnField: 5,
     enemyBaseHp: 25000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3000, 14000], maxCount: null },
@@ -1142,7 +1143,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3000, 20000], maxCount: null },
@@ -1170,7 +1171,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 4 },
+    maxEnemiesOnField: 4,
     enemyBaseHp: 25000,
     spawnScript: [
       { enemyId: 'basic', statMultiplier: 1, firstMs: 0, repeatMs: [3000, 14000], maxCount: null },
@@ -1192,7 +1193,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 2 },
+    maxEnemiesOnField: 2,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'tank', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 2000], maxCount: null },
@@ -1216,7 +1217,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 10 },
+    maxEnemiesOnField: 10,
     enemyBaseHp: 20000,
     spawnScript: [
       { enemyId: 'swarm', statMultiplier: 1, firstMs: 0, repeatMs: [667, 1000], maxCount: 20 },
@@ -1240,7 +1241,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 3 },
+    maxEnemiesOnField: 3,
     enemyBaseHp: 30000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [67, 67], maxCount: null },
@@ -1266,7 +1267,7 @@ export const STAGE_CONFIG = [
     startingMoney: 6000,
     moneyAccrualPerSec: 170,
     baseHp: 1000,
-    restrictions: { maxDeployed: 4 },
+    maxEnemiesOnField: 4,
     enemyBaseHp: 99999,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 2000], maxCount: null },
