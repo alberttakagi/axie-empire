@@ -594,7 +594,8 @@ export default class GameScene extends Phaser.Scene {
     this.base = this.add
       .image(0, this.laneY, TOWER_PLAYER_SPRITE_KEY)
       .setOrigin(0, 0.5)
-      .setDisplaySize(TOWER_PLAYER_DISPLAY_WIDTH, TOWER_SPRITE_DISPLAY_HEIGHT);
+      .setDisplaySize(TOWER_PLAYER_DISPLAY_WIDTH, TOWER_SPRITE_DISPLAY_HEIGHT)
+      .setFlipX(true); // flipped so both towers face inward at each other — see the sprite constants' own comment above
     this.worldGameObjects.push(this.base);
     // Left-anchored (not centered on baseX): the base sits flush against the
     // canvas's left edge, so a centered "current/max" string would overflow
@@ -617,8 +618,7 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBase = this.add
       .image(width, this.laneY, TOWER_ENEMY_SPRITE_KEY)
       .setOrigin(1, 0.5)
-      .setDisplaySize(TOWER_ENEMY_DISPLAY_WIDTH, TOWER_SPRITE_DISPLAY_HEIGHT)
-      .setFlipX(true); // mirrored so both towers face inward at each other — see the sprite constants' own comment above
+      .setDisplaySize(TOWER_ENEMY_DISPLAY_WIDTH, TOWER_SPRITE_DISPLAY_HEIGHT);
     this.worldGameObjects.push(this.enemyBase);
     // Mirror of the above: right-anchored, growing leftward from the
     // canvas's right edge.
