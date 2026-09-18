@@ -5,15 +5,15 @@ import { loadStageProgress } from './StageProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
 import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
+import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 
 const DIFFICULTY_COLOR = {
-  Easy: 0x33cc33,
-  Normal: 0xffcc33,
-  Hard: 0xcc3333,
-  Boss: 0xcc66ff,
+  Easy: 0x4caf50,
+  Normal: BC.gold,
+  Hard: BC.red,
+  Boss: 0xa855f7,
 };
 
-const LOCKED_COLOR = 0x333333;
 const TREASURE_TIER_COLORS = [null, 0xcd7f32, 0xc0c0c0, 0xffd700]; // index 0 (none) never drawn
 
 const GRID_COLS = 5;
@@ -55,23 +55,11 @@ export default class StageSelectScene extends Phaser.Scene {
     addSagaBackground(this, this.sagaId);
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
 
-    this.add
-      .text(width / 2, 24, 'Select Stage', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '22px',
-        color: '#ffffff',
-      })
-      .setOrigin(0.5);
-
-    this.createBackButton();
+    createTitlePill(this, 24, 26, 'Select Stage');
+    createBackButton(this, () => this.scene.start('SagaSelectScene'));
     this.createEnergyDisplay();
     this.createStageGrid(progress);
     this.setupGridScroll();
-  }
-
-  createBackButton() {
-    const rect = this.add.rectangle(50, 24, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 24, 'Sagas', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    rect.on('pointerdown', () => this.scene.start('SagaSelectScene'));
   }
 
   // Energy/Stamina (bible §A.9) — the one piece of the old header worth
@@ -81,12 +69,7 @@ export default class StageSelectScene extends Phaser.Scene {
   createEnergyDisplay() {
     const { width } = this.scale;
     const { current, cap } = getEnergyState();
-    this.add
-      .text(width - 16, 24, `Energy: ${current}/${cap}`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
-        color: '#66ccff',
-      })
-      .setOrigin(1, 0.5);
+    createResourceBadge(this, width - 24, 26, 'NRG', `${current}/${cap}`, { valueColor: '#8fffb0' });
   }
 
   // Real Battle Cats chapters run 48 stages long (see STAGE_CONFIG.js's
@@ -125,46 +108,60 @@ export default class StageSelectScene extends Phaser.Scene {
 
       const cardObjects = [];
 
-      const fillColor = isUnlocked ? DIFFICULTY_COLOR[stage.difficulty] : LOCKED_COLOR;
-      const rect = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, fillColor).setAlpha(isUnlocked ? 1 : 0.6);
-      cardObjects.push(rect);
+      // Cream rounded card, black outline, gold ring once cleared (the
+      // reference's own "CLEAR!" tiles get a distinct border rather than a
+      // different fill) — replaces the previous flat difficulty-color fill,
+      // which made cleared/uncleared/difficulty all fight for the same
+      // visual channel.
+      const g = this.add.graphics();
+      g.fillStyle(BC.ink, 0.25);
+      g.fillRoundedRect(x - CARD_WIDTH / 2 + 2, y - CARD_HEIGHT / 2 + 4, CARD_WIDTH, CARD_HEIGHT, 10);
+      g.fillStyle(isUnlocked ? BC.panel : 0x4a4a4a, 1);
+      g.fillRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
+      g.lineStyle(isCleared ? 3 : 2, isUnlocked ? (isCleared ? BC.gold : BC.ink) : 0x222222, 1);
+      g.strokeRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
+      cardObjects.push(g);
 
+      // Difficulty tab — a small colored ribbon along the card's own top
+      // edge instead of dyeing the whole card, so cleared/locked state
+      // (border/fill above) and difficulty (this ribbon) read independently.
+      if (isUnlocked) {
+        const ribbon = this.add.graphics();
+        ribbon.fillStyle(DIFFICULTY_COLOR[stage.difficulty], 1);
+        ribbon.fillRoundedRect(x - CARD_WIDTH / 2 + 4, y - CARD_HEIGHT / 2 + 4, 46, 14, 5);
+        cardObjects.push(ribbon);
+        cardObjects.push(
+          this.add
+            .text(x - CARD_WIDTH / 2 + 27, y - CARD_HEIGHT / 2 + 11, stage.difficulty, { fontFamily: FONT, fontSize: '8px', color: '#ffffff' })
+            .setOrigin(0.5),
+        );
+      }
+
+      const textColor = isUnlocked ? BC.inkHex : '#999999';
       cardObjects.push(
         this.add
-          .text(x, y - 24, `${localIndex + 1}. ${stage.displayName}`, {
-            fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-            color: '#ffffff',
+          .text(x, y - 12, `${localIndex + 1}. ${stage.displayName}`, {
+            fontFamily: FONT, fontSize: '10px',
+            color: textColor,
             align: 'center',
             wordWrap: { width: CARD_WIDTH - 8 },
           })
-          .setOrigin(0.5)
-          .setAlpha(isUnlocked ? 1 : 0.7),
-      );
-
-      cardObjects.push(
-        this.add
-          .text(x, y - 6, `${stage.difficulty}  ·  E:${stage.energyCost}`, {
-            fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
-            color: '#000000',
-          })
-          .setOrigin(0.5)
-          .setAlpha(isUnlocked ? 0.8 : 0.5),
+          .setOrigin(0.5),
       );
 
       const statusLabel = !isUnlocked
         ? 'Locked'
         : isCleared
           ? `Best: ${stageProgress.bestScore}`
-          : 'Not cleared';
+          : `Cost: ${stage.energyCost} NRG`;
 
       cardObjects.push(
         this.add
-          .text(x, y + 14, statusLabel, {
-            fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-            color: '#ffffff',
+          .text(x, y + 20, statusLabel, {
+            fontFamily: FONT, fontSize: '10px',
+            color: isUnlocked ? '#7a5c1e' : '#999999',
           })
-          .setOrigin(0.5)
-          .setAlpha(isUnlocked ? 1 : 0.7),
+          .setOrigin(0.5),
       );
 
       // Treasure tier dot (bible §A.6.3) — top-right corner of the tile,
@@ -174,30 +171,31 @@ export default class StageSelectScene extends Phaser.Scene {
         cardObjects.push(
           this.add
             .circle(x + CARD_WIDTH / 2 - 10, y - CARD_HEIGHT / 2 + 10, 6, TREASURE_TIER_COLORS[tier])
-            .setStrokeStyle(1, 0xffffff),
+            .setStrokeStyle(1.5, BC.ink),
         );
       }
 
       // Restriction Stage badge (bible §A.6.5) — top-left corner, mirroring
       // the treasure dot's top-right placement. The specific restriction
-      // details show up as a message in GameScene when a blocked action is
-      // actually attempted, rather than being spelled out on this small tile.
+      // details show up in the deploy-confirmation popup (see
+      // showDeployPopup) rather than being spelled out on this small tile.
       if (isUnlocked && stage.restrictions) {
         cardObjects.push(
           this.add
-            .circle(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 6, 0xcc3333)
-            .setStrokeStyle(1, 0xffffff),
+            .circle(x - CARD_WIDTH / 2 + 10, y + CARD_HEIGHT / 2 - 10, 7, BC.red)
+            .setStrokeStyle(1.5, 0xffffff),
         );
         cardObjects.push(
           this.add
-            .text(x - CARD_WIDTH / 2 + 10, y - CARD_HEIGHT / 2 + 10, 'R', { fontFamily: 'Rowdies, sans-serif', fontSize: '8px', color: '#ffffff' })
+            .text(x - CARD_WIDTH / 2 + 10, y + CARD_HEIGHT / 2 - 10, '!', { fontFamily: FONT, fontSize: '10px', color: '#ffffff' })
             .setOrigin(0.5),
         );
       }
 
       if (isUnlocked) {
-        rect.setInteractive({ useHandCursor: true });
-        rect.on('pointerdown', () => this.onStageSelected(stage));
+        const hit = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+        hit.on('pointerdown', () => this.onStageSelected(stage));
+        cardObjects.push(hit);
       }
 
       this.gridContainer.add(cardObjects);
@@ -239,17 +237,14 @@ export default class StageSelectScene extends Phaser.Scene {
     this.input.on('pointerupoutside', () => { isDragging = false; });
   }
 
-  // Restriction Stages (bible §A.6.5/§A.10.2) show a detail popup listing
-  // their specific rules BEFORE entering, rather than only surfacing them
-  // as a blocked-action message mid-battle (still there too, in GameScene,
-  // as a reminder). A normal stage skips straight to enterStage as before.
+  // Deploy-confirmation popup (guide Chapter 06's 出撃確認ポップアップ) — every
+  // stage tap opens this now, not just Restriction Stages: it shows the
+  // stage name/difficulty, the Energy cost, any restrictions, and the
+  // real game's own two-button choice ("とじる"/Close vs "いざ出陣!!"/Deploy!).
+  // Previously only Restriction Stages got a popup at all; a normal stage
+  // skipped straight into battle with no confirmation step.
   onStageSelected(stage) {
-    if (stage.restrictions) {
-      this.showRestrictionDetailPopup(stage);
-      return;
-    }
-
-    this.enterStage(stage);
+    this.showDeployPopup(stage);
   }
 
   enterStage(stage) {
@@ -276,51 +271,62 @@ export default class StageSelectScene extends Phaser.Scene {
     return lines;
   }
 
-  showRestrictionDetailPopup(stage) {
-    if (this.restrictionPopupObjects) return;
+  showDeployPopup(stage) {
+    if (this.deployPopupObjects) return;
 
     const { width, height } = this.scale;
     const objects = [];
 
-    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive();
+    objects.push(overlay);
 
-    const lines = [`${stage.displayName}`, 'Restriction Stage:', ...this.formatRestrictionLines(stage.restrictions)];
+    const panelWidth = 340;
+    const panelHeight = stage.restrictions ? 230 : 190;
+    const panelY = height / 2;
+    objects.push(drawBcPanel(this, width / 2, panelY, panelWidth, panelHeight));
+
     objects.push(
       this.add
-        .text(width / 2, height / 2 - 50, lines.join('\n'), { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff', align: 'center' })
+        .text(width / 2, panelY - panelHeight / 2 + 26, stage.displayName, { fontFamily: FONT, fontSize: '18px', color: BC.inkHex })
+        .setOrigin(0.5),
+    );
+    objects.push(
+      this.add
+        .text(width / 2, panelY - panelHeight / 2 + 52, `${stage.difficulty}  ·  Cost: ${stage.energyCost} NRG`, {
+          fontFamily: FONT, fontSize: '12px', color: '#7a5c1e',
+        })
         .setOrigin(0.5),
     );
 
-    const buttonY = height / 2 + 50;
-    const enterButton = this.add
-      .rectangle(width / 2 - 80, buttonY, 140, 44, 0xffcc33)
-      .setInteractive({ useHandCursor: true });
+    if (stage.restrictions) {
+      const lines = ['Restriction Stage:', ...this.formatRestrictionLines(stage.restrictions)];
+      objects.push(
+        this.add
+          .text(width / 2, panelY - 20, lines.join('\n'), { fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', lineSpacing: 6 })
+          .setOrigin(0.5),
+      );
+    }
+
+    const buttonY = panelY + panelHeight / 2 - 40;
     objects.push(
-      enterButton,
-      this.add.text(width / 2 - 80, buttonY, 'Enter Stage', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#000000' }).setOrigin(0.5),
+      createBcButton(this, width / 2 - 84, buttonY, 130, 48, 'Close', () => this.hideDeployPopup(), {
+        fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 14,
+      }),
+    );
+    objects.push(
+      createBcButton(this, width / 2 + 84, buttonY, 130, 48, 'Deploy!!', () => {
+        this.hideDeployPopup();
+        this.enterStage(stage);
+      }, { fontSize: 14 }),
     );
 
-    const cancelButton = this.add
-      .rectangle(width / 2 + 80, buttonY, 140, 44, 0x444444)
-      .setInteractive({ useHandCursor: true });
-    objects.push(
-      cancelButton,
-      this.add.text(width / 2 + 80, buttonY, 'Cancel', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5),
-    );
-
-    enterButton.on('pointerdown', () => {
-      this.hideRestrictionDetailPopup();
-      this.enterStage(stage);
-    });
-    cancelButton.on('pointerdown', () => this.hideRestrictionDetailPopup());
-
-    this.restrictionPopupObjects = objects;
+    this.deployPopupObjects = objects;
   }
 
-  hideRestrictionDetailPopup() {
-    if (!this.restrictionPopupObjects) return;
-    this.restrictionPopupObjects.forEach((obj) => obj.destroy());
-    this.restrictionPopupObjects = null;
+  hideDeployPopup() {
+    if (!this.deployPopupObjects) return;
+    this.deployPopupObjects.forEach((obj) => obj.destroy());
+    this.deployPopupObjects = null;
   }
 
   showInsufficientEnergyMessage() {
@@ -329,8 +335,9 @@ export default class StageSelectScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const text = this.add
       .text(width / 2, height - 20, 'Not enough Energy!', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
+        fontFamily: FONT, fontSize: '14px',
         color: '#ff6666',
+        stroke: '#000000', strokeThickness: 3,
       })
       .setOrigin(0.5);
     this.insufficientEnergyText = text;
