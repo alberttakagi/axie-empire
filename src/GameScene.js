@@ -373,7 +373,15 @@ const SPECIAL_FLASH_COLOR = 0xffdd33; // reused below as the beam's mid-glow col
 const SPECIAL_FLASH_DURATION_MS = 250; // reused below as the beam's fade-out tail after the last wave
 const CANNON_BEAM_ORIGIN_X_FRACTION = 0.55; // of TOWER_PLAYER_DISPLAY_WIDTH
 const CANNON_BEAM_ORIGIN_Y_FRACTION = 0.35; // of TOWER_SPRITE_DISPLAY_HEIGHT, above laneY
-const CANNON_BEAM_GROW_MS = 90;
+// Real Battle Cats' Cat Cannon visibly sweeps across the field rather than
+// popping to full length — most of the beam's total on-screen time
+// (CANNON_BEAM_SWEEP_FRACTION) is spent traveling from the player's side
+// to the opponent's, with only a brief fade at the end, floored at
+// CANNON_BEAM_MIN_SWEEP_MS so a very short total duration (e.g. a heavily
+// upgraded Cannon Charge shrinking the gap between shots) never collapses
+// the sweep into an instant flash again.
+const CANNON_BEAM_SWEEP_FRACTION = 0.75;
+const CANNON_BEAM_MIN_SWEEP_MS = 300;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -2862,16 +2870,21 @@ export default class GameScene extends Phaser.Scene {
 
   // Kamehameha-style beam: three layered rectangles (soft glow, mid glow,
   // bright core), left-anchored at roughly the player tower's head/top
-  // face and growing rightward across the whole lane, plus a small round
-  // "muzzle flare" at the origin — all additive-blended so they light up
-  // whatever they overlap instead of just sitting on top of it. Fired ONCE
-  // per triggerSpecialBurst (not once per wave) so it reads as a single
-  // sustained beam spanning every wave's damage tick rather than flickering.
+  // face, plus a small round "muzzle flare" that leads the sweep — all
+  // additive-blended so they light up whatever they overlap instead of
+  // just sitting on top of it. Fired ONCE per triggerSpecialBurst (not
+  // once per wave) so it reads as a single sweep spanning every wave's
+  // damage tick rather than flickering. The beam doesn't pop to full
+  // length: it visibly SWEEPS across the floor from the player's side to
+  // the opponent's (real Battle Cats' own Cat Cannon animation), the
+  // flare traveling with its leading edge, before a brief fade.
   fireCannonBeamVfx(durationMs) {
     const { width } = this.scale;
     const originX = TOWER_PLAYER_DISPLAY_WIDTH * CANNON_BEAM_ORIGIN_X_FRACTION;
     const originY = this.laneY - TOWER_SPRITE_DISPLAY_HEIGHT * CANNON_BEAM_ORIGIN_Y_FRACTION;
     const beamLength = width - originX + 40; // slight overshoot past the right edge
+    const sweepMs = Math.max(CANNON_BEAM_MIN_SWEEP_MS, durationMs * CANNON_BEAM_SWEEP_FRACTION);
+    const fadeMs = Math.max(120, durationMs - sweepMs);
 
     const beamLayers = [
       this.add.rectangle(originX, originY, beamLength, 46, 0xfff2a6, 0.22).setOrigin(0, 0.5),
@@ -2885,17 +2898,20 @@ export default class GameScene extends Phaser.Scene {
       obj.setBlendMode(Phaser.BlendModes.ADD);
       this.uiCamera.ignore(obj); // world objects (see setupZoomControls) — zoom/pan with the battlefield
     }
-    for (const beam of beamLayers) beam.scaleX = 0; // grows rightward from the origin, see the tween below
+    for (const beam of beamLayers) beam.scaleX = 0; // grows rightward as the sweep tween below advances
     flare.setScale(0.2);
 
-    const fadeMs = Math.max(120, durationMs - CANNON_BEAM_GROW_MS);
-    this.tweens.add({ targets: beamLayers, scaleX: 1, duration: CANNON_BEAM_GROW_MS, ease: 'Cubic.Out' });
-    this.tweens.add({ targets: flare, scale: 1.3, duration: CANNON_BEAM_GROW_MS, ease: 'Cubic.Out' });
+    // The beam's own length sweeps out over sweepMs; the flare travels
+    // alongside its leading (growing) edge so it reads as "the bright tip
+    // dragging the beam behind it" rather than a static muzzle flash.
+    this.tweens.add({ targets: beamLayers, scaleX: 1, duration: sweepMs, ease: 'Sine.easeIn' });
+    this.tweens.add({ targets: flare, x: originX + beamLength, duration: sweepMs, ease: 'Sine.easeIn' });
+    this.tweens.add({ targets: flare, scale: 1.3, duration: 120, ease: 'Cubic.Out' });
     this.tweens.add({
       targets: allObjects,
       alpha: 0,
       duration: fadeMs,
-      delay: CANNON_BEAM_GROW_MS,
+      delay: sweepMs,
       onComplete: () => {
         for (const obj of allObjects) obj.destroy();
       },
