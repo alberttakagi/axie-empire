@@ -240,8 +240,9 @@ const BASE_WIDTH = 60;
 // the on-screen size, width follows that same ratio.
 const TOWER_STATUE_KEY = 'tower_statue';
 const TOWER_STATUE_NATIVE_RATIO = 1024 / 530;
-const TOWER_STATUE_DISPLAY_HEIGHT = 130;
+const TOWER_STATUE_DISPLAY_HEIGHT = 160;
 const TOWER_STATUE_DISPLAY_WIDTH = Math.round(TOWER_STATUE_DISPLAY_HEIGHT * TOWER_STATUE_NATIVE_RATIO);
+const BASE_HP_TEXT_Y_OFFSET = 100; // above laneY — see the two HP text objects below
 
 const BUTTON_HEIGHT = 70;
 // BUTTON_WIDTH is a CEILING, not a fixed size — createSpawnButtons shrinks
@@ -580,8 +581,14 @@ export default class GameScene extends Phaser.Scene {
       addBackground(this, this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id)),
     );
 
+    // Origin (0, 0.5) at x=0 — NOT centered on baseX (only 30px from the
+    // edge) — so the statue's full width renders on-canvas instead of
+    // roughly a third of it bleeding off the left edge unseen. baseX/
+    // enemyBaseX stay exactly where combat math already expects them;
+    // only this visual's own anchor point moved.
     this.base = this.add
-      .image(this.baseX, this.laneY, TOWER_STATUE_KEY)
+      .image(0, this.laneY, TOWER_STATUE_KEY)
+      .setOrigin(0, 0.5)
       .setDisplaySize(TOWER_STATUE_DISPLAY_WIDTH, TOWER_STATUE_DISPLAY_HEIGHT);
     this.worldGameObjects.push(this.base);
     // Left-anchored (not centered on baseX): the base sits flush against the
@@ -589,24 +596,30 @@ export default class GameScene extends Phaser.Scene {
     // past x=0 (confirmed via direct measurement — a 76px-wide string
     // centered at baseX=30 spans -8..68). Anchoring to the left edge and
     // growing rightward keeps it fully on-screen regardless of digit count.
+    // Raised further above laneY (BASE_HP_TEXT_Y_OFFSET) and shrunk so the
+    // now-taller statue has clear room beneath it instead of overlapping.
     this.baseHpText = this.add
-      .text(2, this.laneY - 70, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
+      .text(2, this.laneY - BASE_HP_TEXT_Y_OFFSET, '', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
         color: '#ffffff',
       })
       .setOrigin(0, 0.5);
     this.worldGameObjects.push(this.baseHpText);
 
+    // Mirror of the player statue: origin (1, 0.5) at x=width, so it's the
+    // RIGHT edge of the (mirrored) image pinned to the canvas's right edge
+    // instead of centered on enemyBaseX (only 30px from that edge).
     this.enemyBase = this.add
-      .image(this.enemyBaseX, this.laneY, TOWER_STATUE_KEY)
+      .image(width, this.laneY, TOWER_STATUE_KEY)
+      .setOrigin(1, 0.5)
       .setDisplaySize(TOWER_STATUE_DISPLAY_WIDTH, TOWER_STATUE_DISPLAY_HEIGHT)
       .setFlipX(true); // mirrored so both guardians face inward at each other — see TOWER_STATUE_KEY's own comment
     this.worldGameObjects.push(this.enemyBase);
     // Mirror of the above: right-anchored, growing leftward from the
     // canvas's right edge.
     this.enemyBaseHpText = this.add
-      .text(width - 2, this.laneY - 70, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '18px',
+      .text(width - 2, this.laneY - BASE_HP_TEXT_Y_OFFSET, '', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
         color: '#ffffff',
       })
       .setOrigin(1, 0.5);
