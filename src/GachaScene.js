@@ -9,6 +9,7 @@ import {
 } from './Gacha.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { playUiTapSfx } from './Audio.js';
+import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 
 // The bible's §A.10.7 Gacha screen — adapted per Gacha.js's scope note
 // (reward-tier pulls instead of unit rolls, since this build's roster has
@@ -29,41 +30,42 @@ export default class GachaScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     addBackground(this, 'metamorph');
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5);
 
-    this.add.text(width / 2, 20, 'Gacha', { fontFamily: 'Rowdies, sans-serif', fontSize: '22px', color: '#ffffff' }).setOrigin(0.5);
+    createTitlePill(this, 24, 26, 'Gacha');
+    createBackButton(this, () => this.scene.start('HomeScene'));
 
-    const backButton = this.add.rectangle(50, 20, 80, 32, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 20, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff' }).setOrigin(0.5);
-    backButton.on('pointerdown', () => this.scene.start('HomeScene'));
-
-    this.gemsText = this.add
-      .text(width - 16, 20, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#66ddff' })
-      .setOrigin(1, 0.5);
+    // Banner panel — a real gacha screen's whole top half is a giant
+    // rotating art banner; without banner art this build shows a plain
+    // cream panel as its stand-in, which at least reads as "a screen
+    // region," not empty space.
+    drawBcPanel(this, width / 2, 96, width - 64, 100, { fill: 0x2a1f3d });
+    this.add
+      .text(width / 2, 96, 'Axie Gacha', { fontFamily: FONT, fontSize: '20px', color: '#ffd27f' })
+      .setOrigin(0.5);
 
     this.createRollButton(width / 2 - 130, `Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`, () => rollSingle());
     this.createRollButton(
       width / 2 + 130,
       `${GACHA_MULTI_ROLL_COUNT}x Roll\n${GACHA_MULTI_ROLL_COST} Gems`,
       () => rollMulti(),
+      { fill: BC.gold, textColor: BC.goldInk },
     );
 
+    drawBcPanel(this, width / 2, 250, width - 64, 130);
     this.resultText = this.add.text(width / 2, 200, '', {
-      fontFamily: 'Rowdies, sans-serif', fontSize: '12px',
-      color: '#ffdd33',
+      fontFamily: FONT, fontSize: '12px',
+      color: BC.inkHex,
       align: 'center',
-      wordWrap: { width: width - 80 },
+      wordWrap: { width: width - 100 },
     }).setOrigin(0.5, 0);
 
     this.refreshGems();
   }
 
-  createRollButton(x, label, rollFn) {
-    const y = 100;
-    const rect = this.add.rectangle(x, y, 220, 60, 0x9933cc).setInteractive({ useHandCursor: true });
-    this.add.text(x, y, label, { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffffff', align: 'center' }).setOrigin(0.5);
-
-    rect.on('pointerdown', () => {
+  createRollButton(x, label, rollFn, opts = {}) {
+    const y = 165;
+    const button = createBcButton(this, x, y, 220, 60, label, () => {
       const result = rollFn();
       if (!result.ok) {
         this.resultText.setText('Not enough Gems!');
@@ -72,11 +74,17 @@ export default class GachaScene extends Phaser.Scene {
       playUiTapSfx();
       this.resultText.setText(result.rewards.map((label, index) => `${index + 1}. ${label}`).join('\n'));
       this.refreshGems();
-    });
+    }, { fill: 0xb98cff, highlight: 0xd9c3ff, textColor: '#2a1a3a', fontSize: 14, ...opts });
+    return button;
   }
 
+  // Recreated rather than updated in place — createResourceBadge sizes its
+  // pill/tag background graphics once, off the INITIAL value's text width;
+  // a wider number after a roll would otherwise overflow past that
+  // now-too-small background instead of the pill growing with it.
   refreshGems() {
     const progress = loadPlayerProgress();
-    this.gemsText.setText(`Gems: ${progress.gems.toLocaleString()}`);
+    if (this.gemsBadge) this.gemsBadge.destroy();
+    this.gemsBadge = createResourceBadge(this, this.scale.width - 24, 26, 'GEM', progress.gems, { valueColor: '#ffd27f' });
   }
 }
