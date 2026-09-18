@@ -450,6 +450,36 @@ unconfirmed alternative.
    formula almost exactly, and a simulated high upgrade level correctly
    clamped at the real floor instead of charging faster than it should.
 
+## Bug fix: enemies could spawn already past a deeply-parked player unit
+
+Follow-up to a player report ("enemies just walk right past my units," and
+engaged pairs visibly fighting back-to-back instead of facing each other).
+Root cause: `createEnemy`'s spawn position was a fixed
+`enemyBaseX - BASE_WIDTH/2 - config.radius`, independent of where player
+units actually were. A unit parked attacking the enemy base sits at
+roughly `enemyBaseX - BASE_WIDTH/2 - unit.range` — so any time a spawning
+enemy's own radius is SMALLER than that parked unit's range (a common
+case: Cat's range is only 14, well under many enemies' 16-32 radius), the
+enemy's fixed spawn point landed to the LEFT of (already past) the unit,
+with no movement clamp able to correct it after the fact (the per-frame
+advance-clamp only stops future movement, it can't retroactively fix a
+bad spawn). The "back-to-back" look is the same bug, not a separate one:
+each sprite's facing is fixed by side (player always flipped to face
+right, enemy always to face left, set once at creation — see
+`createEntityVisual`) and never recomputed from relative position, so an
+enemy landing on the wrong side of a unit renders both of them facing
+away from each other.
+
+Fix: `createEnemy` now computes the same kind of blocking boundary the
+per-frame advance-clamp already uses (the frontmost live player unit's own
+`x + range + radius`) and refuses to spawn to the left of it, capped at
+the base's own center so a very deeply-parked long-range unit can't push
+a spawn past the base sprite entirely. Verified live: a unit parked at the
+enemy base's engagement boundary no longer gets a fresh same-radius-or-
+smaller enemy spawning behind it (spawn now correctly lands ahead of the
+unit in every tested case — small enemy behind a parked unit, large enemy
+behind a parked unit, and the normal unblocked case, which is unaffected).
+
 ## UI naming convention (added in a follow-up pass)
 
 Per user feedback: the in-battle spawn buttons and Character Formation

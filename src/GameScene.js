@@ -1541,7 +1541,32 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createEnemy(type, config, isBoss = false) {
-    const x = this.enemyBaseX - BASE_WIDTH / 2 - config.radius;
+    const naiveX = this.enemyBaseX - BASE_WIDTH / 2 - config.radius;
+    // Never let a freshly spawned enemy appear already past (left of) a
+    // player unit parked ahead of that naive spawn point — e.g. a
+    // short-range melee unit attacking the enemy base sits CLOSER to that
+    // base than a wider-radius enemy's own naive spawn x, which used to
+    // let the new enemy pop in behind it: the player would see it "walk
+    // past" their unit (it was simply already on the wrong side from the
+    // instant it spawned), and the two would fight back-to-back, since
+    // each sprite's facing is fixed by side (player always facing right,
+    // enemy always facing left) and never recomputed from relative
+    // position. Clamping the spawn to at least the frontmost unit's own
+    // engagement boundary keeps every enemy spawning in front of (right
+    // of) whatever's already fighting there, same as the per-frame
+    // advance-clamp already does for movement.
+    let spawnBlockX = -Infinity;
+    for (const unit of this.playerUnits) {
+      if (unit.hp <= 0 || unit.warpMs > 0) continue;
+      const entryX = unit.shape.x + this.getMaxRange(config) + unit.config.radius;
+      if (entryX > spawnBlockX) spawnBlockX = entryX;
+    }
+    // Capped at the base's own center rather than its (tighter) engagement
+    // edge — a deeply-parked long-range unit can legitimately push the
+    // block boundary past the edge, and spawning right at the base's
+    // doorstep instead of teleporting past it is still correct; only an
+    // actual overlap with the base sprite itself needs guarding against.
+    const x = Math.min(this.enemyBaseX, Math.max(naiveX, spawnBlockX));
     // No separate visual-only multiplier here anymore — a boss's config
     // already comes in with radius/range pre-scaled by
     // BOSS_VISUAL_SCALE_MULTIPLIER (see spawnScriptedEnemy), so the normal
