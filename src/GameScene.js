@@ -1455,9 +1455,15 @@ export default class GameScene extends Phaser.Scene {
   // need to keep pace with its visual size (see below).
   spawnScriptedEnemy(entry) {
     const base = ENEMY_CONFIG[entry.enemyId];
+    // Real strength magnification scales BOTH hp and damage (guide Chapter
+    // 13: "敵の実効体力/攻撃力 = 初期値 × 強さ倍率") — this only scaled hp
+    // before, silently undertuning every saga2/saga3 stage's real damage
+    // output (Chapter 1 itself is unaffected: its magnification is always
+    // exactly 1, so this was invisible there).
     const config = {
       ...base,
       hp: Math.round(base.hp * entry.statMultiplier),
+      damage: Math.round(base.damage * entry.statMultiplier),
     };
 
     if (entry.isBoss) {

@@ -1,9 +1,8 @@
 // Treasure Sets (bible §A.6.3) — the game's core "why keep replaying old
 // stages" loop. Real Battle Cats groups each 48-stage chapter into a
-// dozen-ish named sets — saga1 now matches that shape exactly (12 sets of
-// 4 stages, stage1-48); saga2/saga3 stay the earlier smaller-scale
-// approximation (2 sets of 5 each) since those chapters haven't had their
-// own real-data rebuild yet (see docs/BATTLE_CATS_MAPPING.md's known gaps).
+// dozen-ish named sets — all three sagas now match that shape (12 sets of
+// 4 stages each, stage1-48/49-96/97-144) following saga2/saga3's own
+// real-48-stage rebuild (see docs/BATTLE_CATS_MAPPING.md).
 //
 // Each set's `bonus` is a single stat effect that scales linearly from 0 at
 // 0% set completion up to `valueAtMax` at 100% completion (every stage in
@@ -35,14 +34,30 @@ export const TREASURE_SETS = [
   { id: 'set11', name: "Northern Watch", stageIds: ['stage41', 'stage42', 'stage43', 'stage44'], bonus: { type: 'moneyIncomePercent', valueAtMax: 30 } },
   { id: 'set12', name: "Ascendant Legacy", stageIds: ['stage45', 'stage46', 'stage47', 'stage48'], bonus: { type: 'unitHpPercent', valueAtMax: 30 } },
 
-  // Saga expansion (bible §A.6.1) — same 2-sets-of-5 pattern as before this
-  // pass, renumbered onto saga2/saga3's own new stage IDs (see
-  // STAGE_CONFIG.js — these two sagas shifted from stage11-30 to
-  // stage49-68 once saga1 grew to its full real 48 stages).
-  { id: 'set13', name: "Overlord's Wake", stageIds: ['stage49', 'stage50', 'stage51', 'stage52', 'stage53'], bonus: { type: 'moneyIncomePercent', valueAtMax: 35 } },
-  { id: 'set14', name: 'Titan’s Reckoning', stageIds: ['stage54', 'stage55', 'stage56', 'stage57', 'stage58'], bonus: { type: 'unitHpPercent', valueAtMax: 35 } },
-  { id: 'set15', name: "Empire's Twilight", stageIds: ['stage59', 'stage60', 'stage61', 'stage62', 'stage63'], bonus: { type: 'moneyIncomePercent', valueAtMax: 40 } },
-  { id: 'set16', name: 'Ascendant Trial', stageIds: ['stage64', 'stage65', 'stage66', 'stage67', 'stage68'], bonus: { type: 'unitHpPercent', valueAtMax: 40 } },
+  { id: 'set13', name: "Overlord's Wake", stageIds: ['stage49', 'stage50', 'stage51', 'stage52'], bonus: { type: 'moneyIncomePercent', valueAtMax: 32 } },
+  { id: 'set14', name: "Titan's Reckoning", stageIds: ['stage53', 'stage54', 'stage55', 'stage56'], bonus: { type: 'unitHpPercent', valueAtMax: 34 } },
+  { id: 'set15', name: "Empire's Twilight", stageIds: ['stage57', 'stage58', 'stage59', 'stage60'], bonus: { type: 'moneyIncomePercent', valueAtMax: 36 } },
+  { id: 'set16', name: 'Ascendant Trial', stageIds: ['stage61', 'stage62', 'stage63', 'stage64'], bonus: { type: 'unitHpPercent', valueAtMax: 38 } },
+  { id: 'set17', name: 'Crimson Vanguard', stageIds: ['stage65', 'stage66', 'stage67', 'stage68'], bonus: { type: 'moneyIncomePercent', valueAtMax: 40 } },
+  { id: 'set18', name: 'Iron Tempest', stageIds: ['stage69', 'stage70', 'stage71', 'stage72'], bonus: { type: 'unitHpPercent', valueAtMax: 42 } },
+  { id: 'set19', name: 'Shattered Horizon', stageIds: ['stage73', 'stage74', 'stage75', 'stage76'], bonus: { type: 'moneyIncomePercent', valueAtMax: 44 } },
+  { id: 'set20', name: 'Molten Bastion', stageIds: ['stage77', 'stage78', 'stage79', 'stage80'], bonus: { type: 'unitHpPercent', valueAtMax: 46 } },
+  { id: 'set21', name: 'Silent Reckoning', stageIds: ['stage81', 'stage82', 'stage83', 'stage84'], bonus: { type: 'moneyIncomePercent', valueAtMax: 48 } },
+  { id: 'set22', name: 'Storm Warden', stageIds: ['stage85', 'stage86', 'stage87', 'stage88'], bonus: { type: 'unitHpPercent', valueAtMax: 50 } },
+  { id: 'set23', name: 'Twilight Citadel', stageIds: ['stage89', 'stage90', 'stage91', 'stage92'], bonus: { type: 'moneyIncomePercent', valueAtMax: 52 } },
+  { id: 'set24', name: 'Final Ember', stageIds: ['stage93', 'stage94', 'stage95', 'stage96'], bonus: { type: 'unitHpPercent', valueAtMax: 54 } },
+  { id: 'set25', name: 'Apex Predator', stageIds: ['stage97', 'stage98', 'stage99', 'stage100'], bonus: { type: 'moneyIncomePercent', valueAtMax: 56 } },
+  { id: 'set26', name: "Cataclysm's Edge", stageIds: ['stage101', 'stage102', 'stage103', 'stage104'], bonus: { type: 'unitHpPercent', valueAtMax: 58 } },
+  { id: 'set27', name: 'Void Sovereign', stageIds: ['stage105', 'stage106', 'stage107', 'stage108'], bonus: { type: 'moneyIncomePercent', valueAtMax: 60 } },
+  { id: 'set28', name: 'Eternal Vanguard', stageIds: ['stage109', 'stage110', 'stage111', 'stage112'], bonus: { type: 'unitHpPercent', valueAtMax: 62 } },
+  { id: 'set29', name: 'Scorched Dominion', stageIds: ['stage113', 'stage114', 'stage115', 'stage116'], bonus: { type: 'moneyIncomePercent', valueAtMax: 64 } },
+  { id: 'set30', name: 'Obsidian Reckoning', stageIds: ['stage117', 'stage118', 'stage119', 'stage120'], bonus: { type: 'unitHpPercent', valueAtMax: 66 } },
+  { id: 'set31', name: 'Endless Siege', stageIds: ['stage121', 'stage122', 'stage123', 'stage124'], bonus: { type: 'moneyIncomePercent', valueAtMax: 68 } },
+  { id: 'set32', name: 'Abyssal Bastion', stageIds: ['stage125', 'stage126', 'stage127', 'stage128'], bonus: { type: 'unitHpPercent', valueAtMax: 70 } },
+  { id: 'set33', name: 'Last Bastion', stageIds: ['stage129', 'stage130', 'stage131', 'stage132'], bonus: { type: 'moneyIncomePercent', valueAtMax: 72 } },
+  { id: 'set34', name: 'Doomherald', stageIds: ['stage133', 'stage134', 'stage135', 'stage136'], bonus: { type: 'unitHpPercent', valueAtMax: 74 } },
+  { id: 'set35', name: "Requiem's Gate", stageIds: ['stage137', 'stage138', 'stage139', 'stage140'], bonus: { type: 'moneyIncomePercent', valueAtMax: 76 } },
+  { id: 'set36', name: 'Omega Ascendant', stageIds: ['stage141', 'stage142', 'stage143', 'stage144'], bonus: { type: 'unitHpPercent', valueAtMax: 78 } },
 ];
 
 // Which set (if any) a given stage belongs to — used by GameScene/

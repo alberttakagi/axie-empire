@@ -360,19 +360,17 @@ trickle fallback after its scripted list ends, unchanged from before.
    Rag'oh, 悪の帝王ニャンダム/Emperor Nyandam, ぶんぶん先生/Bun Bun
    Sensei) — presumably later-chapter or event content, not wired up
    since they'd need their own real per-stage data to place correctly.
-3. **Saga2/saga3 (stage49-68) still don't have their own real per-stage
-   data** — they're still the original pass's hand-authored 10-stage-per-
-   chapter approximation (just renumbered), not a real Chapter 2/3 stage
-   table like saga1 now has. Would need the same kind of guide update
-   (real per-stage data for JP Chapters 2-3) that made saga1's rebuild
-   possible.
-   just needs new `ENEMY_CONFIG` entries following the same conversion
-   approach — no architecture changes needed.
-4. **Trickle/spawn timing per stage is hand-tuned, not derived from real
-   per-stage data.** The guide's own data doesn't include full stage-by-
-   stage spawn tables for all 48 real Chapter 1 stages (only the schema +
-   roster + formulas) — this pass's 10 stages are a faithful
-   *reconstruction* of real pacing/order, not a byte-exact dump.
+3. ~~Saga2/saga3 (stage49-68) still don't have their own real per-stage
+   data.~~ **Done** — see the "Rebuild: saga2/saga3 as the real 48-stage
+   chapters at flat magnification" section further down: real Chapter 2/3
+   don't have their own distinct per-stage data at all, they replay
+   saga1's exact 48 maps at a flat 150%/400% magnification, so saga1's own
+   real data was already everything needed.
+4. ~~Trickle/spawn timing per stage is hand-tuned, not derived from real
+   per-stage data.~~ **Done** — see the "Rebuild: real per-stage spawn
+   timing for all 48 saga1 stages" section further down: every stage's
+   real `firstFrame`/`repeatFrame`/`count`/`castleHpBelow` was fetched
+   directly from battlecats-db.com, not reconstructed/approximated.
 5. ~~Fish Cat's real 3rd-form "2% Critical Hit" and Titan Cat's real 3rd-form
    "30% Knockback all enemies" aren't modeled.~~ **Done in a follow-up
    pass**: `PROGRESSION_CONFIG.js` evolutions now support a generic
@@ -537,6 +535,48 @@ Verified live on stage1: 10 player Cats can now be deployed simultaneously
 (previously hard-blocked at 3), while the enemy field itself never
 exceeded 3 enemies alive at once over a sustained test, exactly matching
 the real per-stage cap now applied to the correct side.
+
+## Rebuild: saga2/saga3 as the real 48-stage chapters at flat magnification
+
+The user's guide update added the real per-chapter enemy strength table
+(Chapter 04): Chapter 1 = 100%, Chapter 2 = 150%, Chapter 3 = 400% — a
+FLAT multiplier applied uniformly across each chapter's identical 48 maps,
+not a per-stage climbing curve. saga2/saga3 had been the project's
+original pre-real-data approximation (10 stages each, `statMultiplier`
+climbing stage-by-stage within each saga) — now replaced with the real
+shape, which turned out to be simple to produce correctly since saga1's
+`SPAWNS1`/`STAGES1` real data already covers the identical map both later
+chapters reuse.
+
+- **`tools/gen_saga1_stages.py`**: `gen_stage` now takes `saga`,
+  `stage_offset`, and `multiplier` parameters; `main()` emits saga1
+  (offset 0, ×1), saga2 (offset 48, ×1.5), and saga3 (offset 96, ×4) from
+  the exact same real per-stage spawn data, renumbering stage1-48 into
+  stage49-96 and stage97-144 respectively. The project's own "at least one
+  visible Restriction Stage" design flourish (not real data — see Known
+  Gaps below) is preserved via `EXTRA_RESTRICTIONS`, re-anchored onto
+  stage95 (saga2) and stage143 (saga3) — both originally stage47/Okinawa,
+  the second-to-last stage before each chapter's own Kaoru-kun rematch,
+  matching the flourish's original "gauntlet before the chapter boss"
+  intent.
+- **`STAGE_CONFIG.js`**: now 144 total stages (48 per saga), all sharing
+  saga1's real per-stage data at their chapter's own flat multiplier.
+- **`TREASURE_CONFIG.js`**: saga2/saga3 regenerated from the old 2-sets-
+  of-5 approximation to the same real 12-sets-of-4 shape saga1 already
+  uses, `valueAtMax` continuing to climb (32→78) across all 36 sets.
+- **`SAGA_CONFIG.js`**: saga2/saga3 descriptions now state the real 150%/
+  400% figures instead of vague "hitting harder" language.
+- **Bug fix, `GameScene.js`'s `spawnScriptedEnemy`**: `statMultiplier` was
+  only ever applied to `hp`, never `damage` — invisible on saga1 (whose
+  magnification is always exactly 1) but silently undertuning every
+  saga2/saga3 enemy's real damage output. Real Battle Cats magnification
+  scales both (guide Chapter 13: "敵の実効体力/攻撃力 = 初期値 ×
+  強さ倍率"). Now `damage: Math.round(base.damage * entry.statMultiplier)`
+  alongside the existing `hp` line.
+
+Verified live: stage97 (saga3's Nagasaki-equivalent) spawns a Doge at
+360 HP / 32 damage — exactly real 90 HP / 8 damage × the real 400% Chapter
+3 magnification, on both stats.
 
 ## UI naming convention (added in a follow-up pass)
 

@@ -16,12 +16,14 @@
 // `color`         Saga Select tile accent (mirrors STAGE_CONFIG's own
 //                  difficulty-color convention).
 
-// Saga descriptions updated for the real Empire of Cats Chapter 1 rebuild
-// (see STAGE_CONFIG.js/docs/BATTLE_CATS_MAPPING.md): saga1 is now the full
-// real 48-stage chapter, and every Basic-tier lineage unlocks WITHIN it
-// (the last, Titan Cat, by stage 43) — matching real Battle Cats, where
-// saga2/saga3 don't introduce anything new at all, they're the SAME map
-// replayed at higher enemy strength (see STAGE_CONFIG's own saga2/3 note).
+// Saga descriptions updated for the real Empire of Cats Chapter 1-3 rebuild
+// (see STAGE_CONFIG.js/docs/BATTLE_CATS_MAPPING.md): saga1 is the full real
+// 48-stage chapter, and every Basic-tier lineage unlocks WITHIN it (the
+// last, Titan Cat, by stage 43). saga2/saga3 now also match real Battle
+// Cats exactly — the SAME 48 maps replayed at a flat, real per-chapter
+// enemy strength magnification (150%/400%, guide Chapter 04's own table),
+// not new content and not a per-stage climbing curve like this build's
+// earlier (wrong) approximation used.
 export const SAGA_CONFIG = [
   {
     id: 'saga1',
@@ -32,17 +34,13 @@ export const SAGA_CONFIG = [
   {
     id: 'saga2',
     displayName: 'Saga 2: Empire of Axies, Chapter 2',
-    // NOTE: still the smaller, pre-rebuild 10-stage approximation of "the
-    // same map again, harder" — hasn't had its own real-48-stage pass yet
-    // (see docs/BATTLE_CATS_MAPPING.md's known gaps).
-    description: 'The same battlefield again — every enemy hitting noticeably harder.',
+    description: 'The same 48 battlefields again, every enemy at a real 150% strength.',
     color: 0xcc8833,
   },
   {
     id: 'saga3',
     displayName: 'Saga 3: Empire of Axies, Chapter 3',
-    // Same note as saga2 above.
-    description: 'The same battlefield a third time, at the campaign’s toughest enemy strength yet.',
+    description: 'The same 48 battlefields a third time, at the campaign’s real 400% enemy strength.',
     color: 0x993388,
   },
 ];

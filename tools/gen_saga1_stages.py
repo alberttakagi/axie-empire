@@ -155,20 +155,24 @@ def js_str(s):
 def frame_to_ms(f):
     return round(f * 1000 / 30)
 
-def gen_stage(row):
+def gen_stage(row, saga='saga1', stage_offset=0, multiplier=1, extra_restriction=None):
     no, name, energy, xp, castle_hp, width, max_enemies_on_field, boss, enemies_csv, stars = row
     spawns = SPAWNS1[no]
     boss_indices = BOSS_INDICES.get(no, set())
+    new_no = no + stage_offset
 
     lines = []
     lines.append("  {")
-    lines.append(f"    id: 'stage{no}',")
-    lines.append("    saga: 'saga1',")
+    lines.append(f"    id: 'stage{new_no}',")
+    lines.append(f"    saga: '{saga}',")
     lines.append(f"    displayName: {js_str(PREFECTURE_EN.get(name, name))},")
     diff_label = 'Boss' if boss else ('Hard' if stars >= 4 else ('Normal' if stars >= 2 else 'Easy'))
     lines.append(f"    difficulty: {js_str(diff_label)},")
     lines.append(f"    baseXp: {xp},")
     lines.append(f"    energyCost: {energy},")
+    # Reward curve keyed on the ORIGINAL prefecture no (1-48), not the
+    # renumbered stage id — saga2/saga3 revisit the same 48 maps rather
+    # than continuing a single ever-growing 144-stage curve.
     lines.append(f"    gemsFirstClear: {20 + no * 15},")
     lines.append(f"    startingMoney: {STARTING_MONEY},")
     lines.append(f"    moneyAccrualPerSec: {MONEY_ACCRUAL},")
@@ -176,19 +180,20 @@ def gen_stage(row):
     # 出撃最大数 (this column) is the ENEMY side's own simultaneous-on-field
     # cap, NOT a player deployment restriction — a mistranslation this
     # generator originally made (see docs/BATTLE_CATS_MAPPING.md's bug-fix
-    # writeup). Real Japan Chapter 1 has no Restriction Stages at all; the
+    # writeup). Real Japan Chapter 1-3 has no Restriction Stages at all; the
     # player's own deploy cap is a flat 50 everywhere (GameScene.js's
-    # DEFAULT_MAX_DEPLOYED). This is a genuine per-stage value on every one
-    # of the 48 stages, never omitted (unlike the old, wrong maxDeployed
-    # skip-if-20 logic).
+    # DEFAULT_MAX_DEPLOYED) — `extra_restriction` below is this build's own
+    # deliberate, non-real design flourish (see docs), not real data.
     lines.append(f"    maxEnemiesOnField: {max_enemies_on_field},")
+    if extra_restriction is not None:
+        lines.append(f"    restrictions: {{ maxDeployed: {extra_restriction} }},")
     lines.append(f"    enemyBaseHp: {castle_hp},")
     lines.append("    spawnScript: [")
 
     for i, (enemy_jp, strength, count, trigger, first_frame, repeat) in enumerate(spawns):
         key = NAME_TO_KEY[enemy_jp]
         is_boss = i in boss_indices
-        parts = [f"enemyId: {js_str(key)}", "statMultiplier: 1"]
+        parts = [f"enemyId: {js_str(key)}", f"statMultiplier: {multiplier}"]
         parts.append(f"firstMs: {frame_to_ms(first_frame)}")
         if repeat is None:
             parts.append("repeatMs: null")
@@ -207,10 +212,33 @@ def gen_stage(row):
     lines.append("  },")
     return "\n".join(lines)
 
+# Real Battle Cats repeats the identical Empire of Cats map across Chapters
+# 1-3, only raising the enemy strength magnification (guide Chapter 04's
+# table: Ch1 100%, Ch2 150%, Ch3 400% — a FLAT per-chapter multiplier, not
+# a per-stage climbing curve like this build's earlier saga2/saga3
+# approximation used). SAGA_MULTIPLIERS/SAGA_STAGE_OFFSETS below drive that
+# real shape directly off the same SPAWNS1/STAGES1 saga1 already uses.
+SAGA_MULTIPLIERS = {'saga1': 1, 'saga2': 1.5, 'saga3': 4}
+SAGA_STAGE_OFFSETS = {'saga1': 0, 'saga2': 48, 'saga3': 96}
+# Not real data — this build's own deliberate "at least one visible
+# Restriction Stage" design flourish (real Chapter 1-3 has none at all),
+# kept from the pre-rebuild saga2/saga3 and simply re-anchored onto the
+# new real 48-stage-per-chapter numbering: one full-roster gauntlet late
+# in each of Chapter 2 and Chapter 3, right before that chapter's own
+# Kaoru-kun rematch.
+EXTRA_RESTRICTIONS = {('saga2', 47): 6, ('saga3', 47): 7}
+
 def main():
     out = []
-    for row in STAGES1:
-        out.append(gen_stage(row))
+    for saga in ('saga1', 'saga2', 'saga3'):
+        if saga != 'saga1':
+            out.append(f"\n  // ---- {saga} (Chapter {'2' if saga == 'saga2' else '3'}: real "
+                        f"{int(SAGA_MULTIPLIERS[saga] * 100)}% strength magnification, same 48 maps) ----\n")
+        for row in STAGES1:
+            no = row[0]
+            extra = EXTRA_RESTRICTIONS.get((saga, no))
+            out.append(gen_stage(row, saga=saga, stage_offset=SAGA_STAGE_OFFSETS[saga],
+                                  multiplier=SAGA_MULTIPLIERS[saga], extra_restriction=extra))
     print("\n".join(out))
 
 if __name__ == "__main__":
