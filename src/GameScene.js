@@ -704,7 +704,17 @@ export default class GameScene extends Phaser.Scene {
         if (this.isGameOver) return;
         this.spawnScriptedEnemy(entry);
       });
-      if (!lastTimedEntry || entry.spawnDelayMs > lastTimedEntry.spawnDelayMs) lastTimedEntry = entry;
+      // A nonBlocking enemy (kanban — see ENEMY_CONFIG.js) is real
+      // background flavor, never the actual fight — every real stage lists
+      // her last, so without this exclusion she'd always become the
+      // template the trickle fallback repeats forever instead of the
+      // stage's actual last combat-relevant enemy.
+      if (
+        !ENEMY_CONFIG[entry.enemyId]?.nonBlocking
+        && (!lastTimedEntry || entry.spawnDelayMs > lastTimedEntry.spawnDelayMs)
+      ) {
+        lastTimedEntry = entry;
+      }
     }
 
     // Trickle fallback (bible §A.3.11 — the reference schema's own
@@ -1859,7 +1869,9 @@ export default class GameScene extends Phaser.Scene {
 
       if (!unit.target) {
         unit.target =
-          this.enemies.find((enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && this.inRange(unit, enemy)) || null;
+          this.enemies.find(
+            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking && this.inRange(unit, enemy),
+          ) || null;
       }
 
       // Mirrors the enemy-side blind-spot handling in updateEnemies: a Long
@@ -1871,7 +1883,7 @@ export default class GameScene extends Phaser.Scene {
       if (!unit.target && unit.config.longDistance && unit.shape.x <= minRetreatX) {
         unit.target =
           this.enemies.find(
-            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0
+            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking
               && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
           ) || null;
       }
@@ -1912,7 +1924,7 @@ export default class GameScene extends Phaser.Scene {
           // inRange check (above) is guaranteed to see it as in range.
           let maxAdvanceX = width - unit.config.radius;
           for (const enemy of this.enemies) {
-            if (enemy.hp <= 0 || enemy.warpMs > 0) continue;
+            if (enemy.hp <= 0 || enemy.warpMs > 0 || enemy.config.nonBlocking) continue;
             const entryX = enemy.shape.x - this.getMaxRange(unit.config) - enemy.config.radius;
             if (entryX >= unit.shape.x && entryX < maxAdvanceX) maxAdvanceX = entryX;
           }

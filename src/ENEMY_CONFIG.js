@@ -24,6 +24,21 @@
 // real Battle Cats data; the existing Origins Asset Kit sprites are reused
 // as-is per this pass's "reuse existing sprites" scope decision).
 //
+// `nonBlocking` (kanban only) — GameScene.js's lane model normally never
+// lets a unit advance past ANY live enemy ahead of it (bible-accurate
+// single-lane collision), which is fine for every real combat threat but
+// breaks kanban specifically: her real 10000 HP is an intentional
+// "never actually meant to be killed" joke value, not a real combat gate,
+// and every real Chapter 1-3 stage includes her. Without this flag she
+// would permanently wall off literally every stage the instant she spawns,
+// since no early-game roster can out-damage 10000 HP in a stage's
+// lifetime. `nonBlocking: true` excludes her from both the player-side
+// advance-clamp and player-side target acquisition (see updatePlayerUnits)
+// and from ever being picked as the endless-trickle template (see
+// scheduleStageScript) — she still spawns, animates, and can be hit if a
+// unit is already fighting something else in her exact spot, but she can
+// never be the thing standing between your units and the castle.
+//
 // See the previous revision of this file (git history) for the full,
 // unabridged field-by-field reference comment (threat/foreswingMs/
 // backswingMs/rechargeMs/knockbackCount etc.) — unchanged in shape here.
@@ -505,6 +520,7 @@ export const ENEMY_CONFIG = {
     displayName: 'Kanban Musume',
     characterName: 'Slime', // カンバン娘 — a harmless recurring background filler present in every real Chapter 1 stage
     role: 'kanban',
+    nonBlocking: true, // see file header — never lets her wall off the lane or drive the endless trickle
     threat: 2,
     hp: 10000,
     damage: 1,

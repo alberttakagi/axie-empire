@@ -178,6 +178,43 @@ Verified live: `STAGE_CONFIG` for stage1/stage9/stage26 matches the
 expected `{maxDeployed:3}` / `{maxDeployed:10}` / no-restriction values
 after the fix.
 
+## Bug fix: Kanban Musume permanently walled off every single stage
+
+Follow-up to a player report that stage1 (Nagasaki) "feels almost
+impossible" despite being tagged Easy. Root cause was much bigger than
+stage1: `GameScene.js`'s lane model never lets a player unit advance past
+ANY live enemy ahead of it (`updatePlayerUnits`'s `maxAdvanceX` clamp) —
+correct for every real combat threat, but fatal for `kanban` (カンバン娘/
+Kanban Musume), whose real HP is an intentionally absurd **10000** (a
+"never actually meant to be killed" joke value in real Battle Cats,
+already described that way in `ENEMY_CONFIG.js`'s own comment: "a harmless
+recurring background filler"). Because every single real Chapter 1-3 stage
+lists her in its enemy roster, and no early-game unit can output 10000
+damage in a stage's lifetime, the instant she spawned she became a
+permanent, unbreakable wall between the player's units and the enemy
+base — on literally all 48 stages, not just stage1.
+
+Compounding it: `scheduleStageScript`'s endless-trickle fallback always
+re-spawns whichever spawnScript entry has the LARGEST `spawnDelayMs` once
+the script ends, and because every real stage's enemy list happens to
+list カンバン娘 last, she was also always picked as the eternal repeat
+target — spawning a fresh unkillable 10000 HP wall every
+`TRICKLE_INTERVAL_MS` (7s) forever, on top of the first one.
+
+Fix: added a `nonBlocking: true` flag to `ENEMY_CONFIG.kanban` (see that
+file's header for the full rationale), and taught `GameScene.js` to
+respect it in the three places that mattered — the player-side
+advance-blocking clamp, both player-side target-acquisition lookups, and
+the trickle-anchor selection in `scheduleStageScript`. She still spawns,
+still animates, still (harmlessly) attacks per her own real stats — she
+just can no longer block a unit's path to the castle or become the
+thing an endless wave keeps re-arming.
+
+Verified live: after the fix, player units and other (killable) enemies
+both walk straight through her position; the endless trickle now
+correctly re-spawns the stage's real filler enemy (`basic`/Doge for
+stage1) instead of another Kanban Musume.
+
 ## What changed, file by file
 
 - **`UNIT_CONFIG.js`** — rebuilt: 9 real lineages + shelved `guardian`.
