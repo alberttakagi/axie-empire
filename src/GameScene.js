@@ -231,17 +231,17 @@ const EVOLUTION_STAGE_GLOW_COLOR = { 1: 0x66ccff, 2: 0xaa66ff };
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
-// Both towers use the same guardian-statue art (Origins Asset Kit's PvE/
-// Backgrounds/events/arena layer set, "13_STATUE.png" — see
-// docs/BATTLE_CATS_MAPPING.md for how this was found/chosen), mirrored on
-// the enemy side (setFlipX) so the pair reads as two matching guardians
-// facing inward at each other across the lane, not both facing the same
-// way. Native art is 1024x530 (~1.93:1) — TOWER_STATUE_DISPLAY_HEIGHT sets
+// Both towers use the same trophy sprite (user-supplied art, tall and
+// narrow so it actually reads as a distinct tower against the battle
+// backdrop instead of blending into it like the earlier wide statue
+// layer did), mirrored on the enemy side (setFlipX) so the pair faces
+// inward at each other across the lane rather than both facing the same
+// way. Native art is 315x809 (~0.39:1) — TOWER_SPRITE_DISPLAY_HEIGHT sets
 // the on-screen size, width follows that same ratio.
-const TOWER_STATUE_KEY = 'tower_statue';
-const TOWER_STATUE_NATIVE_RATIO = 1024 / 530;
-const TOWER_STATUE_DISPLAY_HEIGHT = 160;
-const TOWER_STATUE_DISPLAY_WIDTH = Math.round(TOWER_STATUE_DISPLAY_HEIGHT * TOWER_STATUE_NATIVE_RATIO);
+const TOWER_SPRITE_KEY = 'tower_trophy';
+const TOWER_SPRITE_NATIVE_RATIO = 315 / 809;
+const TOWER_SPRITE_DISPLAY_HEIGHT = 190;
+const TOWER_SPRITE_DISPLAY_WIDTH = Math.round(TOWER_SPRITE_DISPLAY_HEIGHT * TOWER_SPRITE_NATIVE_RATIO);
 const BASE_HP_TEXT_Y_OFFSET = 100; // above laneY — see the two HP text objects below
 
 const BUTTON_HEIGHT = 70;
@@ -379,7 +379,7 @@ export default class GameScene extends Phaser.Scene {
     preloadSpriteRoster(this, ENEMY_CONFIG, false);
     preloadBackgrounds(this);
     preloadAttackVfx(this);
-    if (!this.textures.exists(TOWER_STATUE_KEY)) this.load.image(TOWER_STATUE_KEY, '/sprites/structures/tower_statue.png');
+    if (!this.textures.exists(TOWER_SPRITE_KEY)) this.load.image(TOWER_SPRITE_KEY, '/sprites/structures/tower_trophy.png');
     // Real boss battle theme (see updateBossMusic) — the only real audio
     // FILE this build plays; everything else in Audio.js is synthesized on
     // the fly and needs no preloading.
@@ -581,15 +581,15 @@ export default class GameScene extends Phaser.Scene {
       addBackground(this, this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id)),
     );
 
-    // Origin (0, 0.5) at x=0 — NOT centered on baseX (only 30px from the
-    // edge) — so the statue's full width renders on-canvas instead of
-    // roughly a third of it bleeding off the left edge unseen. baseX/
-    // enemyBaseX stay exactly where combat math already expects them;
-    // only this visual's own anchor point moved.
+    // Origin (0, 0.5) at x=0 — edge-anchored rather than centered on baseX
+    // (only 30px from the edge) — so the full sprite always renders
+    // on-canvas regardless of its display width. baseX/enemyBaseX stay
+    // exactly where combat math already expects them; only this visual's
+    // own anchor point moved.
     this.base = this.add
-      .image(0, this.laneY, TOWER_STATUE_KEY)
+      .image(0, this.laneY, TOWER_SPRITE_KEY)
       .setOrigin(0, 0.5)
-      .setDisplaySize(TOWER_STATUE_DISPLAY_WIDTH, TOWER_STATUE_DISPLAY_HEIGHT);
+      .setDisplaySize(TOWER_SPRITE_DISPLAY_WIDTH, TOWER_SPRITE_DISPLAY_HEIGHT);
     this.worldGameObjects.push(this.base);
     // Left-anchored (not centered on baseX): the base sits flush against the
     // canvas's left edge, so a centered "current/max" string would overflow
@@ -597,7 +597,7 @@ export default class GameScene extends Phaser.Scene {
     // centered at baseX=30 spans -8..68). Anchoring to the left edge and
     // growing rightward keeps it fully on-screen regardless of digit count.
     // Raised further above laneY (BASE_HP_TEXT_Y_OFFSET) and shrunk so the
-    // now-taller statue has clear room beneath it instead of overlapping.
+    // tall tower sprite has clear room beneath it instead of overlapping.
     this.baseHpText = this.add
       .text(2, this.laneY - BASE_HP_TEXT_Y_OFFSET, '', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '14px',
@@ -606,14 +606,14 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5);
     this.worldGameObjects.push(this.baseHpText);
 
-    // Mirror of the player statue: origin (1, 0.5) at x=width, so it's the
+    // Mirror of the player tower: origin (1, 0.5) at x=width, so it's the
     // RIGHT edge of the (mirrored) image pinned to the canvas's right edge
     // instead of centered on enemyBaseX (only 30px from that edge).
     this.enemyBase = this.add
-      .image(width, this.laneY, TOWER_STATUE_KEY)
+      .image(width, this.laneY, TOWER_SPRITE_KEY)
       .setOrigin(1, 0.5)
-      .setDisplaySize(TOWER_STATUE_DISPLAY_WIDTH, TOWER_STATUE_DISPLAY_HEIGHT)
-      .setFlipX(true); // mirrored so both guardians face inward at each other — see TOWER_STATUE_KEY's own comment
+      .setDisplaySize(TOWER_SPRITE_DISPLAY_WIDTH, TOWER_SPRITE_DISPLAY_HEIGHT)
+      .setFlipX(true); // mirrored so both towers face inward at each other — see TOWER_SPRITE_KEY's own comment
     this.worldGameObjects.push(this.enemyBase);
     // Mirror of the above: right-anchored, growing leftward from the
     // canvas's right edge.
