@@ -697,6 +697,67 @@ unmet; marking the gate stage cleared raises it to 20 immediately; the
 Growth Charm cost helper returns 1 for `extraCap` 0-24 and 2 for 25-29
 (the real Lv46-50 range), with `maxExtraCap` confirmed at 30.
 
+## Rebuild: Cat Cannon VFX against the guide's real frame-by-frame breakdown
+
+The guide added a full frame-by-frame Cat Cannon animation spec (its own
+`cannon.js` reference model plus a playable frame-scrubber demo),
+distinguishing real confirmed facts from its own reproduction-only timing
+values. Real facts that directly corrected this build's own earlier
+Kamehameha-style sweeping-beam VFX:
+
+- **The cannon's damage is a Wave attack made of discrete "blasts"**, not
+  a single continuous beam — each blast is a real ONE-FRAME hit (the
+  visual lingers longer than the hit itself), landing at real F8, F14,
+  F20 (i.e. 6F/200ms apart), each one 200 (real units) further forward
+  than the last. This build's previous version modeled the shot as one
+  smoothly-growing beam with no discrete "hits along the way," which
+  doesn't match the real mechanic at all.
+- **Real wave/blast color is purple for the player's own side**
+  ("波動の色は味方が紫"), not the gold/yellow this build had been using.
+- **The beam itself (the aiming-line visual) carries no hit detection of
+  its own** — real damage comes entirely from the blasts.
+- **Real KB is 55 distance / 11F invincibility** — noted here but NOT
+  wired into `startKnockbackSlide` this pass (that function reads the
+  defending enemy's own `knockbackDistance`/a shared generic slide
+  duration for every attacker in the game; overriding it specifically for
+  the cannon is a mechanics change, not an animation one — flagged as a
+  possible future refinement rather than folded into this pass).
+
+The exact per-blast frame interval itself is explicitly NOT a confirmed
+real value (the guide says so directly — no public source gives it), just
+the guide's own sourced reproduction choice; this build adopts that same
+timing since it's more accurate than inventing a different guess.
+
+Fix, all in `GameScene.js`:
+- `CANNON_BLAST_START_MS`/`CANNON_BLAST_STEP_MS` (267ms/200ms, F8/F6
+  converted) replace the old, unsourced `CANNON_WAVE_STAGGER_MS` (150ms)
+  and add a real first-blast delay this build never had (blasts used to
+  start firing instantly at trigger time).
+- `triggerSpecialBurst` now plays a cosmetic recoil (`playCannonRecoilVfx`
+  — the player tower itself nudges back and returns, standing in for the
+  real game's separate cannon barrel) and a brief aiming-beam flash
+  (`fireCannonBeamFlashVfx`, real F1-6) up front, then schedules each
+  blast at the real timing.
+- `fireCannonWave` (now taking a `waveIndex`) triggers a new
+  `fireCannonBlastVfx` per blast: a purple expanding "shockwave" ellipse
+  at the lane's own height (where enemies actually stand), positioned via
+  the guide's own real blast geometry (`CANNON_BLAST_WIDTH`=400,
+  `CANNON_BLAST_ADVANCE`=200, first blast centered at real
+  offset 332.5−200 from the caster) — used directly as pixels since this
+  canvas's own lane scale happens to make a real 3-blast wave's 732.5
+  total reach land close to this canvas's own ~750px playable width.
+- Real per-blast POSITIONAL gating (a blast should only ever hit enemies
+  inside ITS OWN specific x-range, not everyone on screen) is NOT
+  modeled — every blast still damages every living enemy, same
+  simplification the previous sweeping-beam version already had.
+
+Verified live: sampling the actual blast objects' spawn time/position/
+enemy-base-HP over a real cannon fire showed blasts landing at ~267ms/
+467ms/667ms at x≈179/379/579 (exactly 200px apart), each dealing exactly
+100 damage: matching the real timing and geometry precisely. A direct
+visual check (bypassing the real per-shot delays) confirmed the aiming
+flash and the three overlapping purple blasts render as intended.
+
 ## Chimera inventory (asset kit survey, added in a follow-up pass)
 
 The Origins Asset Kit (`tools/axie-origins-asset-kit`) is the ONLY asset kit

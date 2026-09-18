@@ -347,13 +347,19 @@ const CANNON_CHARGE_FLOOR_MS = 31667; // real 950F
 // invented values for units vs the enemy base (the old SPECIAL_BURST_DAMAGE
 // =30 / SPECIAL_BURST_BASE_DAMAGE=25 split). CANNON_BASE_WAVE_COUNT is the
 // real base wave count (guide: "波動の数3発"), raised by Cannon Range (see
-// BASE_UPGRADE_CONFIG.js). CANNON_WAVE_STAGGER_MS has no real timing data —
-// waves fire in quick succession in reality; this build spaces them just
-// enough to read as separate hits (and separate knockback opportunities)
-// rather than one instantaneous multiplied number.
+// BASE_UPGRADE_CONFIG.js).
+//
+// CANNON_BLAST_START_MS/CANNON_BLAST_STEP_MS come from the guide's own
+// later frame-by-frame breakdown (its "cannon.js" reference model) —
+// explicitly labeled there as this build's-of-the-guide OWN reproduction
+// timing, not a confirmed real internal value (no public source gives the
+// exact per-blast frame interval), but still a real, deliberate, sourced
+// choice rather than an arbitrary guess: blast 1 lands at real F8, each
+// next blast F6 later — converted via the standard F×(1000/30) rule.
 const CANNON_BASE_DAMAGE = 100;
 const CANNON_BASE_WAVE_COUNT = 3;
-const CANNON_WAVE_STAGGER_MS = 150;
+const CANNON_BLAST_START_MS = 267; // real F8
+const CANNON_BLAST_STEP_MS = 200; // real F6
 // Real Cannon Power also SLOWS the charge by the same amount Cannon Charge
 // speeds it up (guide Chapter 08's own charge formula) — same per-level
 // magnitude as BASE_UPGRADE_CONFIG.cannonCharge's perLevelEffect, applied
@@ -363,25 +369,30 @@ const CANNON_BUTTON_RADIUS = 34;
 const CANNON_NOT_READY_COLOR = 0x555566;
 const CANNON_READY_COLOR = 0xffdd33;
 const CANNON_CHARGE_FILL_COLOR = 0xffaa33;
-// Cat Cannon beam VFX (see fireCannonBeamVfx) — a Kamehameha-style layered
-// beam (soft outer glow + a mid glow + a bright near-white core) firing
-// from roughly the player tower's head/top face rather than the old
-// screen-wide translucent flash. Origin is expressed as a fraction of the
-// player tower's own display size (see the TOWER_* constants above) so it
-// stays lined up with the head if that sprite's size ever changes.
-const SPECIAL_FLASH_COLOR = 0xffdd33; // reused below as the beam's mid-glow color
-const SPECIAL_FLASH_DURATION_MS = 250; // reused below as the beam's fade-out tail after the last wave
+// Cat Cannon VFX (see triggerSpecialBurst/fireCannonBeamFlashVfx/
+// fireCannonBlastVfx), rebuilt against the guide's frame-by-frame
+// breakdown: a quick recoil + aiming-beam flash (real F0-6, no hit
+// detection of its own — purely cosmetic), then a real DISCRETE blast per
+// wave (each one a single-frame hit in the real game, here a purple
+// expanding "shockwave" ellipse) marching forward across the lane rather
+// than one continuous sweeping beam. Real wave/blast color is purple for
+// the player's own side (guide: "波動の色は味方が紫"), not the gold this
+// build used before.
+const CANNON_WAVE_COLOR = 0xb98cff; // real ally wave/blast color
+const CANNON_RECOIL_MS = 333; // real 10F barrel recoil-and-return
+const CANNON_BEAM_FLASH_MS = 200; // real F1-6 aiming-beam visual
+// Real blast geometry (guide's own reference model): each blast is 400
+// wide, the first one spanning -67.5..+332.5 relative to the caster, each
+// next one advancing 200 further — used here directly as pixels rather
+// than rescaled, since this canvas's own lane happens to be close enough
+// in scale that a real 3-blast wave's total 732.5 reach already lands
+// near this canvas's own ~750px playable lane width.
+const CANNON_BLAST_WIDTH = 400;
+const CANNON_BLAST_ADVANCE = 200;
+const CANNON_BLAST_FIRST_CENTER_OFFSET = 332.5 - CANNON_BLAST_WIDTH / 2; // first blast's own center, relative to the caster
+const CANNON_BLAST_LIFE_MS = 500; // real 15F visual lingers after each blast's single hit frame
 const CANNON_BEAM_ORIGIN_X_FRACTION = 0.55; // of TOWER_PLAYER_DISPLAY_WIDTH
 const CANNON_BEAM_ORIGIN_Y_FRACTION = 0.35; // of TOWER_SPRITE_DISPLAY_HEIGHT, above laneY
-// Real Battle Cats' Cat Cannon visibly sweeps across the field rather than
-// popping to full length — most of the beam's total on-screen time
-// (CANNON_BEAM_SWEEP_FRACTION) is spent traveling from the player's side
-// to the opponent's, with only a brief fade at the end, floored at
-// CANNON_BEAM_MIN_SWEEP_MS so a very short total duration (e.g. a heavily
-// upgraded Cannon Charge shrinking the gap between shots) never collapses
-// the sweep into an instant flash again.
-const CANNON_BEAM_SWEEP_FRACTION = 0.75;
-const CANNON_BEAM_MIN_SWEEP_MS = 300;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -2849,76 +2860,94 @@ export default class GameScene extends Phaser.Scene {
     this.triggerSpecialBurst();
   }
 
-  // Fires CANNON_BASE_WAVE_COUNT + Cannon Range waves (guide Chapter 08:
-  // real Cat Cannon shots are multiple discrete wave hits, not one), each
-  // CANNON_WAVE_STAGGER_MS apart so they read as separate hits — separate
-  // knockback opportunities against anything that survives the first.
-  // Resets the meter to 0 once, up front; each wave's damage/knockback and
-  // kill/base-damage bookkeeping happens in fireCannonWave below.
+  // Fires CANNON_BASE_WAVE_COUNT + Cannon Range discrete blasts (guide
+  // Chapter 08: real Cat Cannon shots are multiple separate one-frame
+  // hits, not one continuous beam), the first at CANNON_BLAST_START_MS and
+  // each next one CANNON_BLAST_STEP_MS later, matching the guide's own
+  // frame-by-frame breakdown. Resets the meter to 0 once, up front, plays
+  // the cosmetic recoil-and-aim-flash immediately, then schedules each
+  // blast's own damage/knockback/visual (fireCannonWave below).
   triggerSpecialBurst() {
     this.specialMeter = 0;
     playCannonSfx();
     this.cameras.main.shake(200, 0.008);
     addLifetimeStat('cannonUses');
 
+    this.playCannonRecoilVfx();
+    this.fireCannonBeamFlashVfx();
+
     const waveCount = CANNON_BASE_WAVE_COUNT + this.cannonWaveBonus;
-    this.fireCannonBeamVfx(waveCount * CANNON_WAVE_STAGGER_MS + SPECIAL_FLASH_DURATION_MS);
     for (let wave = 0; wave < waveCount; wave += 1) {
-      this.time.delayedCall(wave * CANNON_WAVE_STAGGER_MS, () => this.fireCannonWave());
+      const delayMs = CANNON_BLAST_START_MS + wave * CANNON_BLAST_STEP_MS;
+      this.time.delayedCall(delayMs, () => this.fireCannonWave(wave));
     }
   }
 
-  // Kamehameha-style beam: three layered rectangles (soft glow, mid glow,
-  // bright core), left-anchored at roughly the player tower's head/top
-  // face, plus a small round "muzzle flare" that leads the sweep — all
-  // additive-blended so they light up whatever they overlap instead of
-  // just sitting on top of it. Fired ONCE per triggerSpecialBurst (not
-  // once per wave) so it reads as a single sweep spanning every wave's
-  // damage tick rather than flickering. The beam doesn't pop to full
-  // length: it visibly SWEEPS across the floor from the player's side to
-  // the opponent's (real Battle Cats' own Cat Cannon animation), the
-  // flare traveling with its leading edge, before a brief fade.
-  fireCannonBeamVfx(durationMs) {
-    const { width } = this.scale;
-    const originX = TOWER_PLAYER_DISPLAY_WIDTH * CANNON_BEAM_ORIGIN_X_FRACTION;
-    const originY = this.laneY - TOWER_SPRITE_DISPLAY_HEIGHT * CANNON_BEAM_ORIGIN_Y_FRACTION;
-    const beamLength = width - originX + 40; // slight overshoot past the right edge
-    const sweepMs = Math.max(CANNON_BEAM_MIN_SWEEP_MS, durationMs * CANNON_BEAM_SWEEP_FRACTION);
-    const fadeMs = Math.max(120, durationMs - sweepMs);
-
-    const beamLayers = [
-      this.add.rectangle(originX, originY, beamLength, 46, 0xfff2a6, 0.22).setOrigin(0, 0.5),
-      this.add.rectangle(originX, originY, beamLength, 22, SPECIAL_FLASH_COLOR, 0.6).setOrigin(0, 0.5),
-      this.add.rectangle(originX, originY, beamLength, 9, 0xffffff, 0.95).setOrigin(0, 0.5),
-    ];
-    const flare = this.add.circle(originX, originY, 24, 0xffffff, 0.9);
-
-    const allObjects = [...beamLayers, flare];
-    for (const obj of allObjects) {
-      obj.setBlendMode(Phaser.BlendModes.ADD);
-      this.uiCamera.ignore(obj); // world objects (see setupZoomControls) — zoom/pan with the battlefield
-    }
-    for (const beam of beamLayers) beam.scaleX = 0; // grows rightward as the sweep tween below advances
-    flare.setScale(0.2);
-
-    // The beam's own length sweeps out over sweepMs; the flare travels
-    // alongside its leading (growing) edge so it reads as "the bright tip
-    // dragging the beam behind it" rather than a static muzzle flash.
-    this.tweens.add({ targets: beamLayers, scaleX: 1, duration: sweepMs, ease: 'Sine.easeIn' });
-    this.tweens.add({ targets: flare, x: originX + beamLength, duration: sweepMs, ease: 'Sine.easeIn' });
-    this.tweens.add({ targets: flare, scale: 1.3, duration: 120, ease: 'Cubic.Out' });
+  // Cosmetic-only: the player tower itself stands in for the real game's
+  // separate cannon barrel, nudging back and returning (real F0-10) as the
+  // shot fires. Doesn't touch baseX — only this visual's own x offset.
+  playCannonRecoilVfx() {
     this.tweens.add({
-      targets: allObjects,
-      alpha: 0,
-      duration: fadeMs,
-      delay: sweepMs,
-      onComplete: () => {
-        for (const obj of allObjects) obj.destroy();
-      },
+      targets: this.base,
+      x: -8,
+      duration: CANNON_RECOIL_MS / 2,
+      yoyo: true,
+      ease: 'Sine.easeInOut',
     });
   }
 
-  // One wave of the Cat Cannon (see triggerSpecialBurst) — real per-shot
+  // The real Cat Cannon's aiming-beam flash (F1-6) — purely cosmetic, no
+  // hit detection of its own (real per-shot damage comes entirely from the
+  // discrete blasts in fireCannonWave/fireCannonBlastVfx below). A quick
+  // bright streak from the tower's head to the last blast's own far edge,
+  // fading almost immediately.
+  fireCannonBeamFlashVfx() {
+    const waveCount = CANNON_BASE_WAVE_COUNT + this.cannonWaveBonus;
+    const originX = TOWER_PLAYER_DISPLAY_WIDTH * CANNON_BEAM_ORIGIN_X_FRACTION;
+    const originY = this.laneY - TOWER_SPRITE_DISPLAY_HEIGHT * CANNON_BEAM_ORIGIN_Y_FRACTION;
+    const lastBlastFarEdge =
+      originX + CANNON_BLAST_FIRST_CENTER_OFFSET + CANNON_BLAST_ADVANCE * (waveCount - 1) + CANNON_BLAST_WIDTH / 2;
+
+    const beam = this.add
+      .rectangle(originX, originY, lastBlastFarEdge - originX, 12, 0xffffff, 0.9)
+      .setOrigin(0, 0.5)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    this.uiCamera.ignore(beam); // world object (see setupZoomControls) — zooms/pans with the battlefield
+
+    this.tweens.add({
+      targets: beam,
+      alpha: 0,
+      scaleY: 0.25,
+      duration: CANNON_BEAM_FLASH_MS,
+      onComplete: () => beam.destroy(),
+    });
+  }
+
+  // One blast's own visual: a purple expanding-and-fading "shockwave"
+  // ellipse at the lane's own height (where enemies actually stand, unlike
+  // the beam flash's higher head-level line) — see CANNON_BLAST_WIDTH's
+  // own comment for why the real geometry is used directly as pixels.
+  fireCannonBlastVfx(waveIndex) {
+    const originX = TOWER_PLAYER_DISPLAY_WIDTH * CANNON_BEAM_ORIGIN_X_FRACTION;
+    const centerX = originX + CANNON_BLAST_FIRST_CENTER_OFFSET + CANNON_BLAST_ADVANCE * waveIndex;
+
+    const blast = this.add
+      .ellipse(centerX, this.laneY, CANNON_BLAST_WIDTH, 90, CANNON_WAVE_COLOR, 0.7)
+      .setBlendMode(Phaser.BlendModes.ADD)
+      .setScale(0.7);
+    this.uiCamera.ignore(blast); // world object (see setupZoomControls) — zooms/pans with the battlefield
+
+    this.tweens.add({
+      targets: blast,
+      scale: 1.15,
+      alpha: 0,
+      duration: CANNON_BLAST_LIFE_MS,
+      ease: 'Cubic.Out',
+      onComplete: () => blast.destroy(),
+    });
+  }
+
+  // One blast of the Cat Cannon (see triggerSpecialBurst) — real per-shot
   // damage (guide Chapter 08's formula) to every living enemy plus the
   // same amount to the enemy base directly, since real data never
   // distinguishes separate unit-damage/base-damage values the way this
@@ -2929,9 +2958,13 @@ export default class GameScene extends Phaser.Scene {
   // finishes the base off. Knockback here is unconditional (not the
   // HP-threshold "endurance" gate combat hits use) — the burst is a
   // special, guaranteed effect, matching the bible's Cat Cannon including
-  // knockback (§A.3.9).
-  fireCannonWave() {
+  // knockback (§A.3.9). `waveIndex` (0-based) only feeds the blast's own
+  // visual position (fireCannonBlastVfx) — every blast still damages every
+  // living enemy on screen, real per-blast POSITIONAL gating (only hitting
+  // enemies inside that specific blast's own x-range) isn't modeled.
+  fireCannonWave(waveIndex) {
     if (this.isGameOver) return;
+    this.fireCannonBlastVfx(waveIndex);
 
     const burstDamage = CANNON_BASE_DAMAGE + this.cannonPowerBonus;
     const syntheticAttacker = { shape: { x: this.baseX } };
