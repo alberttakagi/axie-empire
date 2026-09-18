@@ -871,3 +871,68 @@ server — up since the start of this multi-hour session — had degraded into
 a state where its asset loader silently stalled partway through. This was
 NOT a code bug; restarting the dev server process fixed it immediately. If
 anything looks stuck loading again, restart the dev server first.)
+
+## UI overhaul: full visual pass against the real game's own look
+
+Prompted by `nyanko_ui_guide.html` (a fan-made structural/behavioral UI
+reference — screen wireframes, button roles/positions, transition timing,
+explicitly NOT official art/audio) plus a folder of real screenshots
+covering every major screen. Scope, agreed up front:
+
+- **Text stays English** — this build's own copy, not the real game's
+  Japanese button labels — while every visual property (color, shape,
+  layout, sizing, motion) matches the reference as closely as this canvas
+  allows.
+- **New structural pieces are in scope**, not just restyling what already
+  existed — e.g. Stage Select's deploy-confirmation popup didn't exist
+  before this pass.
+- **Full Battle Cats palette** — golden-yellow primary buttons, sky-blue/
+  cream panels, thick black outlines — replacing this build's previous
+  ad hoc per-screen colors, rather than keeping an Axie-flavored palette
+  under the new layout.
+
+`src/UITheme.js` is the new shared foundation: color tokens (`BC.gold`,
+`BC.blue`, `BC.red`, `BC.ink`, `BC.panel`, `BC.sky`, wood-frame browns) plus
+Phaser widget factories every other screen builds on —
+`createBcButton`/`createBcCircleButton` (beveled capsule/circle buttons with
+a top highlight sliver and the guide's own "Y+4, shadow off" press
+feedback), `drawBcPanel` (cream rounded popup panel), `drawWoodFrame` (the
+dark wood-plank border around hub-style screens), `createTitlePill`
+(screen-name capsule, upper-left), `createResourceBadge` (dark pill +
+gold tag + counted value, upper-right), and `createBackButton` (the
+circular gold "◀" every non-root screen uses).
+
+Every scene was restyled against it: HomeScene (wood frame, stacked gold
+primary buttons, circular icon row), SagaSelectScene/StageSelectScene
+(cream cards, gold ring on cleared, difficulty ribbon, + the new deploy
+popup), LoadoutScene (white/black-outline face-zoom cards matching
+GameScene's own spawn buttons, gold ring for "in Formation"),
+UpgradeScene/BaseUpgradeScene (cream rows, beveled Level-Up/Evolve/
+Growth-Charm buttons), GachaScene, CatalogScene (teal tint, white grid
+cards, cream detail panel), TreasureScene (medal-styled tier dots,
+gold-outlined completed sets), MissionsScene (cream cards, inset progress
+bar), and GameScene's own HUD chrome (gold pause button, Options/Quit
+popups, the STAGE CLEAR/GAME OVER end screen with its translucent backing
+bar, Worker Cat/Cat Cannon/Speed/Battle-Item buttons all gaining the same
+black-outline convention) — on top of the face-zoom spawn-button rework
+from earlier in this session, which turned out to already match the
+reference closely.
+
+Two real bugs surfaced by this pass's own live checks, not pre-existing
+knowledge:
+- **BaseUpgradeScene's 8 real rows overflowed the canvas** at the old
+  58px/row from y=66 (530px of content on a 450px-tall canvas) — the last
+  2 rows AND the Back button were completely off-screen and unreachable.
+  Fixed by tightening to 40px rows with smaller type; all 8 now fit above
+  the Back button with no scrolling needed.
+- **TreasureScene's frame/content z-order was backwards** — `rowContainer`
+  was created before `drawWoodFrame`, so the frame's own opaque interior
+  fill rendered on top of (and completely hid) every treasure card. Fixed
+  by always adding the wood frame first; noted in both TreasureScene.js
+  and MissionsScene.js so the same mistake isn't repeated.
+
+Verified live, screen by screen, via the browser preview's debug-hook
+pattern: every scene renders and its interactive elements (stage popups,
+Formation toggling/Auto-Equip, Gacha rolls updating the GEM badge, Mission
+claiming re-sorting the list, the Options→Retreat→Quit-confirm chain, a
+forced STAGE CLEAR) still work correctly under the new visuals.
