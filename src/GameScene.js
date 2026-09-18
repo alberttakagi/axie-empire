@@ -572,11 +572,6 @@ export default class GameScene extends Phaser.Scene {
       addBackground(this, this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id)),
     );
 
-    // Semi-transparent (rather than the old fully-opaque fill) so the
-    // backdrop's own ground/sky still shows through above and below the
-    // lane while still giving unit/text contrast a darkened band to sit on.
-    this.worldGameObjects.push(this.add.rectangle(width / 2, this.laneY, width, 80, 0x2a2a2a, 0.55));
-
     this.base = this.add.rectangle(this.baseX, this.laneY, BASE_WIDTH, 100, BASE_COLOR);
     this.worldGameObjects.push(this.base);
     // Left-anchored (not centered on baseX): the base sits flush against the
