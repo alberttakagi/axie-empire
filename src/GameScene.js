@@ -363,8 +363,17 @@ const CANNON_BUTTON_RADIUS = 34;
 const CANNON_NOT_READY_COLOR = 0x555566;
 const CANNON_READY_COLOR = 0xffdd33;
 const CANNON_CHARGE_FILL_COLOR = 0xffaa33;
-const SPECIAL_FLASH_COLOR = 0xffdd33;
-const SPECIAL_FLASH_DURATION_MS = 250;
+// Cat Cannon beam VFX (see fireCannonBeamVfx) — a Kamehameha-style layered
+// beam (soft outer glow + a mid glow + a bright near-white core) firing
+// from roughly the player tower's head/top face rather than the old
+// screen-wide translucent flash. Origin is expressed as a fraction of the
+// player tower's own display size (see the TOWER_* constants above) so it
+// stays lined up with the head if that sprite's size ever changes.
+const SPECIAL_FLASH_COLOR = 0xffdd33; // reused below as the beam's mid-glow color
+const SPECIAL_FLASH_DURATION_MS = 250; // reused below as the beam's fade-out tail after the last wave
+const CANNON_BEAM_ORIGIN_X_FRACTION = 0.55; // of TOWER_PLAYER_DISPLAY_WIDTH
+const CANNON_BEAM_ORIGIN_Y_FRACTION = 0.35; // of TOWER_SPRITE_DISPLAY_HEIGHT, above laneY
+const CANNON_BEAM_GROW_MS = 90;
 
 export default class GameScene extends Phaser.Scene {
   constructor() {
@@ -2844,15 +2853,53 @@ export default class GameScene extends Phaser.Scene {
     this.cameras.main.shake(200, 0.008);
     addLifetimeStat('cannonUses');
 
-    const { width } = this.scale;
-    const flash = this.add.rectangle(width / 2, this.laneY, width, 80, SPECIAL_FLASH_COLOR).setAlpha(0.5);
-    this.uiCamera.ignore(flash); // world object (see setupZoomControls) — zooms/pans with the battlefield
-    this.time.delayedCall(SPECIAL_FLASH_DURATION_MS, () => flash.destroy());
-
     const waveCount = CANNON_BASE_WAVE_COUNT + this.cannonWaveBonus;
+    this.fireCannonBeamVfx(waveCount * CANNON_WAVE_STAGGER_MS + SPECIAL_FLASH_DURATION_MS);
     for (let wave = 0; wave < waveCount; wave += 1) {
       this.time.delayedCall(wave * CANNON_WAVE_STAGGER_MS, () => this.fireCannonWave());
     }
+  }
+
+  // Kamehameha-style beam: three layered rectangles (soft glow, mid glow,
+  // bright core), left-anchored at roughly the player tower's head/top
+  // face and growing rightward across the whole lane, plus a small round
+  // "muzzle flare" at the origin — all additive-blended so they light up
+  // whatever they overlap instead of just sitting on top of it. Fired ONCE
+  // per triggerSpecialBurst (not once per wave) so it reads as a single
+  // sustained beam spanning every wave's damage tick rather than flickering.
+  fireCannonBeamVfx(durationMs) {
+    const { width } = this.scale;
+    const originX = TOWER_PLAYER_DISPLAY_WIDTH * CANNON_BEAM_ORIGIN_X_FRACTION;
+    const originY = this.laneY - TOWER_SPRITE_DISPLAY_HEIGHT * CANNON_BEAM_ORIGIN_Y_FRACTION;
+    const beamLength = width - originX + 40; // slight overshoot past the right edge
+
+    const beamLayers = [
+      this.add.rectangle(originX, originY, beamLength, 46, 0xfff2a6, 0.22).setOrigin(0, 0.5),
+      this.add.rectangle(originX, originY, beamLength, 22, SPECIAL_FLASH_COLOR, 0.6).setOrigin(0, 0.5),
+      this.add.rectangle(originX, originY, beamLength, 9, 0xffffff, 0.95).setOrigin(0, 0.5),
+    ];
+    const flare = this.add.circle(originX, originY, 24, 0xffffff, 0.9);
+
+    const allObjects = [...beamLayers, flare];
+    for (const obj of allObjects) {
+      obj.setBlendMode(Phaser.BlendModes.ADD);
+      this.uiCamera.ignore(obj); // world objects (see setupZoomControls) — zoom/pan with the battlefield
+    }
+    for (const beam of beamLayers) beam.scaleX = 0; // grows rightward from the origin, see the tween below
+    flare.setScale(0.2);
+
+    const fadeMs = Math.max(120, durationMs - CANNON_BEAM_GROW_MS);
+    this.tweens.add({ targets: beamLayers, scaleX: 1, duration: CANNON_BEAM_GROW_MS, ease: 'Cubic.Out' });
+    this.tweens.add({ targets: flare, scale: 1.3, duration: CANNON_BEAM_GROW_MS, ease: 'Cubic.Out' });
+    this.tweens.add({
+      targets: allObjects,
+      alpha: 0,
+      duration: fadeMs,
+      delay: CANNON_BEAM_GROW_MS,
+      onComplete: () => {
+        for (const obj of allObjects) obj.destroy();
+      },
+    });
   }
 
   // One wave of the Cat Cannon (see triggerSpecialBurst) — real per-shot
