@@ -19,6 +19,7 @@ import { getActiveCombos } from './Combo.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
 // "manage my formation" screen reachable from the Home screen, rather than
@@ -50,17 +51,16 @@ export default class LoadoutScene extends Phaser.Scene {
 
     addBackground(this, 'mech');
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
+    drawWoodFrame(this, width, height);
 
-    this.add.text(width / 2, 16, 'Character Formation', { fontFamily: 'Rowdies, sans-serif', fontSize: '18px', color: '#ffffff' }).setOrigin(0.5);
-
-    const backButton = this.add.rectangle(50, 16, 80, 28, 0x444444).setInteractive({ useHandCursor: true });
-    this.add.text(50, 16, 'Back', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff' }).setOrigin(0.5);
-    backButton.on('pointerdown', () => this.scene.start('HomeScene'));
+    createTitlePill(this, 24, 22, 'Character Formation');
+    createBackButton(this, () => this.scene.start('HomeScene'));
 
     this.add
       .text(width / 2, 60, `Tap a unit to include/exclude — max ${MAX_LOADOUT_SIZE} in Formation`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
-        color: '#aaaaaa',
+        fontFamily: FONT, fontSize: '10px',
+        color: '#ffffff',
+        stroke: '#000000', strokeThickness: 3,
       })
       .setOrigin(0.5);
 
@@ -74,14 +74,14 @@ export default class LoadoutScene extends Phaser.Scene {
     // player can actually see which synergies their current Formation has
     // activated and why.
     this.add
-      .text(width / 2, 350, 'Active Squad Synergies:', { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffdd33' })
+      .text(width / 2, 350, 'Active Squad Synergies:', { fontFamily: FONT, fontSize: '13px', color: '#ffcf6b', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);
     this.synergyText = this.add
-      .text(width / 2, 370, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ffffff', align: 'center', wordWrap: { width: width - 40 } })
+      .text(width / 2, 370, '', { fontFamily: FONT, fontSize: '12px', color: '#ffffff', align: 'center', wordWrap: { width: width - 40 }, stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);
 
     this.messageText = this.add
-      .text(width / 2, 394, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#ff6666' })
+      .text(width / 2, 394, '', { fontFamily: FONT, fontSize: '12px', color: '#ff8a80', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);
 
     // Formation cost summary (bible §A.10.3: "show... a running total-cost/
@@ -90,7 +90,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // effective cost, since cost itself never scales with level anyway —
     // see UNIT_CONFIG.js).
     this.totalCostText = this.add
-      .text(width / 2, 418, '', { fontFamily: 'Rowdies, sans-serif', fontSize: '12px', color: '#66ccff' })
+      .text(width / 2, 418, '', { fontFamily: FONT, fontSize: '12px', color: '#7fe0ff', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);
 
     this.createTooltip();
@@ -107,10 +107,10 @@ export default class LoadoutScene extends Phaser.Scene {
   // rebuilds on every selection change) and repositioned/shown on demand.
   createTooltip() {
     this.tooltipContainer = this.add.container(0, 0).setDepth(1000).setVisible(false);
-    this.tooltipBg = this.add.rectangle(0, 0, 200, 40, 0x000000, 0.92).setStrokeStyle(1, 0xffdd33);
+    this.tooltipBg = this.add.rectangle(0, 0, 200, 40, 0x000000, 0.92).setStrokeStyle(2, BC.gold);
     this.tooltipText = this.add
       .text(0, 0, '', {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '10px',
+        fontFamily: FONT, fontSize: '10px',
         color: '#ffffff',
         align: 'left',
         wordWrap: { width: 220 },
@@ -165,38 +165,28 @@ export default class LoadoutScene extends Phaser.Scene {
     data.slots.forEach((slot, index) => {
       const x = startX + index * (tabWidth + gap);
       const isActive = index === data.activeSlot;
-      const rect = this.add
-        .rectangle(x, y, tabWidth, 26, isActive ? 0xffdd33 : 0x444444)
-        .setInteractive({ useHandCursor: true });
-      const label = this.add
-        .text(x, y, slot.name, { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: isActive ? '#000000' : '#ffffff' })
-        .setOrigin(0.5);
-
-      rect.on('pointerdown', () => {
+      const tab = createBcButton(this, x, y, tabWidth, 26, slot.name, () => {
         setActiveFormationSlot(index);
         this.selected = new Set(loadLoadout());
         this.renderSlotTabs();
         this.renderCards();
         this.refreshSynergies();
         this.refreshTotalCost();
-      });
-
-      objects.push(rect, label);
+      }, isActive
+        ? { fontSize: 11 }
+        : { fill: 0x8a8a8a, highlight: 0xbbbbbb, textColor: '#ffffff', fontSize: 11 });
+      objects.push(tab);
     });
 
     const autoEquipX = startX + FORMATION_SLOT_COUNT * (tabWidth + gap) + autoEquipWidth / 2 - tabWidth / 2;
-    const autoEquipButton = this.add
-      .rectangle(autoEquipX, y, autoEquipWidth, 26, 0x3388cc)
-      .setInteractive({ useHandCursor: true });
-    const autoEquipLabel = this.add.text(autoEquipX, y, 'Auto-Equip', { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#ffffff' }).setOrigin(0.5);
-    autoEquipButton.on('pointerdown', () => {
+    const autoEquipButton = createBcButton(this, autoEquipX, y, autoEquipWidth, 26, 'Auto-Equip', () => {
       this.selected = new Set(autoEquipActiveSlot());
       this.renderCards();
       this.refreshSynergies();
       this.refreshTotalCost();
       this.showMessage('Auto-Equipped your highest-level units!');
-    });
-    objects.push(autoEquipButton, autoEquipLabel);
+    }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 11 });
+    objects.push(autoEquipButton);
 
     this.slotTabContainer.add(objects);
   }
@@ -246,19 +236,27 @@ export default class LoadoutScene extends Phaser.Scene {
     // stage on StageSelectScene.
     const unlocked = isUnitUnlocked(type);
 
-    const card = this.add
-      .rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, unlocked ? config.color : 0x333333)
-      .setAlpha(unlocked ? (isSelected ? 1 : 0.3) : 0.35)
-      .setStrokeStyle(isSelected && unlocked ? 3 : 1, isSelected && unlocked ? 0xffdd33 : 0x666666)
-      .setInteractive({ useHandCursor: true });
+    // White card + black outline (real deploy-icon framing, matching
+    // GameScene's own spawn buttons — see UITheme.js/SpriteIcon.js), with a
+    // gold ring instead of a colored fill to show "in Formation" — locked/
+    // benched units dim via a semi-transparent grey overlay drawn on top
+    // rather than recoloring the base card, so the white/black-outline look
+    // stays consistent across every state.
+    const g = this.add.graphics();
+    g.fillStyle(BC.ink, 0.2);
+    g.fillRoundedRect(x - CARD_WIDTH / 2 + 2, y - CARD_HEIGHT / 2 + 3, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.fillStyle(0xffffff, 1);
+    g.fillRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
+    g.lineStyle(isSelected && unlocked ? 4 : 2, isSelected && unlocked ? BC.gold : BC.ink, 1);
+    g.strokeRoundedRect(x - CARD_WIDTH / 2, y - CARD_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT, 10);
 
     // Character name first (e.g. "Buba") — this screen is about browsing/
     // picking specific characters, not selecting a role mid-battle, so the
     // real name leads.
     const label = this.add
       .text(x, y - CARD_HEIGHT / 2 + 9, config.characterName, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '13px',
-        color: '#000000',
+        fontFamily: FONT, fontSize: '13px',
+        color: BC.inkHex,
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
@@ -268,10 +266,13 @@ export default class LoadoutScene extends Phaser.Scene {
     // see SpriteIcon.js. useEvolved matches UpgradeScene/GameScene's own
     // hasReachedPartEvolution check — this screen was showing every unit's
     // pre-evolution look even past level 10, out of sync with both of them.
-    // idleAnimated (last arg): a gentle float instead of a dead-still
-    // portrait, since this screen is nothing BUT static cards.
+    // faceZoom matches GameScene's own spawn-button portraits (a tight face
+    // closeup, not the whole body) for the same "tell units apart at a
+    // glance" reason — traded off against the idle-float animation the
+    // previous version used, since SpriteIcon.js's faceZoom crop only
+    // applies to the plain static idle pose.
     const isEvolved = hasReachedPartEvolution(unitProgress.level);
-    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 52, true, isEvolved, true);
+    const icon = addUnitIcon(this, x, y - 1, config, CARD_HEIGHT - 46, true, isEvolved, false, true);
 
     // Selected/benched state reads fine from the card's own dimming
     // (setAlpha below) — an explicit "IN FORMATION"/"benched" label was
@@ -280,28 +281,30 @@ export default class LoadoutScene extends Phaser.Scene {
     // reference: abilityLabel (not displayName, the real Battle Cats
     // lineage name) is what pairs with the character name up top.
     const levelLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 22, unlocked ? `Lv ${unitProgress.level}` : 'Locked', { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#000000' })
+      .text(x, y + CARD_HEIGHT / 2 - 22, unlocked ? `Lv ${unitProgress.level}` : 'Locked', { fontFamily: FONT, fontSize: '11px', color: BC.inkHex })
       .setOrigin(0.5);
     const roleLabel = this.add
       .text(x, y + CARD_HEIGHT / 2 - 9, `(${config.abilityLabel})`, {
-        fontFamily: 'Rowdies, sans-serif', fontSize: '9px',
-        color: '#222222',
+        fontFamily: FONT, fontSize: '9px',
+        color: '#5a5a5a',
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 8 },
       })
       .setOrigin(0.5);
 
-    if (icon) icon.setAlpha(unlocked ? (isSelected ? 1 : 0.3) : 0.25);
+    const dimOverlay = this.add
+      .rectangle(x, y, CARD_WIDTH - 4, CARD_HEIGHT - 4, 0x1a1a1a, unlocked ? (isSelected ? 0 : 0.55) : 0.75);
+    if (icon) icon.setAlpha(unlocked ? 1 : 0.6);
 
     // Pin (bible §A.10.3) — its own small badge in the card's corner, with
     // its own independent hit area; stopPropagation keeps a pin tap from
     // also toggling the card's Formation membership underneath it.
     const pinBadge = this.add
-      .circle(x + CARD_WIDTH / 2 - 14, y - CARD_HEIGHT / 2 + 14, 10, pinned ? 0xffdd33 : 0x000000, pinned ? 1 : 0.4)
-      .setStrokeStyle(1, 0xffffff)
+      .circle(x + CARD_WIDTH / 2 - 14, y - CARD_HEIGHT / 2 + 14, 10, pinned ? BC.gold : 0x000000, pinned ? 1 : 0.4)
+      .setStrokeStyle(2, BC.ink)
       .setInteractive({ useHandCursor: true });
     const pinLabel = this.add
-      .text(x + CARD_WIDTH / 2 - 14, y - CARD_HEIGHT / 2 + 14, '📌', { fontFamily: 'Rowdies, sans-serif', fontSize: '10px' })
+      .text(x + CARD_WIDTH / 2 - 14, y - CARD_HEIGHT / 2 + 14, '📌', { fontFamily: FONT, fontSize: '10px' })
       .setOrigin(0.5);
 
     pinBadge.on('pointerdown', (pointer, localX, localY, event) => {
@@ -310,11 +313,12 @@ export default class LoadoutScene extends Phaser.Scene {
       this.renderCards();
     });
 
-    card.on('pointerdown', () => this.toggleUnit(type));
-    card.on('pointerover', () => this.showTooltip(type, x, y, isTopRow));
-    card.on('pointerout', () => this.hideTooltip());
+    const hit = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+    hit.on('pointerdown', () => this.toggleUnit(type));
+    hit.on('pointerover', () => this.showTooltip(type, x, y, isTopRow));
+    hit.on('pointerout', () => this.hideTooltip());
 
-    const objects = [card, label, levelLabel, roleLabel, pinBadge, pinLabel];
+    const objects = [g, label, levelLabel, roleLabel, dimOverlay, hit, pinBadge, pinLabel];
     if (icon) objects.splice(2, 0, icon); // between the name and the level/role text, in front of the card
     this.cardContainer.add(objects);
   }
