@@ -797,6 +797,29 @@ and short-wide (basic) sprite. Also checked the cooldown-recharge dark wipe
 and the affordability dim-alpha still render correctly over the new white
 background + face icon.
 
+## Spawn-button grid: always show all 10 slots, portraits fill to the edge
+
+Two follow-up tweaks to the spawn-button rework above:
+
+- The face-closeup icon now fills the button edge-to-edge via
+  `icon.setDisplaySize(buttonWidth - 4, BUTTON_HEIGHT - 4)` after
+  `addUnitIcon` sets its initial uniform scale, instead of the smaller
+  `min(buttonWidth, BUTTON_HEIGHT) - 6` square that left visible white
+  margin on the button's longer side. The face crop's own aspect ratio is
+  already close to the button's, so the resulting stretch is minor.
+- `createSpawnButtons` now always lays out the full `MAX_LOADOUT_SIZE`
+  (10) grid rather than sizing/counting rows off `this.loadout.length` —
+  a Formation with only 2 units previously showed 2 large buttons; it now
+  shows all 10 slots at the real game's fixed deploy-bar size, with the
+  other 8 rendered as plain grey, half-alpha, non-interactive placeholder
+  rectangles (no icon/cost/click handler — `this.spawnButtons` only holds
+  the filled slots, same as before, so `updateSpawnButtons`/cooldown/
+  affordability logic needed no changes).
+
+Verified live with a 2-unit Formation: both filled slots render as
+edge-to-edge face closeups, and the remaining 8 of the 10-slot grid render
+as greyed empty placeholders.
+
 ## Chimera inventory (asset kit survey, added in a follow-up pass)
 
 The Origins Asset Kit (`tools/axie-origins-asset-kit`) is the ONLY asset kit

@@ -29,7 +29,7 @@ import {
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
-import { loadLoadout } from './Loadout.js';
+import { loadLoadout, MAX_LOADOUT_SIZE } from './Loadout.js';
 import { trySpendEnergy } from './Energy.js';
 import { getComboBonusValue } from './Combo.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
@@ -922,13 +922,14 @@ export default class GameScene extends Phaser.Scene {
     const zoneRight = this.cannonX - CANNON_BUTTON_RADIUS - SPAWN_ROW_CANNON_GAP;
     const zoneWidth = zoneRight - zoneLeft;
 
-    // Wrapped into rows of SPAWN_BUTTONS_PER_ROW (5) instead of shrinking
-    // to fit the whole Formation in one long row — a Formation bigger than
-    // 5 gets a second row below the first, but every button stays the same
-    // (near-BUTTON_WIDTH) size regardless of Formation size, matching the
-    // real game's own fixed-size deploy icons.
-    const columns = Math.min(keys.length, SPAWN_BUTTONS_PER_ROW);
-    const totalRows = Math.ceil(keys.length / SPAWN_BUTTONS_PER_ROW);
+    // Always lay out the full MAX_LOADOUT_SIZE (10) grid, not just however
+    // many units are actually in the Formation — a 2-unit Formation still
+    // shows all 10 slots, the other 8 rendered as empty/greyed placeholders
+    // (see the `!key` branch below), matching the real game's own deploy bar
+    // rather than shrinking to (and enlarging) just the filled slots.
+    const totalSlots = MAX_LOADOUT_SIZE;
+    const columns = Math.min(totalSlots, SPAWN_BUTTONS_PER_ROW);
+    const totalRows = Math.ceil(totalSlots / SPAWN_BUTTONS_PER_ROW);
     const buttonWidth = Math.min(BUTTON_WIDTH, (zoneWidth - (columns - 1) * BUTTON_GAP) / columns);
     const isCompact = buttonWidth < BUTTON_WIDTH - 1;
     const rowWidth = columns * buttonWidth + (columns - 1) * BUTTON_GAP;
@@ -938,12 +939,25 @@ export default class GameScene extends Phaser.Scene {
     // there.
     const bottomY = height - BUTTON_HEIGHT / 2 - 10;
 
-    this.spawnButtons = keys.map((key, index) => {
-      const config = UNIT_CONFIG[key];
+    this.spawnButtons = [];
+
+    for (let index = 0; index < totalSlots; index += 1) {
+      const key = keys[index];
       const row = Math.floor(index / SPAWN_BUTTONS_PER_ROW);
       const col = index % SPAWN_BUTTONS_PER_ROW;
       const x = startX + col * (buttonWidth + BUTTON_GAP);
       const y = bottomY - (totalRows - 1 - row) * (BUTTON_HEIGHT + SPAWN_ROW_GAP);
+
+      if (!key) {
+        // Empty Formation slot — greyed, no icon/cost/interaction.
+        this.add
+          .rectangle(x, y, buttonWidth, BUTTON_HEIGHT, 0x555555)
+          .setStrokeStyle(2, 0x000000)
+          .setAlpha(0.5);
+        continue;
+      }
+
+      const config = UNIT_CONFIG[key];
 
       // White fill + black outline (reference screenshot's real deploy-icon
       // frame) — replaces the old per-unit flat-color background now that
@@ -954,11 +968,15 @@ export default class GameScene extends Phaser.Scene {
         .setStrokeStyle(2, 0x000000)
         .setInteractive({ useHandCursor: true });
 
-      // Full-bleed face closeup (faceZoom — see SpriteIcon.js) filling
-      // nearly the whole button, matching the reference's "just the face,
-      // no name/ability text" framing. Falls back to nothing for any unit
-      // with no sprite (none currently).
-      const icon = addUnitIcon(this, x, y, config, Math.min(buttonWidth, BUTTON_HEIGHT) - 6, true, false, false, true);
+      // Full-bleed face closeup (faceZoom — see SpriteIcon.js), stretched
+      // via setDisplaySize (rather than addUnitIcon's own uniform
+      // fit-inside-a-square scale) to reach every edge of the button —
+      // the crop's own aspect ratio is already close to the button's, so
+      // the stretch is minor. Matches the reference's "face fills the
+      // whole icon" framing; falls back to nothing for any unit with no
+      // sprite (none currently).
+      const icon = addUnitIcon(this, x, y, config, BUTTON_HEIGHT, true, false, false, true);
+      if (icon) icon.setDisplaySize(buttonWidth - 4, BUTTON_HEIGHT - 4);
 
       // Price only, bottom-right corner, yellow-on-black-outline (reference
       // screenshot) — the name/ability label this button used to carry is
@@ -983,8 +1001,8 @@ export default class GameScene extends Phaser.Scene {
 
       rect.on('pointerdown', () => this.trySpawnUnit(key));
 
-      return { key, config, rect, icon, costText, cooldownOverlay };
-    });
+      this.spawnButtons.push({ key, config, rect, icon, costText, cooldownOverlay });
+    }
   }
 
   // Pause/Options (reference-screenshot-confirmed: a small pause icon,
