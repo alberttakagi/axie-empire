@@ -58,8 +58,9 @@ export default class UpgradeScene extends Phaser.Scene {
 
     this.page = 0;
 
+    // Dimmed by drawWoodFrame's own semi-transparent interior tint, not a
+    // separate scrim — see HomeScene.js's identical note.
     addBackground(this, 'metamorph2');
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.45);
     drawWoodFrame(this, width, height);
 
     createTitlePill(this, 24, 22, 'Power Up');

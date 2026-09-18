@@ -33,11 +33,12 @@ export default class MissionsScene extends Phaser.Scene {
 
     this.page = 0;
 
+    // Dimmed by drawWoodFrame's own semi-transparent interior tint, not a
+    // separate scrim — see HomeScene.js's identical note. Frame is added
+    // BEFORE any content container regardless — see TreasureScene.js's own
+    // note: adding it after would render the tint OVER every row instead
+    // of behind it.
     addBackground(this, 'gauntletArena');
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5);
-    // Frame first, before any content container — see TreasureScene.js's
-    // own note: adding it after a container would render its opaque
-    // interior fill on top of (and hide) every row.
     drawWoodFrame(this, width, height);
 
     createTitlePill(this, 24, 22, 'Missions');

@@ -43,11 +43,12 @@ export default class HomeScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    // Backdrop, dimmed by a flat scrim (rather than GameScene's own
-    // lane-only darkened band) since almost this whole screen is bare text
-    // over open background, not just one narrow strip — see Backdrop.js.
+    // Backdrop, dimmed by drawWoodFrame's own semi-transparent interior
+    // tint rather than a separate scrim rectangle — that tint already does
+    // the "keep bare text/buttons legible over open art" job the scrim
+    // used to (a redundant SECOND dark layer just made the backdrop nearly
+    // invisible). See Backdrop.js / UITheme.js's own drawWoodFrame comment.
     addBackground(this, 'gauntletArena');
-    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5);
     drawWoodFrame(this, width, height);
 
     createTitlePill(this, 24, 26, 'AXIE BASE');

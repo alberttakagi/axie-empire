@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { getTreasureSummary } from './Treasure.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The bible's §A.10.2 "dedicated per-chapter Treasure summary screen" —
 // originally one screen covering both of this build's Treasure Sets (bible
@@ -19,16 +20,25 @@ export default class TreasureScene extends Phaser.Scene {
     super('TreasureScene');
   }
 
+  preload() {
+    preloadBackgrounds(this);
+  }
+
   create() {
     const { width, height } = this.scale;
 
     this.page = 0;
 
+    // This screen previously had no backdrop art at all (drawWoodFrame's
+    // interior alone, with nothing behind it to tint) — every other
+    // wood-framed screen in this pass loads one via addBackground.
+    addBackground(this, 'dusk');
+
     // Frame must be added BEFORE rowContainer — drawWoodFrame's own
-    // opaque interior fill would otherwise render on top of (and
-    // completely hide) every treasure card, since Phaser draws later-added
-    // objects over earlier ones regardless of when a container's own
-    // children are populated.
+    // interior tint would otherwise render OVER every treasure card
+    // instead of behind it, since Phaser draws later-added objects on top
+    // of earlier ones regardless of when a container's own children are
+    // populated.
     drawWoodFrame(this, width, height);
     this.rowContainer = this.add.container(0, 0);
 

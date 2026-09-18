@@ -7,6 +7,7 @@ import {
   tryLevelUpBaseUpgrade,
 } from './PlayerProgress.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The account-wide half of the bible's §A.7.1 Upgrade Menu — Cannon Power/
 // Charge, Base Defense, Research, Accounting, Study, Stamina Cap. Reachable
@@ -27,9 +28,16 @@ export default class BaseUpgradeScene extends Phaser.Scene {
     super('BaseUpgradeScene');
   }
 
+  preload() {
+    preloadBackgrounds(this);
+  }
+
   create() {
     const { width, height } = this.scale;
 
+    // Matches its sibling UpgradeScene's own backdrop (reached from the
+    // same "Power Up" flow) — this screen previously had none at all.
+    addBackground(this, 'metamorph2');
     drawWoodFrame(this, width, height);
     createTitlePill(this, 24, 22, 'Base Upgrades');
     createBackButton(this, () => this.scene.start('UpgradeScene'));

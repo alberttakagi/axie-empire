@@ -140,11 +140,30 @@ export function drawBcPanel(scene, x, y, w, h, opts = {}) {
 // solid brown bands (no tileable wood texture asset exists in this repo)
 // rather than a flat single-color border, so it still reads as a distinct
 // "frame" instead of an arbitrary color bar.
+// The interior fill is semi-transparent (0.4), not solid — a fully opaque
+// interior completely hid every screen's own addBackground() art behind it
+// (confirmed: Home/Loadout/Upgrade's scenic backdrops were 100% covered,
+// making every wood-framed screen look like a flat brown color regardless
+// of which background it loaded). Tinting translucently over the backdrop
+// instead keeps the wood-panel identity while actually showing the art
+// underneath, and now makes it worth giving the wood-framed screens that
+// had NO backdrop at all (BaseUpgradeScene, TreasureScene, SagaSelectScene)
+// one, instead of that call being a no-op under the old opaque fill.
 export function drawWoodFrame(scene, width, height, thickness = 18) {
   const g = scene.add.graphics();
+  // Border as four opaque strips (a ring), NOT a full-canvas fillRect
+  // underneath the translucent interior — the previous version filled the
+  // ENTIRE canvas opaque first and only *then* drew the "interior" on top,
+  // so the interior's own alpha blended against that opaque full-canvas
+  // fill instead of the real backdrop underneath it, making every
+  // addBackground() image behind this frame invisible regardless of the
+  // interior alpha chosen. Only the actual border region may be opaque.
   g.fillStyle(BC.woodDark, 1);
-  g.fillRect(0, 0, width, height);
-  g.fillStyle(BC.woodMid, 1);
+  g.fillRect(0, 0, width, thickness); // top
+  g.fillRect(0, height - thickness, width, thickness); // bottom
+  g.fillRect(0, 0, thickness, height); // left
+  g.fillRect(width - thickness, 0, thickness, height); // right
+  g.fillStyle(BC.woodMid, 0.4);
   g.fillRect(thickness, thickness, width - thickness * 2, height - thickness * 2);
   g.lineStyle(3, BC.woodDark, 1);
   g.strokeRect(thickness * 0.5, thickness * 0.5, width - thickness, height - thickness);

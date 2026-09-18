@@ -3,6 +3,7 @@ import { SAGA_CONFIG } from './SAGA_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
 import { BC, FONT, createBackButton, createTitlePill, drawWoodFrame } from './UITheme.js';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 // The bible's §A.6.1 saga/chapter select screen — an intermediate hub
 // between Home and Stage Select, needed once the flat stage list grew past
@@ -25,9 +26,15 @@ export default class SagaSelectScene extends Phaser.Scene {
     super('SagaSelectScene');
   }
 
+  preload() {
+    preloadBackgrounds(this);
+  }
+
   create() {
     const { width, height } = this.scale;
 
+    // This screen previously had no backdrop art at all.
+    addBackground(this, 'beast');
     drawWoodFrame(this, width, height);
     createTitlePill(this, 24, 26, 'Select Saga');
     createBackButton(this, () => this.scene.start('HomeScene'));
