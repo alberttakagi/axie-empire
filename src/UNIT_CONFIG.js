@@ -231,7 +231,7 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Area Attacker',
     characterName: 'Noir', // ネコノトリ／ネコUFO／天空のネコ (Bird Cat / UFO Cat / The Flying Cat)
     role: 'aoe',
-    unlockRequirement: { stageId: 'stage9' }, // real: "第1章の進行で解放" (vague) — placed here for even pacing
+    unlockRequirement: { stageId: 'stage12' }, // real: 山口県クリア
     cost: 650,
     hp: 300,
     damage: 140,
@@ -287,7 +287,12 @@ export const UNIT_CONFIG = {
     abilityLabel: 'Long Range',
     characterName: 'Mit', // ネコトカゲ／ネコドラゴン／ネコキングドラゴン (Lizard Cat / Dragon Cat / King Dragon Cat)
     role: 'support',
-    unlockRequirement: { stageId: 'stage20' }, // real: 京都府クリア
+    // Real unlock note previously read "京都府クリア" (Kyoto) — the guide
+    // has since retracted that as unconfirmed ("第1章の進行で解放（DBの
+    // 開放条件を参照）", deferring to the DB rather than naming a stage).
+    // stage20 kept as a placeholder pacing choice, same treatment as Cow
+    // Cat/stage5 and Titan Cat/stage43 below.
+    unlockRequirement: { stageId: 'stage20' },
     cost: 1000,
     hp: 800,
     damage: 350,

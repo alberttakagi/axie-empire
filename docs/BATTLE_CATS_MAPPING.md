@@ -127,10 +127,13 @@ one-off generator kept at `tools/gen_saga1_stages.py` for future retuning.
 - **Unit unlocks remapped to the real prefectures** named in the roster
   table's own unlock notes: Tank Cat→real stage1 (Nagasaki), Axe Cat→
   stage3 (Kagoshima), Gross Cat→stage6 (Oita), Fish Cat→stage16 (Tottori),
-  Lizard Cat→stage20 (Kyoto). Cow Cat/Bird Cat's real notes are vague
-  ("unlocked through progression") — placed at stage5/stage9 for even
-  pacing. Titan Cat's real note ("unlocked in the final stretch") — placed
-  at stage43.
+  Bird Cat→stage12 (Yamaguchi — corrected from an earlier guide revision's
+  vague "unlocked through progression," originally guessed at stage9).
+  Cow Cat's real note stays vague — placed at stage5 for even pacing.
+  Lizard Cat's real note *was* stage20 (Kyoto), but a later guide revision
+  retracted that as unconfirmed — kept at stage20 anyway as a pacing
+  placeholder, same treatment as Cow Cat. Titan Cat's real note ("unlocked
+  in the final stretch") — placed at stage43.
 - **saga2/saga3 renumbered** from stage11-30/21-30 to stage49-58/59-68 to
   make room for saga1's now-48 stages — `TREASURE_CONFIG.js`'s matching
   `stageIds` were updated too, and saga1's own treasure sets were expanded
