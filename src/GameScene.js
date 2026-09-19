@@ -569,14 +569,6 @@ export default class GameScene extends Phaser.Scene {
     this.specialMeter = 0;
     this.enemyBaseCurseMs = 0; // curse landed on the enemy base — currently a no-op, nothing to suppress there yet
     this.elapsedMs = 0;
-    // Nothing enemy-side should happen before the player deploys their
-    // first unit — no scripted/dojo spawns, no Cat Cannon charge (bible
-    // §A.3.9 describes the cannon as charging "during battle," and there's
-    // no battle yet). See trySpawnUnit (flips this true, sets
-    // battleStartMs, and kicks off scheduleDojoWaves for Dojo) and update
-    // (gates specialMeter's charge and updateSpawns on it).
-    this.battleStarted = false;
-    this.battleStartMs = 0; // set for real when battleStarted flips true — see trySpawnUnit/updateSpawns
     this.isGameOver = false;
     this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
@@ -742,9 +734,16 @@ export default class GameScene extends Phaser.Scene {
     // bulk diff instead of an ignore() call at every UI helper.
     this.setupZoomControls();
 
-    // Enemy spawning (scripted stage or dojo waves) no longer starts here —
-    // see battleStarted's own comment/trySpawnUnit, which kicks it off once
-    // the player deploys their first unit.
+    // Enemy spawning starts the instant the battle does, matching real
+    // Battle Cats (every stage's own spawn timing — STAGE_CONFIG.js's
+    // firstMs — is authored relative to battle start, not the player's
+    // first deploy; some stages spawn at firstMs:0, others hold off for a
+    // few real seconds, and that's entirely per-stage, not universal). A
+    // scripted stage's own spawnState (built above) just needs update()'s
+    // per-frame updateSpawns() call, which no longer waits on anything;
+    // Dojo mode has no spawnScript at all, so its own wave loop is kicked
+    // off explicitly here instead.
+    if (this.mode === 'dojo') this.scheduleDojoWaves();
 
     startMusic();
     // Stop the placeholder music loop no matter HOW this scene ends —
@@ -857,7 +856,10 @@ export default class GameScene extends Phaser.Scene {
   updateSpawns() {
     if (this.isGameOver || this.spawnState.length === 0) return;
 
-    const battleMs = this.elapsedMs - this.battleStartMs;
+    // Real Battle Cats spawn rules are authored relative to battle start
+    // (frame 0 the instant the stage loads), not the player's first
+    // deploy — see this.elapsedMs, which ticks from create() itself.
+    const battleMs = this.elapsedMs;
     const percent = this.enemyBaseMaxHp > 0 ? (this.enemyBaseHp / this.enemyBaseMaxHp) * 100 : 0;
     // maxEnemiesOnField (real per-stage 出撃最大数 — see STAGE_CONFIG.js's
     // header note on what that column actually means) caps how many
@@ -1481,21 +1483,6 @@ export default class GameScene extends Phaser.Scene {
       rechargeMs: recharge,
     };
 
-    if (!this.battleStarted) {
-      this.battleStarted = true;
-      if (this.mode === 'dojo') {
-        this.scheduleDojoWaves();
-      } else {
-        // Real spawn rules are authored relative to "battle start" (frame
-        // 0 in the guide's own data), but this.elapsedMs has already been
-        // ticking since the scene loaded — capture the offset once here so
-        // updateSpawns (called every frame from update()) can compute a
-        // battle-relative clock instead of firing everything late by
-        // however long the player took to deploy their first unit.
-        this.battleStartMs = this.elapsedMs;
-      }
-    }
-
     this.money -= cost;
     this.unitCooldowns[key] = recharge;
     this.unitCooldownDurations[key] = recharge;
@@ -1957,23 +1944,23 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
 
     // Cat Cannon charges passively over a fixed TIME budget (bible §A.3.9,
-    // guide Chapter 08's real formula), independent of combat performance.
-    // Cannon Charge Base Upgrade shaves flat time off that budget; Cannon
-    // Power adds an equal-and-opposite penalty per level (a real trade-off
-    // — raising both to the same level exactly cancels out, back to the
-    // 50s baseline), down to a hard floor (see
-    // SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS above). Doesn't
-    // start until the player's first deploy (see battleStarted) — nothing
-    // to charge "during battle" before there's a battle.
-    if (this.battleStarted) {
-      const cannonPowerPenaltyMs = this.cannonPowerLevel * CANNON_POWER_CHARGE_PENALTY_MS_PER_LEVEL;
-      const chargeDurationMs = Math.max(
-        CANNON_CHARGE_FLOOR_MS,
-        SPECIAL_CHARGE_DURATION_MS + cannonPowerPenaltyMs - this.cannonChargeReductionMs,
-      );
-      this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_METER_MAX * deltaMs) / chargeDurationMs);
-      if (this.mode !== 'dojo') this.updateSpawns();
-    }
+    // guide Chapter 08's real formula), independent of combat performance,
+    // starting from battle start (the moment this scene loads) same as
+    // enemy spawning — real Battle Cats doesn't wait for the player's
+    // first deploy for either (money income doesn't either — see
+    // getMoneyRampMultiplier, which already used raw elapsedMs even before
+    // this fix). Cannon Charge Base Upgrade shaves flat time off that
+    // budget; Cannon Power adds an equal-and-opposite penalty per level (a
+    // real trade-off — raising both to the same level exactly cancels out,
+    // back to the 50s baseline), down to a hard floor (see
+    // SPECIAL_CHARGE_DURATION_MS/CANNON_CHARGE_FLOOR_MS above).
+    const cannonPowerPenaltyMs = this.cannonPowerLevel * CANNON_POWER_CHARGE_PENALTY_MS_PER_LEVEL;
+    const chargeDurationMs = Math.max(
+      CANNON_CHARGE_FLOOR_MS,
+      SPECIAL_CHARGE_DURATION_MS + cannonPowerPenaltyMs - this.cannonChargeReductionMs,
+    );
+    this.specialMeter = Math.min(SPECIAL_METER_MAX, this.specialMeter + (SPECIAL_METER_MAX * deltaMs) / chargeDurationMs);
+    if (this.mode !== 'dojo') this.updateSpawns();
     this.updateCannonButton();
     this.updateLowHpVignette(time);
     this.updateBossMusic();

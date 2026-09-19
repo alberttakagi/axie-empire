@@ -936,3 +936,36 @@ pattern: every scene renders and its interactive elements (stage popups,
 Formation toggling/Auto-Equip, Gacha rolls updating the GEM badge, Mission
 claiming re-sorting the list, the Options→Retreat→Quit-confirm chain, a
 forced STAGE CLEAR) still work correctly under the new visuals.
+
+## Fix: enemy spawning/Cat Cannon charge no longer wait for the first deploy
+
+A previous pass in this session had deliberately gated enemy spawning, the
+Cat Cannon's passive charge, and Dojo's wave loop behind the player's first
+unit deploy (`this.battleStarted`/`this.battleStartMs` in GameScene.js),
+reasoning that "nothing to charge/spawn before there's a battle." That's
+wrong — real Battle Cats starts every one of these the instant the stage
+loads. STAGE_CONFIG.js's own `firstMs` per-stage spawn timing (real data,
+fetched from battlecats-db.com — see `tools/gen_saga1_stages.py`'s header)
+is already authored relative to battle start, not first deploy: stage1's
+`basic` entry has `firstMs: 0` (spawns immediately) while its second `basic`
+entry has `firstMs: 20000` (holds off 20 real seconds) — this varies
+entirely per stage/per spawn entry, exactly as the guide's own data says,
+and none of it was ever meant to wait on the player.
+
+Fixed by removing the gate entirely: `updateSpawns()` runs from `update()`
+every frame unconditionally (using `this.elapsedMs` directly, no more
+`battleStartMs` offset), the Cat Cannon's charge accrual moved out of the
+same conditional, and `scheduleDojoWaves()` is now kicked off once in
+`create()` instead of on first deploy. This also makes the Cat Cannon and
+enemy spawning consistent with money income (`getMoneyRampMultiplier`),
+which already ramped from raw `elapsedMs` and was never gated the same way
+— the inconsistency was itself a sign the gate was the bug, not the
+intended design.
+
+Verified live: starting a battle and NOT deploying anything, a real `basic`
+enemy spawns and starts walking within ~1s of battle start (stage1's
+`firstMs: 0` entry), the Cat Cannon meter and money both accrue from t=0,
+and Dojo mode's first wave fires immediately on entering Sparring Grounds
+— all previously stuck at zero until the first deploy. Confirmed the
+`firstMs: 20000` entry still correctly waits its real delay rather than
+firing early.
