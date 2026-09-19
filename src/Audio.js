@@ -1,16 +1,21 @@
-// Placeholder audio (bible §A.10.8: "short, distinct audio stingers... cheap
-// to build and disproportionately important") — synthesized directly via the
-// Web Audio API rather than shipped sound files, the audio equivalent of this
-// build's colored-shape placeholder sprites (see UNIT_CONFIG.js's `sprite`
-// field): real deploy/victory/defeat/cannon/music assets can replace these
-// functions wholesale later without touching any call site that plays them.
-//
 // Two independent volume controls (bible/reference-screenshot-confirmed
 // in-battle Options popup: separate BGM note icon and SFX speaker icon),
 // each a 3-level cycle — Off / Low / High — rather than a continuous
 // slider, matching the reference UI's own discrete icon-cycle behavior.
 // A separate master `isMuted` flag (HomeScene's own quick toggle) overrides
 // both outright, checked first in every play function below.
+//
+// Sound is a mix of two sources, both going through the same shared
+// AudioContext (see getCtx): most one-shot event stingers (UI tap, deploy,
+// hit, crit, cannon, victory, defeat) are still synthesized directly via
+// oscillators — cheap, distinct, and nothing in the bundled asset kit is a
+// closer match for "menu tock" or "cannon whump" than a purpose-tuned tone
+// is. Real per-unit attack sounds, status-effect stingers, and all music
+// (see playSfxFile/playMusic below) instead play real WAV files from the
+// Origins Asset Kit's own bundled `Audio/`/`PvE/Music/` sets (copied into
+// public/audio/ — see docs/BATTLE_CATS_MAPPING.md), the same "reuse the
+// kit's own real assets over inventing a placeholder" approach already
+// used for sprites/VFX.
 
 const SFX_VOLUME_KEY = 'axieSkirmishSfxVolumeLevel';
 const BGM_VOLUME_KEY = 'axieSkirmishBgmVolumeLevel';
@@ -22,7 +27,6 @@ export const VOLUME_LEVEL_LABELS = ['Off', 'Low', 'High'];
 const DEFAULT_VOLUME_LEVEL = 2; // High
 
 let audioCtx = null;
-let musicTimer = null;
 
 function getCtx() {
   if (!audioCtx) {
@@ -77,11 +81,7 @@ export function getBgmVolumeLevel() {
 
 export function setBgmVolumeLevel(level) {
   writeLevel(BGM_VOLUME_KEY, level);
-  // Raising it back above 0 mid-battle should resume playing without
-  // GameScene needing to call startMusic() again — see tryStartMusicTimer.
-  // Dropping to 0 needs no explicit stop: the running timer's own playStep
-  // already checks the live level every note and just skips silently.
-  if (level > 0) tryStartMusicTimer();
+  refreshMusicGain(); // live-updates whatever's already playing — see playMusic
 }
 
 export function cycleBgmVolumeLevel() {
@@ -104,14 +104,14 @@ export function setMuted(muted) {
   } catch {
     // localStorage unavailable — the preference just won't persist this run.
   }
-  if (!muted) tryStartMusicTimer(); // see setBgmVolumeLevel's comment — same resume logic
+  refreshMusicGain();
 }
 
 // One short envelope-shaped tone: a fast linear attack into an exponential
 // decay toward (near-)silence, which avoids the audible "click" a hard
-// on/off would produce. Every sfx below is just one or a few of these,
-// scheduled at different offsets/frequencies, each scaled by the current
-// SFX volume level.
+// on/off would produce. Every synthesized sfx below is just one or a few of
+// these, scheduled at different offsets/frequencies, each scaled by the
+// current SFX volume level.
 function playTone({ freq, startOffset = 0, duration = 0.15, type = 'sine', peakGain = 0.18 }) {
   if (isMuted()) return;
   const volume = VOLUME_LEVELS[getSfxVolumeLevel()];
@@ -133,13 +133,9 @@ function playTone({ freq, startOffset = 0, duration = 0.15, type = 'sine', peakG
   osc.stop(start + duration + 0.02);
 }
 
-export function playDeploySfx() {
-  playTone({ freq: 520, duration: 0.09, type: 'square', peakGain: 0.12 });
-}
-
 // A generic UI "tock" for menu navigation/confirm taps (Home's primary
 // buttons, a Mission claim, a Gacha roll) — distinct from Deploy's own sfx
-// above so an in-battle spawn still reads as its own, busier sound.
+// below so an in-battle spawn still reads as its own, busier sound.
 export function playUiTapSfx() {
   playTone({ freq: 340, duration: 0.05, type: 'triangle', peakGain: 0.1 });
 }
@@ -147,6 +143,10 @@ export function playUiTapSfx() {
 // A short, low-gain percussive "thwack" for a normal hit landing — kept
 // quiet/short on purpose since many can overlap in a single frame (an AoE
 // hit, several units attacking at once), unlike the rarer stingers below.
+// Plays alongside (not instead of) a real per-attacker sound where one
+// exists (see AttackVfx.js's fireAttackVfx) — this is the universal
+// baseline every hit gets regardless of attacker, the real sound is the
+// character-specific flavor layered on top.
 export function playHitSfx() {
   playTone({ freq: 220, duration: 0.06, type: 'square', peakGain: 0.09 });
 }
@@ -181,77 +181,117 @@ export function playDefeatSfx() {
   });
 }
 
-// Battle music (§A.10.8: "an upbeat looping battle music bed") — a plain
-// repeating 4-note bassline, deliberately understated (low gain, simple
-// waveform) since it has to loop indefinitely without becoming grating.
-// Scheduled with setInterval rather than pre-queued on the AudioContext
-// clock — acceptable drift for a placeholder loop, not a claim of sample-
-// accurate timing. Volume is read fresh every note, so cycling the BGM
-// level mid-battle takes effect on the very next note rather than needing
-// a restart.
-const MUSIC_PATTERN = [130.81, 130.81, 164.81, 146.83]; // C3 C3 E3 D3
-const MUSIC_NOTE_MS = 380;
-const MUSIC_BASE_GAIN = 0.06;
+// --- Real audio files (one-shot sfx + looping music) ---------------------
+//
+// Both share one small in-memory cache of decoded buffers, keyed by URL, so
+// a sound reused often (a unit's own attack clip, the currently-looping
+// track) is only fetched/decoded once per page load. A missing/failed file
+// just silently doesn't play — never worth surfacing to the player over a
+// sound effect.
+const bufferCache = new Map(); // url -> Promise<AudioBuffer>
 
-// `battleActive` (a battle is in progress, between GameScene's own
-// startMusic()/stopMusic() calls) is deliberately a SEPARATE concept from
-// `musicTimer` (whether the interval is actually ticking right now): a
-// battle can be active with the timer never started at all (BGM was
-// muted/Off from the very first note), and cycling the BGM level back up
-// mid-battle needs to (re)create that timer — see tryStartMusicTimer,
-// called from both startMusic and the volume setters above. Earlier drafts
-// of this conflated the two and broke resuming BGM after muting it
-// mid-battle; keep them separate.
-let battleActive = false;
-let musicStep = 0;
-
-function tryStartMusicTimer() {
-  if (musicTimer) return; // already ticking
-  if (!battleActive) return; // no battle wants music right now
-  if (isMuted() || getBgmVolumeLevel() === 0) return; // battle wants it, but the volume says silence
-
-  const playStep = () => {
-    if (isMuted() || getBgmVolumeLevel() === 0) return; // skip this note rather than tearing the timer down
-    playMusicNote(MUSIC_PATTERN[musicStep % MUSIC_PATTERN.length]);
-    musicStep += 1;
-  };
-  playStep();
-  musicTimer = setInterval(playStep, MUSIC_NOTE_MS);
+function loadBuffer(ctx, url) {
+  if (!bufferCache.has(url)) {
+    bufferCache.set(
+      url,
+      fetch(url)
+        .then((res) => res.arrayBuffer())
+        .then((data) => ctx.decodeAudioData(data)),
+    );
+  }
+  return bufferCache.get(url);
 }
 
-export function startMusic() {
-  battleActive = true;
-  musicStep = 0;
-  tryStartMusicTimer();
-}
-
-// A tone scaled by the BGM volume level instead of the SFX one — playTone
-// itself always scales by SFX volume, which would make BGM incorrectly
-// follow the SFX knob, so music notes bypass it and talk to the
-// AudioContext directly.
-function playMusicNote(freq) {
+// One-shot real sound file (a unit's real attack clip, a status-effect
+// stinger, ...) — scaled by SFX volume, same gating as playTone. `gain`
+// (0-1) lets a caller balance an individually loud/quiet source file
+// against the rest without re-encoding it.
+export function playSfxFile(url, { gain = 0.8 } = {}) {
+  if (isMuted()) return;
+  const volume = VOLUME_LEVELS[getSfxVolumeLevel()];
+  if (volume <= 0) return;
   const ctx = getCtx();
   if (!ctx) return;
-  const volume = VOLUME_LEVELS[getBgmVolumeLevel()];
-  if (volume <= 0) return;
 
-  const start = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'triangle';
-  osc.frequency.setValueAtTime(freq, start);
-  gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.linearRampToValueAtTime(MUSIC_BASE_GAIN * volume, start + 0.01);
-  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
-  osc.connect(gain).connect(ctx.destination);
-  osc.start(start);
-  osc.stop(start + 0.32);
+  loadBuffer(ctx, url)
+    .then((buffer) => {
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = gain * volume;
+      source.connect(gainNode).connect(ctx.destination);
+      source.start();
+    })
+    .catch(() => {}); // missing file / decode failure — no sound, no crash
+}
+
+// Looping real music track — one playing at a time. `musicUrl` is what the
+// CALLER currently wants playing (set synchronously); `musicSource`/
+// `musicGainNode` are the actual live nodes once decoding finishes. Calling
+// playMusic again with the SAME url while it's already the active track is
+// a no-op (covers e.g. re-entering HomeScene, which would otherwise restart
+// its own bgm from frame 0 every time); a DIFFERENT url stops whatever's
+// playing and starts loading the new one, discarding the old load if it
+// was still in flight (see the `musicUrl !== url` check after the promise
+// resolves — a slow-loading track that got superseded before it finished
+// must not clobber whatever's playing by the time it arrives).
+let musicUrl = null;
+let musicSource = null;
+let musicGainNode = null;
+
+function currentMusicGain() {
+  return isMuted() ? 0 : VOLUME_LEVELS[getBgmVolumeLevel()];
+}
+
+// Live-updates the currently playing track's own gain node (called from
+// setBgmVolumeLevel/setMuted) — unlike Phaser's own Sound objects (which
+// snapshot `volume` once at `.add()` time), this take immediate effect on
+// whatever's already looping, no restart needed.
+function refreshMusicGain() {
+  if (musicGainNode) musicGainNode.gain.value = currentMusicGain();
+}
+
+function stopMusicNodes() {
+  if (musicSource) {
+    try {
+      musicSource.stop();
+    } catch {
+      // Already stopped/never started — fine either way.
+    }
+    musicSource.disconnect();
+    musicSource = null;
+  }
+  if (musicGainNode) {
+    musicGainNode.disconnect();
+    musicGainNode = null;
+  }
+}
+
+export function playMusic(url) {
+  if (musicUrl === url && musicSource) return; // already the active track
+  musicUrl = url;
+  stopMusicNodes();
+
+  const ctx = getCtx();
+  if (!ctx) return;
+
+  loadBuffer(ctx, url)
+    .then((buffer) => {
+      if (musicUrl !== url) return; // superseded by a later playMusic/stopMusic while this was loading
+      const source = ctx.createBufferSource();
+      source.buffer = buffer;
+      source.loop = true;
+      const gainNode = ctx.createGain();
+      gainNode.gain.value = currentMusicGain();
+      source.connect(gainNode).connect(ctx.destination);
+      source.start();
+      musicSource = source;
+      musicGainNode = gainNode;
+    })
+    .catch(() => {});
 }
 
 export function stopMusic() {
-  battleActive = false;
-  if (musicTimer) {
-    clearInterval(musicTimer);
-    musicTimer = null;
-  }
+  musicUrl = null;
+  stopMusicNodes();
 }

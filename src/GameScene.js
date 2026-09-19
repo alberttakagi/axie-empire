@@ -39,22 +39,20 @@ import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './U
 import { describeUnit } from './UnitDescription.js';
 import { hasCompletedTutorial, markTutorialCompleted } from './Tutorial.js';
 import {
-  playDeploySfx,
   playCannonSfx,
   playBossShockwaveSfx,
   playVictorySfx,
   playDefeatSfx,
   playHitSfx,
   playCritSfx,
-  startMusic,
+  playSfxFile,
+  playMusic,
   stopMusic,
   VOLUME_LEVEL_LABELS,
   getSfxVolumeLevel,
   cycleSfxVolumeLevel,
   getBgmVolumeLevel,
   cycleBgmVolumeLevel,
-  isMuted,
-  VOLUME_LEVELS,
 } from './Audio.js';
 import { addUserRank } from './UserRank.js';
 import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
@@ -231,6 +229,31 @@ const PART_EVOLUTION_GLOW_STRENGTH = 0.9;
 // tiers this build already tracks (PROGRESSION_CONFIG.js's evolutionStage)
 // read as visually distinct at a glance, not just via the stats screen.
 const EVOLUTION_STAGE_GLOW_COLOR = { 1: 0x66ccff, 2: 0xaa66ff };
+
+// Real per-status sound (Origins Asset Kit, public/audio/sfx/ — see
+// Audio.js's own header) played once per successful statusOnHit proc — see
+// applyStatusEffect. Picked for the closest real-world meaning to each
+// effect: STOP freezes the target in place (stunned), WEAKEN saps its
+// output (weak), CURSE is the same idea the kit's own name uses (hex), WARP
+// removes the target from play for a while (summon_off — the closest
+// "taken out of the fight" cue the kit has). SLOW has no equally direct
+// match; `drain` (something being sapped away) is the closest fit.
+const STATUS_SFX_FILE = {
+  [STATUS_TYPES.SLOW]: 'drain.wav',
+  [STATUS_TYPES.STOP]: 'stunned.wav',
+  [STATUS_TYPES.WEAKEN]: 'weak.wav',
+  [STATUS_TYPES.CURSE]: 'hex.wav',
+  [STATUS_TYPES.WARP]: 'summon_off.wav',
+};
+
+// Real per-saga battle music (Origins Asset Kit's PvE/Music set, copied to
+// public/audio/ — see Audio.js) — see getBattleMusicUrl.
+const BATTLE_MUSIC_BY_SAGA = {
+  saga1: '/audio/bgm_pve1.wav',
+  saga2: '/audio/bgm_pve2.wav',
+  saga3: '/audio/bgm_pve3.wav',
+};
+const BOSS_MUSIC_URL = '/audio/bgm_boss.wav';
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
@@ -422,10 +445,10 @@ export default class GameScene extends Phaser.Scene {
     preloadAttackVfx(this);
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
     if (!this.textures.exists(TOWER_ENEMY_SPRITE_KEY)) this.load.image(TOWER_ENEMY_SPRITE_KEY, '/sprites/structures/tower_enemy.png');
-    // Real boss battle theme (see updateBossMusic) — the only real audio
-    // FILE this build plays; everything else in Audio.js is synthesized on
-    // the fly and needs no preloading.
-    if (!this.cache.audio.exists('bgm_boss')) this.load.audio('bgm_boss', '/audio/bgm_boss.wav');
+    // Music/sfx audio files need no Phaser preload step at all — Audio.js's
+    // own playMusic/playSfxFile fetch+decode real files directly via the
+    // Web Audio API (see its header comment), independent of Phaser's
+    // loader/cache, the same as every other scene that plays a real sound.
   }
 
   create(data) {
@@ -557,7 +580,7 @@ export default class GameScene extends Phaser.Scene {
     this.treasureRadarActive = false; // Treasure Radar
     this.continuesUsed = 0; // Continue (bible §A.3.9) — see CONTINUE_GEM_COSTS
     this.aliveBossCount = 0; // how many currently-alive enemies are boss-tagged — see spawnScriptedEnemy/onEnemyKilled/updateBossMusic
-    this.bossMusicSound = null; // the real boss.wav Sound instance while one's playing, else null
+    this.isBossMusicPlaying = false; // mirrors whether Audio.js's active track is the boss theme — see updateBossMusic
     // Real Battle Cats always starts a battle at 0¥ regardless of Worker
     // Cat level or wallet cap (guide's own "1プレイの流れ": "バトル開始：
     // お金0円...から始まる") — there is no "start with a full wallet"
@@ -752,23 +775,24 @@ export default class GameScene extends Phaser.Scene {
     // so it doesn't need its own walkthrough).
     if (this.mode !== 'dojo' && !hasCompletedTutorial()) this.showBattleTutorial();
 
-    startMusic();
-    // Stop the placeholder music loop no matter HOW this scene ends —
-    // Restart, Quit, the post-battle Menu button, Next Stage, all of them
-    // just call scene.start/scene.restart, and Phaser fires 'shutdown' on
-    // every one of those. A single hook here beats sprinkling stopMusic()
-    // calls at every exit point. Also tears down the real boss track
-    // directly (not via updateBossMusic's own teardown branch, which would
-    // wrongly resume the synth loop right as the scene is going away) if
-    // one's still playing.
-    this.events.once('shutdown', () => {
-      stopMusic();
-      if (this.bossMusicSound) {
-        this.bossMusicSound.stop();
-        this.bossMusicSound.destroy();
-        this.bossMusicSound = null;
-      }
-    });
+    playMusic(this.getBattleMusicUrl());
+    // Stop the battle music no matter HOW this scene ends — Restart, Quit,
+    // the post-battle Menu button, Next Stage, all of them just call
+    // scene.start/scene.restart, and Phaser fires 'shutdown' on every one
+    // of those. A single hook here beats sprinkling stopMusic() calls at
+    // every exit point. Covers the boss track too now — both it and the
+    // normal battle track go through the same Audio.js player (see
+    // updateBossMusic), so there's nothing separate left to tear down.
+    this.events.once('shutdown', () => stopMusic());
+  }
+
+  // Real per-saga battle theme (Origins Asset Kit's PvE/Music set) — one
+  // track per saga rather than a single loop for the whole game, so a
+  // saga transition reads as a real change of scenery, not just harder
+  // numbers. Dojo has no saga of its own, so it reuses saga1's track.
+  getBattleMusicUrl() {
+    const track = BATTLE_MUSIC_BY_SAGA[this.stage?.saga] || BATTLE_MUSIC_BY_SAGA.saga1;
+    return track;
   }
 
   // Two-camera HUD split (Battle Cats-style scroll-to-zoom + drag-to-pan on
@@ -1653,7 +1677,13 @@ export default class GameScene extends Phaser.Scene {
     this.unitCooldowns[key] = recharge;
     this.unitCooldownDurations[key] = recharge;
     this.spawnUnit(key, finalConfig);
-    playDeploySfx();
+    // Real "summon" clip (Origins Asset Kit) instead of a synthesized
+    // blip — deploy is the single most frequent action in a battle, so
+    // this gets a real sound rather than the layered
+    // synth-baseline-plus-real-flavor approach attack sounds use (see
+    // AttackVfx.js's fireAttackVfx) — one clean sound, not two competing
+    // ones, for the thing the player does constantly.
+    playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.6 });
     addLifetimeStat('unitsDeployed');
   }
 
@@ -1846,35 +1876,20 @@ export default class GameScene extends Phaser.Scene {
   // Re-asserted every frame (see update()) rather than only reacting to the
   // spawn/kill events that change aliveBossCount — a boss dying is the
   // common case, but this stays correct regardless of how the track might
-  // otherwise stop (BGM was muted/Off the instant the boss spawned, so the
-  // track never actually started; a browser tab-visibility pause; anything
-  // else) instead of getting permanently stuck once aliveBossCount and the
-  // Sound object's real playing state disagree with each other.
+  // otherwise have gotten out of sync. Both tracks now go through the same
+  // Audio.js playMusic player (see getBattleMusicUrl/BOSS_MUSIC_URL) — it
+  // handles its own idempotency (calling it again with the track that's
+  // already playing is a no-op) and keeps decoding/playing even while
+  // muted/Off (at zero gain), so there's no separate "retry once volume
+  // allows it" case to handle here the way a Phaser Sound object needed.
   updateBossMusic() {
     const shouldPlay = this.aliveBossCount > 0 && !this.isGameOver;
-    const isOn = !!this.bossMusicSound;
-
-    if (shouldPlay && isOn && !this.bossMusicSound.isPlaying) {
-      // Exists but isn't actually sounding (paused, stalled, whatever the
-      // cause) — tear it down so the branch below recreates it fresh.
-      this.bossMusicSound.destroy();
-      this.bossMusicSound = null;
-      return;
-    }
-
-    if (shouldPlay && !isOn) {
-      stopMusic();
-      if (isMuted() || getBgmVolumeLevel() === 0) return; // retried again next frame once volume/mute allows it
-      this.bossMusicSound = this.sound.add('bgm_boss', { loop: true, volume: VOLUME_LEVELS[getBgmVolumeLevel()] });
-      this.bossMusicSound.play();
-      return;
-    }
-
-    if (!shouldPlay && isOn) {
-      this.bossMusicSound.stop();
-      this.bossMusicSound.destroy();
-      this.bossMusicSound = null;
-      if (!this.isGameOver) startMusic(); // resume the normal battle loop
+    if (shouldPlay && !this.isBossMusicPlaying) {
+      playMusic(BOSS_MUSIC_URL);
+      this.isBossMusicPlaying = true;
+    } else if (!shouldPlay && this.isBossMusicPlaying) {
+      playMusic(this.getBattleMusicUrl());
+      this.isBossMusicPlaying = false;
     }
   }
 
@@ -2933,6 +2948,13 @@ export default class GameScene extends Phaser.Scene {
     const status = attacker.config.statusOnHit;
     if (!status || status.type === STATUS_TYPES.NONE) return;
     if (Math.random() > status.chance) return;
+
+    // Real per-status stinger (Origins Asset Kit) — the guide never had a
+    // matching sound for these, so this is new coverage, not a synth
+    // replacement. Played once per successful proc, same point the effect
+    // itself gets applied below.
+    const statusSfxFile = STATUS_SFX_FILE[status.type];
+    if (statusSfxFile) playSfxFile(`/audio/sfx/${statusSfxFile}`, { gain: 0.65 });
 
     switch (status.type) {
       case STATUS_TYPES.SLOW:

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
-import { isMuted, setMuted, playUiTapSfx } from './Audio.js';
+import { isMuted, setMuted, playUiTapSfx, playMusic } from './Audio.js';
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
@@ -50,6 +50,13 @@ export default class HomeScene extends Phaser.Scene {
     // invisible). See Backdrop.js / UITheme.js's own drawWoodFrame comment.
     addBackground(this, 'gauntletArena');
     drawWoodFrame(this, width, height);
+
+    // Real menu theme (Origins Asset Kit's PvE/Music/home.wav) — this
+    // screen had no music at all before. playMusic is a no-op if it's
+    // already the active track (returning here from any menu screen that
+    // doesn't touch music itself, e.g. Saga/Stage Select), so this never
+    // restarts the loop mid-phrase just from re-entering Home.
+    playMusic('/audio/bgm_home.wav');
 
     createTitlePill(this, 24, 26, 'AXIE BASE');
 

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { ATTACK_VFX, UNIT_ATTACK_VFX, ROLE_ATTACK_VFX } from './VFX_CONFIG.js';
+import { playSfxFile } from './Audio.js';
 
 // Every clip's natural length runs well over a second — way slower than
 // this game's attack cadence (the fastest unit, Swarm, cycles every
@@ -53,6 +54,14 @@ export function fireAttackVfx(scene, attacker, targetX, targetY) {
     ? UNIT_ATTACK_VFX[attacker.config.id]
     : ROLE_ATTACK_VFX[attacker.config.role];
   if (!vfxId) return;
+
+  // Real attack clip (public/audio/sfx/<vfxId>_attack.wav — same Origins
+  // Asset Kit clip set these visual VFX come from) — every vfxId here has
+  // one. Played alongside (not instead of) GameScene's own generic hit/crit
+  // blip (see applyResolvedDamage) — this is the character-specific
+  // flavor layered on top of that universal baseline, not a replacement.
+  playSfxFile(`/audio/sfx/${vfxId}_attack.wav`, { gain: 0.55 });
+
   const vfx = ATTACK_VFX[vfxId];
   if (!scene.textures.exists(vfx.key)) return;
 

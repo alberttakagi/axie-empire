@@ -969,3 +969,60 @@ and Dojo mode's first wave fires immediately on entering Sparring Grounds
 — all previously stuck at zero until the first deploy. Confirmed the
 `firstMs: 20000` entry still correctly waits its real delay rather than
 firing early.
+
+## Real audio: swapping the synthesized placeholders for the kit's own sounds
+
+Discovered mid-session that the Origins Asset Kit already bundles a full
+real audio set this build had never touched: `Assets/OriginsKit/Audio/`
+(152 WAVs — 9 classes × 13 attack/hit/fly actions, plus ~35 status/buff
+stingers) and `Assets/OriginsKit/PvE/Music/` (real battle/boss/menu music).
+Everything in `src/Audio.js` before this pass was synthesized on the fly via
+raw oscillators — a deliberate placeholder (its own header said as much) —
+with exactly one exception (`bgm_boss.wav`, played through Phaser's own
+sound manager). Copied a working subset into `public/audio/` (flat
+`bgm_*.wav` for music, `sfx/` for one-shots) and wired it in:
+
+- **Music** — `Audio.js` gained a real buffered-loop player (`playMusic`/
+  `stopMusic`, backed by the same shared AudioContext everything else
+  uses) replacing the old `setInterval`-driven 4-note synth bassline
+  entirely. Each saga now has its own real battle track
+  (`BATTLE_MUSIC_BY_SAGA` — pve_1/2/3.wav), boss encounters swap to the
+  real `bgm_boss.wav` through the SAME player instead of a separate
+  Phaser-sound-manager code path, and HomeScene now has real menu music
+  (`bgm_home.wav`) where it previously had none at all. This also fixes a
+  real bug the old boss-music swap had: a Phaser `Sound` object snapshots
+  `volume` once at `.add()` time, so cycling the BGM level mid-battle never
+  affected boss music until it happened to restart — the new player's gain
+  node updates live on every volume/mute change instead (`refreshMusicGain`).
+- **Per-unit attack sound** — `AttackVfx.js`'s `fireAttackVfx` already
+  resolves a per-character clip id (`UNIT_ATTACK_VFX`/`ROLE_ATTACK_VFX` in
+  `VFX_CONFIG.js`) to pick each unit's real visual effect; it now also
+  plays that same clip's real `_attack.wav` (Tripp bites, Olek gores, Xia
+  gores differently, a Bug-class enemy fires a projectile clip, ...)
+  layered on top of (not replacing) the existing generic hit/crit blip.
+- **Status-effect sound** — `applyStatusEffect` now plays a real stinger
+  per `STATUS_TYPES` (Stop → stunned.wav, Weaken → weak.wav, Curse →
+  hex.wav, Warp → summon_off.wav, Slow → drain.wav) — this had no sound at
+  all before, real or synthesized.
+- **Deploy** — swapped from a synthesized blip to the kit's own real
+  `summon_on.wav`, a clean 1:1 replacement (not layered, since deploy is
+  the single most frequent action in a battle and two competing sounds on
+  every tap would get noisy fast).
+- Left as synthesized (deliberately, not an oversight): UI tap, normal
+  hit/crit blips, Cat Cannon fire, boss shockwave, victory/defeat fanfares
+  — each already reads as distinct and nothing in the kit is a strictly
+  better match for "menu tock" or "cannon whump" than a purpose-tuned tone.
+
+Scope note: `public/audio/` grew from ~3.9MB (just `bgm_boss.wav`) to ~28MB.
+The kit's own PvE music tracks the game actually uses (pve_1/2/3, boss) are
+already downsampled to 16kHz mono (3.3-6.9MB each); `bgm_home.wav` is the
+one heavier file (10.3MB, 44.1kHz) copied as-is since no audio-conversion
+tooling (e.g. ffmpeg) is available in this environment — worth revisiting
+with a proper OGG/MP3 conversion pass if this ever ships somewhere bandwidth
+matters.
+
+Verified live: confirmed real network fetches for the battle track on stage
+load, the deploy sound on spawn, a real per-unit attack clip
+(`beast_bite_attack.wav`) firing alongside the visual VFX, a status stinger
+(`stunned.wav`) firing on a forced proc, and the boss/battle track swapping
+correctly (and back) via `updateBossMusic`'s own `isBossMusicPlaying` flag.
