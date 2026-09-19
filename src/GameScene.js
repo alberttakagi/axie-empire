@@ -37,6 +37,7 @@ import { DOJO_CONFIG } from './DOJO_CONFIG.js';
 import { saveDojoScore } from './DojoProgress.js';
 import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './UITheme.js';
 import { describeUnit } from './UnitDescription.js';
+import { hasCompletedTutorial, markTutorialCompleted } from './Tutorial.js';
 import {
   playDeploySfx,
   playCannonSfx,
@@ -745,6 +746,12 @@ export default class GameScene extends Phaser.Scene {
     // off explicitly here instead.
     if (this.mode === 'dojo') this.scheduleDojoWaves();
 
+    // First-battle walkthrough (see Tutorial.js/showBattleTutorial) — real
+    // stages only, once ever per browser (Sparring Grounds is an optional
+    // extra mode a player reaches from Home, not their first real fight,
+    // so it doesn't need its own walkthrough).
+    if (this.mode !== 'dojo' && !hasCompletedTutorial()) this.showBattleTutorial();
+
     startMusic();
     // Stop the placeholder music loop no matter HOW this scene ends —
     // Restart, Quit, the post-battle Menu button, Next Stage, all of them
@@ -1102,6 +1109,17 @@ export default class GameScene extends Phaser.Scene {
 
       this.spawnButtons.push({ key, config, rect, icon, costText, cooldownOverlay });
     }
+
+    // Whole-row bounding box (not any one button's) — see
+    // showBattleTutorial, which highlights this entire zone rather than
+    // one specific slot (which unit is even in slot 1 varies by Formation).
+    const rowHeight = totalRows * BUTTON_HEIGHT + (totalRows - 1) * SPAWN_ROW_GAP;
+    this.spawnRowBounds = {
+      x: startX + (rowWidth - buttonWidth) / 2,
+      y: bottomY - (rowHeight - BUTTON_HEIGHT) / 2,
+      width: rowWidth,
+      height: rowHeight,
+    };
   }
 
   // Pause/Options (reference-screenshot-confirmed: a small pause icon,
@@ -1129,7 +1147,7 @@ export default class GameScene extends Phaser.Scene {
     const panelY = height / 2 - 30;
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
-    objects.push(drawBcPanel(this, width / 2, panelY, 340, 200));
+    objects.push(drawBcPanel(this, width / 2, panelY, 340, 230));
     objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontFamily: FONT, fontSize: '20px', color: BC.inkHex }).setOrigin(0.5));
 
     objects.push(createBcCircleButton(this, width / 2 + 155, panelY - 85, 14, '✕', () => this.hideSettingsPopup()));
@@ -1158,11 +1176,21 @@ export default class GameScene extends Phaser.Scene {
     );
     objects.push(bgmButton);
 
+    // Replays the first-battle walkthrough on demand — Tutorial.js only
+    // ever shows it once unprompted, so this is the one way back to it for
+    // a player who skipped it, or just wants the refresher.
+    objects.push(
+      createBcButton(this, width / 2, panelY + 42, 220, 32, 'How to Play', () => {
+        this.hideSettingsPopup({ keepPaused: true });
+        this.showBattleTutorial();
+      }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 14 }),
+    );
+
     // Hands off to the existing Yes/No confirm rather than retreating
     // immediately — same "don't throw away a live run on one accidental
     // tap" reasoning as before, just reached from inside Options now.
     objects.push(
-      createBcButton(this, width / 2, panelY + 65, 220, 40, 'Retreat', () => {
+      createBcButton(this, width / 2, panelY + 84, 220, 40, 'Retreat', () => {
         this.hideSettingsPopup({ keepPaused: true });
         this.showQuitConfirm();
       }, { fill: BC.red, highlight: BC.redHighlight, textColor: '#ffffff', fontSize: 16 }),
@@ -1177,6 +1205,143 @@ export default class GameScene extends Phaser.Scene {
     this.settingsPopupObjects.forEach((obj) => obj.destroy());
     this.settingsPopupObjects = null;
     if (!opts.keepPaused) this.isPaused = false;
+  }
+
+  // First-battle walkthrough (new request: a fresh player dropped straight
+  // into this HUD has no way to guess what the spawn bar, Worker Cat, or
+  // the Cat Cannon actually do). A short guided tour — one target
+  // highlighted at a time, a callout with what it does, Back/Next/Skip —
+  // rather than a wall of text up front; Tutorial.js remembers it's been
+  // seen (or skipped) so it never runs again unprompted. Replayable anytime
+  // from the Options popup's own "How to Play" button.
+  //
+  // Step positions are read live off this scene's own already-placed HUD
+  // (this.spawnRowBounds/workerCatX/cannonX/laneY, ...) rather than
+  // hardcoded coordinates, so a future layout tweak to any of those
+  // elements can't silently leave the tutorial pointing at empty space.
+  getTutorialSteps() {
+    const { width } = this.scale;
+    return [
+      {
+        targets: [
+          { x: TOWER_PLAYER_DISPLAY_WIDTH / 2, y: this.laneY, w: TOWER_PLAYER_DISPLAY_WIDTH + 12, h: TOWER_SPRITE_DISPLAY_HEIGHT + 12 },
+          { x: width - TOWER_ENEMY_DISPLAY_WIDTH / 2, y: this.laneY, w: TOWER_ENEMY_DISPLAY_WIDTH + 12, h: TOWER_SPRITE_DISPLAY_HEIGHT + 12 },
+        ],
+        text: 'Destroy the enemy base (left) before yours (right) falls. That’s the whole goal — everything else is just how you get there.',
+      },
+      {
+        targets: [{
+          x: this.spawnRowBounds.x, y: this.spawnRowBounds.y,
+          w: this.spawnRowBounds.width + 12, h: this.spawnRowBounds.height + 12,
+        }],
+        text: 'Tap a unit here to deploy it onto the field. Each one costs money, and refills on its own cooldown after you use it.',
+      },
+      {
+        targets: [{ x: width - 90, y: 16, w: 180, h: 36 }],
+        text: 'Your money fills up on its own over time — there’s no way to "save up" beforehand, so spend it as it comes in.',
+      },
+      {
+        targets: [{
+          x: this.workerCatX, y: this.workerCatY,
+          w: this.workerCatRadius * 2 + 16, h: this.workerCatRadius * 2 + 50,
+        }],
+        text: 'Worker Cat: spend money here to raise both your income rate and how much money you can hold at once.',
+      },
+      {
+        targets: [{ x: this.cannonX, y: this.cannonY, w: CANNON_BUTTON_RADIUS * 2 + 16, h: CANNON_BUTTON_RADIUS * 2 + 16 }],
+        text: 'The Rune Cannon charges on its own during the fight. Tap it once the ring fills all the way to unleash a powerful attack.',
+      },
+    ];
+  }
+
+  showBattleTutorial() {
+    this.isPaused = true;
+    this.tutorialStepIndex = 0;
+    this.renderTutorialStep();
+  }
+
+  renderTutorialStep() {
+    if (this.tutorialObjects) this.tutorialObjects.forEach((obj) => obj.destroy());
+
+    const steps = this.getTutorialSteps();
+    const step = steps[this.tutorialStepIndex];
+    const { width, height } = this.scale;
+    const objects = [];
+
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive());
+
+    // Bright gold outline around each target rect — no dimming cutout/mask
+    // needed for "look here" to read clearly on top of the dim overlay
+    // above.
+    const highlight = this.add.graphics();
+    highlight.lineStyle(4, BC.gold, 1);
+    for (const t of step.targets) {
+      highlight.strokeRoundedRect(t.x - t.w / 2, t.y - t.h / 2, t.w, t.h, 10);
+    }
+    objects.push(highlight);
+
+    // Callout panel — anchored below the target on the top half of the
+    // screen, above it on the bottom half, so it never overlaps what it's
+    // pointing at regardless of which step this is.
+    const firstTarget = step.targets[0];
+    const calloutY = firstTarget.y < height / 2 ? Math.min(height - 110, firstTarget.y + firstTarget.h / 2 + 90) : Math.max(110, firstTarget.y - firstTarget.h / 2 - 90);
+    const panelWidth = width - 80;
+    const panelHeight = 130;
+    objects.push(drawBcPanel(this, width / 2, calloutY, panelWidth, panelHeight));
+    objects.push(
+      this.add
+        .text(width / 2, calloutY - panelHeight / 2 + 20, `Step ${this.tutorialStepIndex + 1} of ${steps.length}`, {
+          fontFamily: FONT, fontSize: '12px', color: '#7a5c1e',
+        })
+        .setOrigin(0.5),
+    );
+    objects.push(
+      this.add
+        .text(width / 2, calloutY, step.text, {
+          fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
+          wordWrap: { width: panelWidth - 40 }, lineSpacing: 4,
+        })
+        .setOrigin(0.5),
+    );
+
+    const buttonY = calloutY + panelHeight / 2 - 26;
+    const isLast = this.tutorialStepIndex === steps.length - 1;
+    if (this.tutorialStepIndex > 0) {
+      objects.push(
+        createBcButton(this, width / 2 - 160, buttonY, 100, 36, 'Back', () => {
+          this.tutorialStepIndex -= 1;
+          this.renderTutorialStep();
+        }, { fill: 0x8a8a8a, highlight: 0xbbbbbb, textColor: '#ffffff', fontSize: 13 }),
+      );
+    }
+    objects.push(
+      createBcButton(this, width / 2 + 160, buttonY, 100, 36, isLast ? 'Got it!' : 'Next', () => {
+        if (isLast) this.closeTutorial();
+        else {
+          this.tutorialStepIndex += 1;
+          this.renderTutorialStep();
+        }
+      }, { fontSize: 13 }),
+    );
+    if (!isLast) {
+      objects.push(
+        this.add
+          .text(width / 2, buttonY, 'Skip', { fontFamily: FONT, fontSize: '12px', color: '#dddddd', stroke: '#000000', strokeThickness: 3 })
+          .setOrigin(0.5)
+          .setInteractive({ useHandCursor: true })
+          .on('pointerdown', () => this.closeTutorial()),
+      );
+    }
+
+    this.cameras.main.ignore(objects); // UI (see setupZoomControls) — stays fixed regardless of battle zoom
+    this.tutorialObjects = objects;
+  }
+
+  closeTutorial() {
+    markTutorialCompleted();
+    if (this.tutorialObjects) this.tutorialObjects.forEach((obj) => obj.destroy());
+    this.tutorialObjects = null;
+    this.isPaused = false;
   }
 
   // Battle Items (bible §A.8) — a compact top-center row, one button per
@@ -1300,6 +1465,7 @@ export default class GameScene extends Phaser.Scene {
     // bottom edge.
     const y = height - 16 - radius - 16;
     this.workerCatX = x;
+    this.workerCatY = y;
     this.workerCatRadius = radius;
 
     const face = this.add.circle(x, y, radius, 0xffffff).setStrokeStyle(3, BC.ink);
