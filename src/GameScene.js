@@ -700,7 +700,7 @@ export default class GameScene extends Phaser.Scene {
     // the reference screenshot exactly (unlike every other screen's dark
     // resource pill, the battle HUD's own money readout has no background).
     this.walletText = this.add
-      .text(width - 16, 16, '', {
+      .text(width - 16, 16, `${Math.round(this.money).toLocaleString()}/${Math.round(this.getWalletCap()).toLocaleString()}円`, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '22px',
         color: '#ffe58a',
         stroke: '#1d1a16', strokeThickness: 5,
@@ -1261,7 +1261,16 @@ export default class GameScene extends Phaser.Scene {
         text: 'Tap a unit here to deploy it onto the field. Each one costs money, and refills on its own cooldown after you use it.',
       },
       {
-        targets: [{ x: width - 90, y: 16, w: 180, h: 36 }],
+        // Read the wallet text's OWN real rendered bounds rather than a
+        // guessed rect — a hand-guessed box (previously x: width-90, y:16,
+        // w:180, h:36) drifts out of alignment the moment the actual
+        // string's length/position doesn't match the guess (origin (1,0)
+        // means it grows leftward/downward from its anchor, not centered
+        // on it), which is exactly the bug this replaces.
+        targets: [(() => {
+          const b = this.walletText.getBounds();
+          return { x: b.centerX, y: b.centerY, w: b.width + 20, h: b.height + 14 };
+        })()],
         text: 'Your money fills up on its own over time — there’s no way to "save up" beforehand, so spend it as it comes in.',
       },
       {
