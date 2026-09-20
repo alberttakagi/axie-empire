@@ -12,8 +12,8 @@ import { FONT } from './UITheme.js';
 // The reference spec (guide): ~27px/sec scroll (a full real chapter intro
 // runs ~40 real seconds), a tap-hold 3x speed-up, top/bottom fade zones,
 // and a Skip button that works immediately with no confirmation — kept
-// here, just with far shorter (original) flavor text than a real 6-10-line
-// chapter intro, since this project has exactly one such intro to write,
+// here, running the real Tales of Lunacia text below instead of a made-up
+// chapter intro, since this project has exactly one origin story to tell,
 // not one per chapter.
 const SCROLL_SPEED_PX_PER_SEC = 26;
 const HOLD_SPEED_MULTIPLIER = 3;
@@ -21,15 +21,24 @@ const FADE_ZONE_HEIGHT = 46;
 const SKIP_BUTTON_FADE_IN_MS = 900;
 const END_HOLD_MS = 500; // pause once the text fully clears the top fade, before handing off to HomeScene
 
+// The Tales of Lunacia — Axie Infinity's own real origin myth, reproduced
+// here near-verbatim at the user's own request (this is their fan project,
+// already built entirely on Axie's official art/characters/terminology —
+// the game's every totem, tower, and Chimera enemy already comes straight
+// from this same lore).
 const STORY_LINES = [
-  'Long ago, the Empire of Axies flourished in peace, its lineages thriving from coast to coast.',
-  'Then, without warning, the Chimeras came — twisted, hungry things from far beyond the borders.',
-  'Village after village fell silent. The Empire’s armies were never built for a war like this one.',
-  'But deep in the old bloodlines, a strength remained: small, round, and utterly relentless.',
-  'One by one, the Basic-tier Axies rose to answer the call.',
-  'Their weapons were humble. Their numbers, endless. Their spirit, unbreakable.',
-  'This is the story of that stand — stage by stage, chapter by chapter — until the Empire stands again.',
-  'The battle for the Empire of Axies begins now.',
+  'Gather together, children of light. We have a story to share, the first of many.',
+  'It all began with a glimmer in the dark unknown. For a millennium, a young sun god explored the cosmos. He grew strong and gained great knowledge on a divine quest for a matching planet to fulfill his existence.',
+  'He was our sun god, Aethel.',
+  'Finally, he discovered our beautiful Lunacia. Here life began and blossomed in his loving embrace.',
+  'But the cosmos is full of riddles, and wherever life reigns, corruption follows. The chimeras descended and infected noble Aethel with the realm.',
+  'Yet the sun’s heart remained full of hope. He collapsed, offering that pulse to keep light alive.',
+  'And from the ashes of the all-loving god, the supreme Axies were born and began to fight. They were outnumbered by the wicked legions. Yet pushed forward and were winning the war. Aethel’s legacy was powering them to victory.',
+  'But desperate Argonia, lord of chimeras, attempted a final deadly ruse.',
+  'He sacrificed himself to destroy the moon, allowing the chimeras to continue their assault.',
+  'The moon was broken and many foes remained. The Axies survived, but their power faded. Falling back, they placed moon shards atop ancient totems to power new settlements for their resistance.',
+  'These are just the first pages of the stories we will tell together.',
+  'The tales of Lunacia.',
 ];
 
 export default class OpeningScene extends Phaser.Scene {
@@ -47,7 +56,7 @@ export default class OpeningScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
 
-    addBackground(this, 'temple');
+    addBackground(this, 'dusk'); // a glowing moonlit forest — fits Lunacia's own moon-and-light imagery better than the temple ruins
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
 
     this.storyText = this.add
