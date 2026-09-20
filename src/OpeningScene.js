@@ -12,33 +12,36 @@ import { FONT } from './UITheme.js';
 // The reference spec (guide): ~27px/sec scroll (a full real chapter intro
 // runs ~40 real seconds), a tap-hold 3x speed-up, top/bottom fade zones,
 // and a Skip button that works immediately with no confirmation — kept
-// here, running the real Tales of Lunacia text below instead of a made-up
-// chapter intro, since this project has exactly one origin story to tell,
-// not one per chapter.
+// here, running this game's own origin story below (see STORY_LINES)
+// instead of a made-up per-chapter intro, since this project has exactly
+// one such story to tell.
 const SCROLL_SPEED_PX_PER_SEC = 26;
 const HOLD_SPEED_MULTIPLIER = 3;
 const FADE_ZONE_HEIGHT = 46;
 const SKIP_BUTTON_FADE_IN_MS = 900;
 const END_HOLD_MS = 500; // pause once the text fully clears the top fade, before handing off to HomeScene
 
-// The Tales of Lunacia — Axie Infinity's own real origin myth, reproduced
-// here near-verbatim at the user's own request (this is their fan project,
-// already built entirely on Axie's official art/characters/terminology —
-// the game's every totem, tower, and Chimera enemy already comes straight
-// from this same lore).
+// This game's own opening narration — the earlier draft told an original
+// "Empire of Axies vs. the Chimeras" story from scratch; this pass folds in
+// a few real names/beats from Axie Infinity's actual lore (Atia the sun
+// god, the world Lunacia, the moon shards atop the totems every base
+// screen already shows) without retelling that myth straight — the user
+// specifically wants the ORIGINAL narrative's lighter, funnier, Battle-
+// Cats-style tone (self-aware, deadpan about the absurdity of it all) over
+// a faithful dramatic retelling of the real thing.
 const STORY_LINES = [
-  'Gather together, children of light. We have a story to share, the first of many.',
-  'It all began with a glimmer in the dark unknown. For a millennium, a young sun god explored the cosmos. He grew strong and gained great knowledge on a divine quest for a matching planet to fulfill his existence.',
-  'He was our sun god, Aethel.',
-  'Finally, he discovered our beautiful Lunacia. Here life began and blossomed in his loving embrace.',
-  'But the cosmos is full of riddles, and wherever life reigns, corruption follows. The chimeras descended and infected noble Aethel with the realm.',
-  'Yet the sun’s heart remained full of hope. He collapsed, offering that pulse to keep light alive.',
-  'And from the ashes of the all-loving god, the supreme Axies were born and began to fight. They were outnumbered by the wicked legions. Yet pushed forward and were winning the war. Aethel’s legacy was powering them to victory.',
-  'But desperate Argonia, lord of chimeras, attempted a final deadly ruse.',
-  'He sacrificed himself to destroy the moon, allowing the chimeras to continue their assault.',
-  'The moon was broken and many foes remained. The Axies survived, but their power faded. Falling back, they placed moon shards atop ancient totems to power new settlements for their resistance.',
-  'These are just the first pages of the stories we will tell together.',
-  'The tales of Lunacia.',
+  'Gather round, little ones. This is the story of how it all began. Or at least, our best guess.',
+  'Long before the Empire, before the Chimeras, there was Atia — a sun god who spent a thousand years wandering the cosmos, looking for a planet worth the trip.',
+  'He found one: Lunacia. Green, glowing, and blissfully free of paperwork.',
+  'Life took root. Everyone was happy. This lasted almost an entire chapter.',
+  'Then the Chimeras showed up, because peace is apparently against the rules out here.',
+  'They corrupted Atia himself — so, being a sun god about it, he collapsed and poured every last spark of himself into keeping the light alive.',
+  'From his ashes rose the Axies: small, round, and far more stubborn than the Chimeras had budgeted for. They’d go on to found the Empire of Axies. Yes, named after themselves. No, nobody stopped them.',
+  'Outnumbered a thousand to one, the Axies did the only sensible thing. They kept fighting anyway.',
+  'Desperate, the Chimera lord Argonia blew up the moon. As one does.',
+  'The Axies survived the blast, if a little worse for wear — so they bolted the moon’s leftover shards onto some old totems and called it a power grid.',
+  'Which is, more or less, why your totem glows like that.',
+  'Anyway. That’s the backstory. Time to go fight some Chimeras.',
 ];
 
 export default class OpeningScene extends Phaser.Scene {
