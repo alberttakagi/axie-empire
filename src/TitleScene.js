@@ -1,0 +1,118 @@
+import Phaser from 'phaser';
+import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './UITheme.js';
+import {
+  getSfxVolumeLevel, cycleSfxVolumeLevel,
+  getBgmVolumeLevel, cycleBgmVolumeLevel,
+  VOLUME_LEVEL_LABELS, playUiTapSfx,
+} from './Audio.js';
+
+// Title screen (guide Chapter 04's 起動・タイトル・オープニング) — the one
+// piece of that boot sequence this project had skipped entirely: it went
+// straight from `new Phaser.Game` into the opening lore scroll with no
+// logo/"Game Start" screen in front of it at all. Sits first in main.js's
+// scene list now, in front of OpeningScene.
+//
+// Real Battle Cats: Splash -> Loading -> Title -> Opening (first launch
+// only) -> Menu. This project's Splash/Loading has nothing to actually
+// wait on (everything's a local Vite build, not a downloaded asset
+// bundle), so those two are skipped outright — Title is the real first
+// screen a player sees.
+const LOGO_BOB_PX = 6;
+const LOGO_BOB_MS = 1400;
+const VERSION_TEXT = 'v1.0';
+
+export default class TitleScene extends Phaser.Scene {
+  constructor() {
+    super('TitleScene');
+  }
+
+  preload() {
+    preloadBackgrounds(this);
+  }
+
+  create() {
+    const { width, height } = this.scale;
+
+    // Same backdrop HomeScene uses — Title and the hub it leads into read
+    // as one continuous place, distinct from the opening lore's own
+    // separate moonlit-forest mood.
+    addBackground(this, 'gauntletArena');
+    this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.35);
+
+    const logo = this.add
+      .text(width / 2, height * 0.32, 'AXIE SKIRMISH', {
+        fontFamily: FONT, fontSize: '46px', color: '#ffe58a',
+        stroke: '#1d1a16', strokeThickness: 8,
+      })
+      .setOrigin(0.5);
+    this.tweens.add({
+      targets: logo, y: logo.y - LOGO_BOB_PX,
+      duration: LOGO_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+    this.add
+      .text(width / 2, height * 0.32 + 40, 'Empire of Axies', {
+        fontFamily: FONT, fontSize: '16px', color: '#f5ead0',
+        stroke: '#1d1a16', strokeThickness: 4,
+      })
+      .setOrigin(0.5);
+
+    createBcButton(this, width / 2, height * 0.62, 260, 72, 'Game Start', () => {
+      playUiTapSfx();
+      this.scene.start('OpeningScene');
+    }, { fontSize: 22 });
+
+    createBcCircleButton(this, width - 30, height - 30, 20, '⚙', () => this.showSettingsPopup(), { fill: 0x8a8a8a, highlight: 0xbbbbbb });
+
+    this.add
+      .text(12, height - 12, VERSION_TEXT, {
+        fontFamily: FONT, fontSize: '11px', color: '#ffffff',
+        stroke: '#1d1a16', strokeThickness: 3,
+      })
+      .setOrigin(0, 1);
+  }
+
+  // Same SFX/BGM volume controls as GameScene's own Options popup — this is
+  // the only other place a player might reasonably want to mute/adjust
+  // before ever reaching a battle.
+  showSettingsPopup() {
+    if (this.settingsPopupObjects) return;
+
+    const { width, height } = this.scale;
+    const objects = [];
+    const panelY = height / 2;
+
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+    objects.push(drawBcPanel(this, width / 2, panelY, 320, 170));
+    objects.push(this.add.text(width / 2, panelY - 60, 'Settings', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex }).setOrigin(0.5));
+    objects.push(createBcCircleButton(this, width / 2 + 145, panelY - 65, 14, '✕', () => this.hideSettingsPopup()));
+
+    objects.push(
+      this.add.text(width / 2 - 120, panelY - 20, 'SFX Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0, 0.5),
+    );
+    const sfxButton = createBcButton(
+      this, width / 2 + 90, panelY - 20, 100, 32, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()],
+      () => sfxButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]),
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(sfxButton);
+
+    objects.push(
+      this.add.text(width / 2 - 120, panelY + 20, 'BGM Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0, 0.5),
+    );
+    const bgmButton = createBcButton(
+      this, width / 2 + 90, panelY + 20, 100, 32, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()],
+      () => bgmButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]),
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(bgmButton);
+
+    this.settingsPopupObjects = objects;
+  }
+
+  hideSettingsPopup() {
+    if (!this.settingsPopupObjects) return;
+    this.settingsPopupObjects.forEach((obj) => obj.destroy());
+    this.settingsPopupObjects = null;
+  }
+}

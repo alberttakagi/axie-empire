@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import TitleScene from './TitleScene.js';
 import OpeningScene from './OpeningScene.js';
 import HomeScene from './HomeScene.js';
 import SagaSelectScene from './SagaSelectScene.js';
@@ -22,10 +23,13 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  // OpeningScene is first in this list, so it's the scene Phaser boots
-  // into — it immediately hands off to HomeScene on every launch except
-  // the device's very first one (see OpeningScene.js's own header).
+  // TitleScene is first in this list, so it's the scene Phaser boots
+  // into (guide Chapter 04's boot sequence: Title -> Opening -> Menu —
+  // this project's own Splash/Loading steps have nothing to wait on, so
+  // they're skipped). "Game Start" hands off to OpeningScene, which in
+  // turn always hands off to HomeScene (see OpeningScene.js's own header).
   scene: [
+    TitleScene,
     OpeningScene,
     HomeScene,
     SagaSelectScene,
