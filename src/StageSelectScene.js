@@ -48,6 +48,15 @@ const SCROLL_INERTIA_MIN_VELOCITY = 0.4;
 const RUBBER_BAND_FACTOR = 0.35; // how much of an over-drag past the edge actually moves the map
 const RUBBER_BAND_SNAP_LERP = 0.22; // per-frame ease back to the real bound once released
 
+// Extra scrollable empty space held past the very first and very last
+// node, on top of whatever it already takes to center either one — without
+// this, the scroll bound sits exactly at "the first/last node is centered"
+// with zero room to spare, which both reads as an abrupt wall underfoot
+// and (see Tripp's own centerNodeLocalIndex) never lets him fully settle
+// on either end stage, since the viewport can get close to centered on it
+// but never quite past a small margin.
+const MAP_EDGE_PADDING = 220;
+
 // Node visual states (guide Chapter 06's ノードの状態 table).
 const LOCKED_NODE_COLOR = 0x777777;
 const BOSS_NODE_SCALE = 1.4;
@@ -329,9 +338,10 @@ export default class StageSelectScene extends Phaser.Scene {
       this.mapContainer.add(nodeObjects);
     });
 
-    // Rightmost content edge, used by setupMapScroll to clamp how far the
-    // container can scroll (never past the path's own actual end).
-    this.mapContentRight = positions[positions.length - 1].x + 80;
+    // Leftmost/rightmost node positions, used by setupMapScroll to derive
+    // how far the container can scroll in either direction.
+    this.mapContentLeft = positions[0].x;
+    this.mapContentRight = positions[positions.length - 1].x;
   }
 
   // Tripp (see TRIPP_* constants' header) starts parked on whichever node
@@ -440,8 +450,7 @@ export default class StageSelectScene extends Phaser.Scene {
   centerOnCurrentStage() {
     const { width } = this.scale;
     const { x } = this.nodePosition(this.currentLocalIndex);
-    const maxScroll = Math.max(0, this.mapContentRight - (width - 16));
-    this.mapContainer.x = -Phaser.Math.Clamp(x - width / 2, 0, maxScroll);
+    this.mapContainer.x = Phaser.Math.Clamp(width / 2 - x, this.mapScrollMin, this.mapScrollMax);
   }
 
   // Mouse-wheel + drag-to-scroll for the stage map (see createStageMap's
@@ -453,11 +462,18 @@ export default class StageSelectScene extends Phaser.Scene {
   // flicking mid-map, keeps coasting under its own momentum until
   // tickMapScroll's per-frame decay settles it — see that method and
   // update() for the actual physics tick.
+  //
+  // Bounds are symmetric around "either end node is centered" plus
+  // MAP_EDGE_PADDING of genuine empty scrollable space beyond it — mapping
+  // container.x = width/2 - worldX centers worldX, so the most this can
+  // ever be is centering the FIRST node (mapScrollMax, a positive offset)
+  // and the least is centering the LAST node (mapScrollMin, a large
+  // negative offset), each pushed further out by the padding.
   setupMapScroll() {
     const { width } = this.scale;
-    const maxScroll = Math.max(0, this.mapContentRight - (width - 16));
-    const clamp = (x) => Phaser.Math.Clamp(x, -maxScroll, 0);
-    this.mapMaxScroll = maxScroll;
+    this.mapScrollMax = width / 2 - this.mapContentLeft + MAP_EDGE_PADDING;
+    this.mapScrollMin = width / 2 - this.mapContentRight - MAP_EDGE_PADDING;
+    const clamp = (x) => Phaser.Math.Clamp(x, this.mapScrollMin, this.mapScrollMax);
     this.mapScrollClamp = clamp;
     this.mapScrollVelocity = 0;
     this.isDraggingMap = false;
@@ -492,8 +508,8 @@ export default class StageSelectScene extends Phaser.Scene {
   // Compresses how far a drag can actually push the map past either end,
   // rather than hard-clamping it — see SCROLL constants' own header.
   applyRubberBand(x) {
-    const min = -this.mapMaxScroll;
-    const max = 0;
+    const min = this.mapScrollMin;
+    const max = this.mapScrollMax;
     if (x > max) return max + (x - max) * RUBBER_BAND_FACTOR;
     if (x < min) return min + (x - min) * RUBBER_BAND_FACTOR;
     return x;
@@ -507,8 +523,8 @@ export default class StageSelectScene extends Phaser.Scene {
   tickMapScroll() {
     if (!this.mapContainer || this.isDraggingMap) return;
 
-    const min = -this.mapMaxScroll;
-    const max = 0;
+    const min = this.mapScrollMin;
+    const max = this.mapScrollMax;
     const x = this.mapContainer.x;
     if (x < min || x > max) {
       this.mapContainer.x = Phaser.Math.Linear(x, Phaser.Math.Clamp(x, min, max), RUBBER_BAND_SNAP_LERP);
