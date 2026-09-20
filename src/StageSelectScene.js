@@ -6,6 +6,7 @@ import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
 import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
+import { playUiTapSfx, playLockedTapSfx, playMapArrivalSfx } from './Audio.js';
 
 const DIFFICULTY_COLOR = {
   Easy: 0x4caf50,
@@ -33,6 +34,36 @@ const MAP_VIEWPORT_BOTTOM = 396;
 const MAP_CENTER_Y = (MAP_VIEWPORT_TOP + MAP_VIEWPORT_BOTTOM) / 2;
 const DOT_TRAIL_STEP = 10; // px between each small dot of the connecting dotted line
 
+// Drag-scroll physics (guide Chapter 06's スクロールの仕様): momentum that
+// keeps coasting after the finger lifts, decaying a fixed % per frame until
+// it's slow enough to just stop, plus a soft "rubber band" give at either
+// end of the path instead of a hard stop. Real reference numbers are per
+// real-frame (30fps); this game runs its own render loop at whatever the
+// browser gives it, but the decay/threshold read fine applied per rendered
+// frame rather than converted to a time-based rate — the difference is
+// imperceptible at typical 60fps.
+const SCROLL_INERTIA_DECAY = 0.92;
+const SCROLL_INERTIA_MIN_VELOCITY = 0.4;
+const RUBBER_BAND_FACTOR = 0.35; // how much of an over-drag past the edge actually moves the map
+const RUBBER_BAND_SNAP_LERP = 0.22; // per-frame ease back to the real bound once released
+
+// Node visual states (guide Chapter 06's ノードの状態 table).
+const LOCKED_NODE_COLOR = 0x777777;
+const BOSS_NODE_SCALE = 1.4;
+const BOSS_RING_COLOR = BC.red;
+const NEXT_NODE_PULSE_COLOR = BC.gold;
+
+// Walking cat marker (guide Chapter 06's ネコアイコンの挙動) — a plain
+// Phaser-drawn mascot (two triangle ears, an ellipse body, two dot eyes)
+// rather than a new art asset, matching the guide's own reference demo's
+// equally simple canvas-drawn cat.
+const CAT_BODY_COLOR = 0xf7f7f2;
+const CAT_GAP_ABOVE_NODE = 30;
+const CAT_IDLE_BOB_PX = 4;
+const CAT_IDLE_BOB_MS = 900;
+const CAT_WALK_DURATION_MS = 650;
+const CAT_ARRIVAL_BOUNCE_SCALE = 1.25;
+
 export default class StageSelectScene extends Phaser.Scene {
   constructor() {
     super('StageSelectScene');
@@ -56,6 +87,11 @@ export default class StageSelectScene extends Phaser.Scene {
     // erroring.
     this.sagaId = data?.sagaId || STAGE_CONFIG[0].saga;
     this.sagaStages = STAGE_CONFIG.filter((stage) => stage.saga === this.sagaId);
+    // Set only when this screen was reached by actually winning a stage
+    // (see GameScene's winStage/showEndScreen) — read by createCatMarker/
+    // catWalkStartLocalIndex to decide whether the cat marker has anywhere
+    // to walk from.
+    this.clearedStageId = data?.clearedStageId || null;
 
     // Backdrop matches the chosen saga (see Backdrop.js), dimmed by a flat
     // scrim for the stage grid's own text/contrast — mirrors HomeScene's
@@ -71,12 +107,19 @@ export default class StageSelectScene extends Phaser.Scene {
     // painted over it once scrolled). Building the header last guarantees
     // it always draws on top regardless, and the mask is the real fix.
     this.createStageMap(progress);
+    this.createCatMarker();
     this.setupMapScroll();
 
     createTitlePill(this, 24, 26, 'Select Stage');
     createBackButton(this, () => this.scene.start('SagaSelectScene'));
     this.createEnergyDisplay();
     this.createMapArrows();
+  }
+
+  // Inertia + rubber-band-snap-back tick (see setupMapScroll) — the only
+  // reason this scene needs its own update() at all.
+  update() {
+    this.tickMapScroll();
   }
 
   // Energy/Stamina (bible §A.9) — the one piece of the old header worth
@@ -133,6 +176,7 @@ export default class StageSelectScene extends Phaser.Scene {
       }
     }
     this.mapContainer.add(trailDots);
+    this.nodePositions = positions; // reused by createCatMarker/animateCatWalk
 
     // The first unlocked-but-not-yet-cleared stage is "current" — the one
     // node that gets the bigger highlighted marker and an always-visible
@@ -161,10 +205,16 @@ export default class StageSelectScene extends Phaser.Scene {
       const isCleared = stageProgress?.cleared === true;
       const isCurrent = localIndex === this.currentLocalIndex;
 
+      // Boss/chapter-final nodes (guide's ノードの状態 table) read as bigger
+      // with a red ring regardless of their other states — the one node
+      // shape that overrides the normal size/ring rules below.
+      const isBoss = stage.difficulty === 'Boss';
+      const baseRadius = isCurrent ? 16 : 9;
+      const radius = isBoss ? Math.round(baseRadius * BOSS_NODE_SCALE) : baseRadius;
+
       const nodeObjects = [];
-      const radius = isCurrent ? 16 : 9;
-      const fill = !isUnlocked ? 0x777777 : DIFFICULTY_COLOR[stage.difficulty];
-      const ringColor = isCleared ? BC.gold : BC.ink;
+      const fill = !isUnlocked ? LOCKED_NODE_COLOR : DIFFICULTY_COLOR[stage.difficulty];
+      const ringColor = isBoss ? BOSS_RING_COLOR : isCleared ? BC.gold : BC.ink;
 
       nodeObjects.push(this.add.circle(x, y + 3, radius, 0x000000, 0.3)); // drop shadow
       const dot = this.add.circle(x, y, radius, fill).setStrokeStyle(isCurrent ? 4 : 2.5, ringColor);
@@ -173,13 +223,48 @@ export default class StageSelectScene extends Phaser.Scene {
         nodeObjects.push(this.add.text(x, y, '★', { fontFamily: FONT, fontSize: `${radius}px`, color: '#fff7cc' }).setOrigin(0.5));
       }
 
-      // Treasure tier dot (bible §A.6.3) — small badge above-right of the
-      // node, only drawn once a tier has actually been obtained.
+      // Unreached node: a plain padlock silhouette instead of the star/
+      // difficulty fill, so "not selectable yet" reads at a glance without
+      // needing to tap it first.
+      if (!isUnlocked) {
+        const lock = this.add.graphics();
+        lock.fillStyle(0x2a2a2a, 1);
+        lock.fillRoundedRect(x - 5, y - 2, 10, 9, 1.5);
+        lock.lineStyle(2, 0x2a2a2a, 1);
+        lock.strokeCircle(x, y - 3, 4.5);
+        nodeObjects.push(lock);
+      }
+
+      // Next-to-play node (guide: 45F-cycle blinking yellow border) — a
+      // separate ring pulsing outward from the node, looping for as long as
+      // this node stays "current." isCurrent already implies unlocked and
+      // not yet cleared (see currentLocalIndex above), so this and the
+      // padlock branch above are mutually exclusive.
+      if (isCurrent) {
+        const pulse = this.add.circle(x, y, radius, 0x000000, 0).setStrokeStyle(3, NEXT_NODE_PULSE_COLOR, 1);
+        this.tweens.add({
+          targets: pulse, radius: radius + 8, alpha: 0,
+          duration: 900, repeat: -1, ease: 'Sine.easeOut',
+        });
+        nodeObjects.push(pulse);
+      }
+
+      // Treasure tier dot (bible §A.6.3) once a tier has actually been
+      // obtained; otherwise, on a stage that's cleared but still has no
+      // treasure at all, a small unlit chest hints one is still there for
+      // the taking (guide's お宝未入手 badge) — the two never show together.
       const tier = getStageTier(stage.id);
       if (isUnlocked && tier > 0) {
         nodeObjects.push(
           this.add.circle(x + radius - 2, y - radius, 5, TREASURE_TIER_COLORS[tier]).setStrokeStyle(1.5, BC.ink),
         );
+      } else if (isUnlocked && isCleared) {
+        const chest = this.add.graphics();
+        chest.fillStyle(0x8a5a2b, 1);
+        chest.fillRoundedRect(x + radius - 6, y - radius - 4, 8, 6, 1);
+        chest.lineStyle(1, 0x4a2f14, 1);
+        chest.strokeRoundedRect(x + radius - 6, y - radius - 4, 8, 6, 1);
+        nodeObjects.push(chest);
       }
       // Restriction Stage badge (bible §A.6.5) — small red "!" badge
       // above-left, mirroring the treasure dot. Full details show in the
@@ -220,7 +305,16 @@ export default class StageSelectScene extends Phaser.Scene {
 
       if (isUnlocked) {
         const hit = this.add.circle(x, y, radius + 10, 0x000000, 0.001).setInteractive({ useHandCursor: true });
-        hit.on('pointerdown', () => this.onStageSelected(stage));
+        hit.on('pointerdown', () => {
+          playUiTapSfx();
+          this.onStageSelected(stage);
+        });
+        nodeObjects.push(hit);
+      } else {
+        // Guide's own spec: tapping a still-locked node plays a low "bu"
+        // cue and otherwise does nothing — no popup, no vibration.
+        const hit = this.add.circle(x, y, radius + 10, 0x000000, 0.001).setInteractive();
+        hit.on('pointerdown', () => playLockedTapSfx());
         nodeObjects.push(hit);
       }
 
@@ -230,6 +324,86 @@ export default class StageSelectScene extends Phaser.Scene {
     // Rightmost content edge, used by setupMapScroll to clamp how far the
     // container can scroll (never past the path's own actual end).
     this.mapContentRight = positions[positions.length - 1].x + 80;
+  }
+
+  // A plain-drawn stand-in mascot (see CAT_BODY_COLOR's header comment) that
+  // marks the player's real position on this saga's path — parked at
+  // whichever node is "current" (see createStageMap), or walked there from
+  // `clearedStageId`'s node first when that's the stage this screen was
+  // just reached from finishing (see GameScene's winStage/showEndScreen).
+  createCatMarker() {
+    const cat = this.add.graphics();
+    cat.fillStyle(CAT_BODY_COLOR, 1);
+    cat.lineStyle(2, BC.ink, 1);
+    // ears
+    cat.beginPath(); cat.moveTo(-7, -7); cat.lineTo(-6, -15); cat.lineTo(-1, -6); cat.closePath();
+    cat.fillPath(); cat.strokePath();
+    cat.beginPath(); cat.moveTo(7, -7); cat.lineTo(6, -15); cat.lineTo(1, -6); cat.closePath();
+    cat.fillPath(); cat.strokePath();
+    // body
+    cat.fillEllipse(0, 0, 20, 16);
+    cat.strokeEllipse(0, 0, 20, 16);
+    // eyes
+    cat.fillStyle(BC.ink, 1);
+    cat.fillCircle(-4, -1, 1.6);
+    cat.fillCircle(4, -1, 1.6);
+    this.catMarker = cat;
+    this.mapContainer.add(cat);
+
+    const startLocalIndex = this.catWalkStartLocalIndex();
+    const { x, y } = this.nodePositions[startLocalIndex];
+    cat.setPosition(x, y - CAT_GAP_ABOVE_NODE);
+    this.startCatIdleBob();
+
+    if (startLocalIndex !== this.currentLocalIndex) this.animateCatWalk(startLocalIndex, this.currentLocalIndex);
+  }
+
+  // Resolves where the cat should START from: right on the just-cleared
+  // stage's own node when this screen was reached by clearing the stage
+  // that used to BE this saga's current one (a genuine frontier advance —
+  // see GameScene's winStage), otherwise straight onto today's current
+  // node with no walk at all (a fresh visit, a loss, dojo, or replaying
+  // stage well behind the frontier).
+  catWalkStartLocalIndex() {
+    if (!this.clearedStageId) return this.currentLocalIndex;
+    const clearedLocalIndex = this.sagaStages.findIndex((s) => s.id === this.clearedStageId);
+    if (clearedLocalIndex === -1) return this.currentLocalIndex;
+    const advancedByOne = this.currentLocalIndex === clearedLocalIndex + 1;
+    const clearedTheWholeSaga = this.currentLocalIndex === clearedLocalIndex && clearedLocalIndex === this.sagaStages.length - 1;
+    return advancedByOne || clearedTheWholeSaga ? clearedLocalIndex : this.currentLocalIndex;
+  }
+
+  startCatIdleBob() {
+    if (!this.catMarker) return;
+    this.tweens.add({
+      targets: this.catMarker, y: `-=${CAT_IDLE_BOB_PX}`,
+      duration: CAT_IDLE_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+    });
+  }
+
+  // Walks the cat marker from one node to the next on a genuine stage
+  // clear (see createCatMarker/catWalkStartLocalIndex) — a straight tween
+  // between the two nodes' own positions, landing with a quick squash-and-
+  // grow bounce plus the arrival "pon" (guide: ネコアイコンの挙動's landing
+  // jump + sound + node-unlock animation).
+  animateCatWalk(fromLocalIndex, toLocalIndex) {
+    const from = this.nodePositions[fromLocalIndex];
+    const to = this.nodePositions[toLocalIndex];
+    this.catMarker.setPosition(from.x, from.y - CAT_GAP_ABOVE_NODE);
+
+    this.tweens.add({
+      targets: this.catMarker,
+      x: to.x, y: to.y - CAT_GAP_ABOVE_NODE,
+      duration: CAT_WALK_DURATION_MS,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        playMapArrivalSfx();
+        this.tweens.add({
+          targets: this.catMarker, scale: CAT_ARRIVAL_BOUNCE_SCALE,
+          duration: 140, yoyo: true, ease: 'Quad.easeOut',
+        });
+      },
+    });
   }
 
   // Auto-scroll (on load only) to center the current/next stage in the
@@ -246,35 +420,80 @@ export default class StageSelectScene extends Phaser.Scene {
   // own header for why this exists — 48 real stages don't fit one screen).
   // Horizontal-only, matching the reference's own left/right map scroll —
   // unlike GameScene's zoom+pan battle camera, this is a single scrollable
-  // path, not a 2D battlefield.
+  // path, not a 2D battlefield. A drag past either end gives a little
+  // rubber-band while held (see applyRubberBand) and releasing it, or just
+  // flicking mid-map, keeps coasting under its own momentum until
+  // tickMapScroll's per-frame decay settles it — see that method and
+  // update() for the actual physics tick.
   setupMapScroll() {
     const { width } = this.scale;
     const maxScroll = Math.max(0, this.mapContentRight - (width - 16));
     const clamp = (x) => Phaser.Math.Clamp(x, -maxScroll, 0);
     this.mapMaxScroll = maxScroll;
     this.mapScrollClamp = clamp;
+    this.mapScrollVelocity = 0;
+    this.isDraggingMap = false;
 
     this.centerOnCurrentStage();
 
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
       this.mapContainer.x = clamp(this.mapContainer.x - (deltaX || deltaY));
+      this.mapScrollVelocity = 0; // a wheel nudge shouldn't also keep coasting afterward
     });
 
-    let isDragging = false;
     let dragStartX = 0;
     let containerStartX = 0;
     this.input.on('pointerdown', (pointer) => {
       if (pointer.y < MAP_VIEWPORT_TOP || pointer.y > MAP_VIEWPORT_BOTTOM) return;
-      isDragging = true;
+      this.isDraggingMap = true;
       dragStartX = pointer.x;
       containerStartX = this.mapContainer.x;
+      this.mapScrollVelocity = 0;
     });
     this.input.on('pointermove', (pointer) => {
-      if (!isDragging || !pointer.isDown) return;
-      this.mapContainer.x = clamp(containerStartX + (pointer.x - dragStartX));
+      if (!this.isDraggingMap || !pointer.isDown) return;
+      const next = this.applyRubberBand(containerStartX + (pointer.x - dragStartX));
+      this.mapScrollVelocity = next - this.mapContainer.x; // px/frame, decayed by tickMapScroll after release
+      this.mapContainer.x = next;
     });
-    this.input.on('pointerup', () => { isDragging = false; });
-    this.input.on('pointerupoutside', () => { isDragging = false; });
+    const endDrag = () => { this.isDraggingMap = false; };
+    this.input.on('pointerup', endDrag);
+    this.input.on('pointerupoutside', endDrag);
+  }
+
+  // Compresses how far a drag can actually push the map past either end,
+  // rather than hard-clamping it — see SCROLL constants' own header.
+  applyRubberBand(x) {
+    const min = -this.mapMaxScroll;
+    const max = 0;
+    if (x > max) return max + (x - max) * RUBBER_BAND_FACTOR;
+    if (x < min) return min + (x - min) * RUBBER_BAND_FACTOR;
+    return x;
+  }
+
+  // Runs every frame (see update()): while dragging, does nothing (the
+  // pointermove handler above already owns mapContainer.x); once released,
+  // either eases an over-dragged position back to the real bound, or lets
+  // any remaining fling velocity keep coasting, decaying it a fixed % per
+  // frame until it's slow enough to just stop.
+  tickMapScroll() {
+    if (!this.mapContainer || this.isDraggingMap) return;
+
+    const min = -this.mapMaxScroll;
+    const max = 0;
+    const x = this.mapContainer.x;
+    if (x < min || x > max) {
+      this.mapContainer.x = Phaser.Math.Linear(x, Phaser.Math.Clamp(x, min, max), RUBBER_BAND_SNAP_LERP);
+      this.mapScrollVelocity = 0;
+      return;
+    }
+
+    if (Math.abs(this.mapScrollVelocity) > SCROLL_INERTIA_MIN_VELOCITY) {
+      this.mapContainer.x = this.mapScrollClamp(this.mapContainer.x + this.mapScrollVelocity);
+      this.mapScrollVelocity *= SCROLL_INERTIA_DECAY;
+    } else {
+      this.mapScrollVelocity = 0;
+    }
   }
 
   // Left/right arrow buttons at the map viewport's own edges (reference:
@@ -286,9 +505,11 @@ export default class StageSelectScene extends Phaser.Scene {
     const pageStep = NODE_SPACING_X * 3;
 
     createBcCircleButton(this, 16, y, 20, '◀', () => {
+      this.mapScrollVelocity = 0;
       this.mapContainer.x = this.mapScrollClamp(this.mapContainer.x + pageStep);
     }, { fill: 0x8a8a8a, highlight: 0xbbbbbb });
     createBcCircleButton(this, width - 16, y, 20, '▶', () => {
+      this.mapScrollVelocity = 0;
       this.mapContainer.x = this.mapScrollClamp(this.mapContainer.x - pageStep);
     }, { fill: 0x8a8a8a, highlight: 0xbbbbbb });
   }

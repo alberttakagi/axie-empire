@@ -3588,7 +3588,7 @@ export default class GameScene extends Phaser.Scene {
     const globalIndex = STAGE_CONFIG.indexOf(this.stage);
     const nextStage = STAGE_CONFIG[globalIndex + 1] || null;
 
-    this.showEndScreen(lines, nextStage);
+    this.showEndScreen(lines, nextStage, this.stage.id);
   }
 
   // XP reward for THIS clear (bible §A.5.1): full baseXp on a first win,
@@ -3607,8 +3607,11 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // `nextStage` (winStage only) adds a third "Next Stage" button (bible
-  // §A.10.5) alongside the always-present Restart/Menu pair.
-  showEndScreen(lines, nextStage = null) {
+  // §A.10.5) alongside the always-present Restart/Menu pair. `wonStageId`
+  // (winStage only, otherwise null) is passed through to StageSelectScene's
+  // "Menu" button so its map screen knows a real win just happened here,
+  // rather than a loss/dojo-timeout — see that button's onClick above.
+  showEndScreen(lines, nextStage = null, wonStageId = null) {
     this.gameOverText.setText(lines.join('\n'));
     this.gameOverBackdrop.setVisible(true);
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
@@ -3647,8 +3650,10 @@ export default class GameScene extends Phaser.Scene {
         // directly), so "Menu" should return there instead. A normal stage
         // battle returns to its OWN saga's stage list (bible §A.6.1), not
         // always saga1's — this.stage.saga is read straight off the stage
-        // record STAGE_CONFIG already resolved in create().
-        onClick = () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga });
+        // record STAGE_CONFIG already resolved in create(). `wonStageId`
+        // (only set on an actual win — see winStage) tells the map screen
+        // which node to walk its cat marker forward from.
+        onClick = () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga, clearedStageId: wonStageId });
       }
 
       const button = createBcButton(this, x, buttonY, buttonWidth, 60, label, onClick, {

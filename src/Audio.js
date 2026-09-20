@@ -147,6 +147,21 @@ export function playUiTapSfx() {
 // exists (see AttackVfx.js's fireAttackVfx) — this is the universal
 // baseline every hit gets regardless of attacker, the real sound is the
 // character-specific flavor layered on top.
+// A dull, muted thud for tapping a still-locked stage node on the map
+// (guide Chapter 06: low "bu" cue, no vibration) — deliberately the
+// opposite character from playUiTapSfx's bright "tock" so a locked tap
+// reads as a non-event rather than a normal confirm.
+export function playLockedTapSfx() {
+  playTone({ freq: 110, duration: 0.08, type: 'sine', peakGain: 0.08 });
+}
+
+// A short bright "pon" for the map screen's walking cat marker landing on
+// its new stage after a clear (guide Chapter 06's ネコアイコンの挙動).
+export function playMapArrivalSfx() {
+  playTone({ freq: 700, duration: 0.05, type: 'sine', peakGain: 0.14 });
+  playTone({ freq: 1050, startOffset: 0.05, duration: 0.09, type: 'sine', peakGain: 0.12 });
+}
+
 export function playHitSfx() {
   playTone({ freq: 220, duration: 0.06, type: 'square', peakGain: 0.09 });
 }
