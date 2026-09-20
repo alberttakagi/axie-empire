@@ -41,8 +41,6 @@ import { hasCompletedTutorial, markTutorialCompleted } from './Tutorial.js';
 import {
   playCannonSfx,
   playBossShockwaveSfx,
-  playVictorySfx,
-  playDefeatSfx,
   playHitSfx,
   playCritSfx,
   playUiTapSfx,
@@ -273,14 +271,14 @@ const STATUS_SFX_FILE = {
   [STATUS_TYPES.WARP]: 'summon_off.wav',
 };
 
-// Real per-saga battle music (Origins Asset Kit's PvE/Music set, copied to
-// public/audio/ — see Audio.js) — see getBattleMusicUrl.
-const BATTLE_MUSIC_BY_SAGA = {
-  saga1: '/audio/bgm_pve1.wav',
-  saga2: '/audio/bgm_pve2.wav',
-  saga3: '/audio/bgm_pve3.wav',
-};
+// User-supplied battle/victory/defeat themes (replacing the old real
+// per-saga PvE tracks and the synthesized victory/defeat jingles — see
+// winStage/endGame below). One track for every saga/Dojo now rather than
+// one per saga; the boss track is untouched.
+const BATTLE_MUSIC_URL = '/audio/bgm_battle.mp3';
 const BOSS_MUSIC_URL = '/audio/bgm_boss.wav';
+const VICTORY_MUSIC_URL = '/audio/bgm_victory.mp3';
+const DEFEAT_MUSIC_URL = '/audio/bgm_defeat.mp3';
 
 const LANE_Y_RATIO = 0.5;
 const BASE_WIDTH = 60;
@@ -836,7 +834,7 @@ export default class GameScene extends Phaser.Scene {
     // so it doesn't need its own walkthrough).
     if (this.mode !== 'dojo' && !hasCompletedTutorial()) this.showBattleTutorial();
 
-    playMusic(this.getBattleMusicUrl());
+    playMusic(BATTLE_MUSIC_URL);
     // Stop the battle music no matter HOW this scene ends — Restart, Quit,
     // the post-battle Menu button, Next Stage, all of them just call
     // scene.start/scene.restart, and Phaser fires 'shutdown' on every one
@@ -847,14 +845,6 @@ export default class GameScene extends Phaser.Scene {
     this.events.once('shutdown', () => stopMusic());
   }
 
-  // Real per-saga battle theme (Origins Asset Kit's PvE/Music set) — one
-  // track per saga rather than a single loop for the whole game, so a
-  // saga transition reads as a real change of scenery, not just harder
-  // numbers. Dojo has no saga of its own, so it reuses saga1's track.
-  getBattleMusicUrl() {
-    const track = BATTLE_MUSIC_BY_SAGA[this.stage?.saga] || BATTLE_MUSIC_BY_SAGA.saga1;
-    return track;
-  }
 
   // Two-camera HUD split (Battle Cats-style scroll-to-zoom + drag-to-pan on
   // the battlefield only): cameras.main renders the world — it's what
@@ -1986,7 +1976,7 @@ export default class GameScene extends Phaser.Scene {
   // spawn/kill events that change aliveBossCount — a boss dying is the
   // common case, but this stays correct regardless of how the track might
   // otherwise have gotten out of sync. Both tracks now go through the same
-  // Audio.js playMusic player (see getBattleMusicUrl/BOSS_MUSIC_URL) — it
+  // Audio.js playMusic player (see BATTLE_MUSIC_URL/BOSS_MUSIC_URL) — it
   // handles its own idempotency (calling it again with the track that's
   // already playing is a no-op) and keeps decoding/playing even while
   // muted/Off (at zero gain), so there's no separate "retry once volume
@@ -1997,7 +1987,7 @@ export default class GameScene extends Phaser.Scene {
       playMusic(BOSS_MUSIC_URL);
       this.isBossMusicPlaying = true;
     } else if (!shouldPlay && this.isBossMusicPlaying) {
-      playMusic(this.getBattleMusicUrl());
+      playMusic(BATTLE_MUSIC_URL);
       this.isBossMusicPlaying = false;
     }
   }
@@ -3600,7 +3590,7 @@ export default class GameScene extends Phaser.Scene {
 
   endGame() {
     this.isGameOver = true;
-    playDefeatSfx();
+    playMusic(DEFEAT_MUSIC_URL);
 
     const finalScore = this.getScore();
     // A loss can still raise a stage's best score; it never marks it cleared.
@@ -3626,7 +3616,7 @@ export default class GameScene extends Phaser.Scene {
   // The only win trigger: destroying the enemy base (see damageEnemyBase).
   winStage() {
     this.isGameOver = true;
-    playVictorySfx();
+    playMusic(VICTORY_MUSIC_URL);
 
     const finalScore = this.getScore();
     // Read both the clear count AND whether this stage was EVER cleared

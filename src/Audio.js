@@ -184,18 +184,6 @@ export function playBossShockwaveSfx() {
   playTone({ freq: 70, duration: 0.6, type: 'sawtooth', peakGain: 0.25 });
 }
 
-export function playVictorySfx() {
-  [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
-    playTone({ freq, startOffset: i * 0.11, duration: 0.25, type: 'triangle', peakGain: 0.2 });
-  });
-}
-
-export function playDefeatSfx() {
-  [392, 349.23, 293.66, 261.63].forEach((freq, i) => {
-    playTone({ freq, startOffset: i * 0.13, duration: 0.3, type: 'sawtooth', peakGain: 0.18 });
-  });
-}
-
 // --- Real audio files (one-shot sfx + looping music) ---------------------
 //
 // Both share one small in-memory cache of decoded buffers, keyed by URL, so
