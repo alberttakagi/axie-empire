@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
+import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { isUnitUnlocked } from './PlayerProgress.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
@@ -116,8 +118,27 @@ export default class CatalogScene extends Phaser.Scene {
     });
   }
 
+  // Names exactly which stage clear unlocks a still-locked lineage — same
+  // pattern/wording as LoadoutScene's own describeLockedUnit, duplicated
+  // rather than shared since the two scenes otherwise have nothing else in
+  // common to justify a joint module. Never called for the enemy roster
+  // (enemies have no unlock concept at all).
+  describeLockedUnit(type) {
+    const requirement = UNIT_CONFIG[type]?.unlockRequirement;
+    const stage = requirement?.stageId && STAGE_CONFIG.find((s) => s.id === requirement.stageId);
+    return stage ? `Clear "${stage.displayName}" to unlock!` : 'Not available yet!';
+  }
+
   renderGridCard(key, x, y, index) {
     const config = this.roster[key];
+    // Roster gating (see LoadoutScene's own identical treatment) — this
+    // screen used to render a still-locked lineage identically to an
+    // unlocked one, spoiling its name/ability text with no indication it
+    // hadn't actually been earned yet (the project's own documented
+    // "Known Gap #7"). Enemies have no unlock concept, so this is always
+    // `true` on that roster.
+    const unlocked = !this.isPlayerSide || isUnitUnlocked(key);
+
     // White/black-outline card (matches every other roster-browsing screen
     // in this pass) instead of a per-unit flat color fill.
     const g = this.add.graphics();
@@ -131,10 +152,13 @@ export default class CatalogScene extends Phaser.Scene {
     // portrait — this guide is nothing but static cards otherwise. Full
     // body (no faceZoom) sized to fill most of the now much bigger card.
     const icon = addUnitIcon(this, x, y - 18, config, CARD_HEIGHT - 46, this.isPlayerSide, false, true);
+    if (icon) icon.setAlpha(unlocked ? 1 : 0.5);
     // Character name first (e.g. "Buba"), role second and smaller — this
-    // guide is about browsing specific characters, not picking a role.
+    // guide is about browsing specific characters, not picking a role. A
+    // still-locked lineage shows neither — its name/role are exactly what
+    // "locked" is supposed to be withholding.
     const label = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 30, config.characterName, {
+      .text(x, y + CARD_HEIGHT / 2 - 30, unlocked ? config.characterName : '???', {
         fontFamily: FONT, fontSize: '14px',
         color: BC.inkHex,
         align: 'center',
@@ -142,18 +166,19 @@ export default class CatalogScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const roleLabel = this.add
-      .text(x, y + CARD_HEIGHT / 2 - 12, `(${config.abilityLabel || config.displayName})`, {
+      .text(x, y + CARD_HEIGHT / 2 - 12, unlocked ? `(${config.abilityLabel || config.displayName})` : 'Locked', {
         fontFamily: FONT, fontSize: '11px',
-        color: '#5a5a5a',
+        color: unlocked ? '#5a5a5a' : BC.red,
         align: 'center',
         wordWrap: { width: CARD_WIDTH - 12 },
       })
       .setOrigin(0.5);
+    const dimOverlay = this.add.rectangle(x, y, CARD_WIDTH - 4, CARD_HEIGHT - 4, 0x1a1a1a, unlocked ? 0 : 0.6);
 
     const hit = this.add.rectangle(x, y, CARD_WIDTH, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true });
     hit.on('pointerdown', () => this.showDetail(index));
 
-    const objects = [g, label, roleLabel, hit];
+    const objects = [g, label, roleLabel, dimOverlay, hit];
     if (icon) objects.splice(1, 0, icon);
     this.contentContainer.add(objects);
   }
@@ -170,6 +195,7 @@ export default class CatalogScene extends Phaser.Scene {
     const { width, height } = this.scale;
     const key = this.keys[this.detailIndex];
     const config = this.roster[key];
+    const unlocked = !this.isPlayerSide || isUnitUnlocked(key);
 
     const panel = drawBcPanel(this, width / 2, height / 2 + 22, width - 60, height - 96, { radius: 24 });
 
@@ -178,18 +204,22 @@ export default class CatalogScene extends Phaser.Scene {
     // large single-character detail portrait) — idleAnimated for the same
     // gentle-float reason as the grid cards.
     const icon = addUnitIcon(this, width / 2, 170, config, 170, this.isPlayerSide, false, true);
+    if (icon) icon.setAlpha(unlocked ? 1 : 0.5);
     // Character name first (e.g. "Buba"), role second and smaller — same
-    // ordering as the grid card and Character Formation.
+    // ordering as the grid card and Character Formation. A still-locked
+    // lineage withholds both, same as the grid card, and its ability
+    // breakdown is replaced with the same "how to unlock it" message
+    // LoadoutScene shows instead of spoiling what it actually does.
     const nameText = this.add
-      .text(width / 2, 262, config.characterName, { fontFamily: FONT, fontSize: '18px', color: BC.inkHex })
+      .text(width / 2, 262, unlocked ? config.characterName : '???', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex })
       .setOrigin(0.5);
     const roleText = this.add
-      .text(width / 2, 282, `(${config.abilityLabel || config.displayName})`, { fontFamily: FONT, fontSize: '12px', color: '#7a5c1e' })
+      .text(width / 2, 282, unlocked ? `(${config.abilityLabel || config.displayName})` : 'Locked', { fontFamily: FONT, fontSize: '12px', color: unlocked ? '#7a5c1e' : BC.red })
       .setOrigin(0.5);
 
-    const lines = describeUnit(config);
+    const descLines = unlocked ? describeUnit(config).map((line) => `• ${line}`) : [this.describeLockedUnit(key)];
     const descText = this.add
-      .text(width / 2, 302, lines.map((line) => `• ${line}`).join('\n'), {
+      .text(width / 2, 302, descLines.join('\n'), {
         fontFamily: FONT, fontSize: '12px',
         color: BC.inkHex,
         align: 'left',
