@@ -3408,32 +3408,44 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // One blast of the Cat Cannon (see triggerSpecialBurst) — real per-shot
-  // damage (guide Chapter 08's formula) to every living enemy plus the
-  // same amount to the enemy base directly, since real data never
-  // distinguishes separate unit-damage/base-damage values the way this
-  // build's old SPECIAL_BURST_DAMAGE/SPECIAL_BURST_BASE_DAMAGE split did.
-  // Enemy kills route through the normal removeDead/onEnemyKilled path so
-  // they still pay out money like any other kill; the base damage goes
-  // through damageEnemyBase so it still triggers a normal win if it
-  // finishes the base off. Knockback here is unconditional (not the
-  // HP-threshold "endurance" gate combat hits use) — the burst is a
-  // special, guaranteed effect, matching the bible's Cat Cannon including
-  // knockback (§A.3.9). `waveIndex` (0-based) only feeds the blast's own
-  // visual position (fireCannonBlastVfx) — every blast still damages every
-  // living enemy on screen, real per-blast POSITIONAL gating (only hitting
-  // enemies inside that specific blast's own x-range) isn't modeled.
+  // damage (guide Chapter 08's formula) to every living enemy actually
+  // standing inside THIS blast's own x-range, plus the same amount to the
+  // enemy base directly, since real data never distinguishes separate
+  // unit-damage/base-damage values the way this build's old
+  // SPECIAL_BURST_DAMAGE/SPECIAL_BURST_BASE_DAMAGE split did. Enemy kills
+  // route through the normal removeDead/onEnemyKilled path so they still
+  // pay out money like any other kill; the base damage goes through
+  // damageEnemyBase so it still triggers a normal win if it finishes the
+  // base off. Knockback here is unconditional (not the HP-threshold
+  // "endurance" gate combat hits use) — the burst is a special, guaranteed
+  // effect, matching the bible's Cat Cannon including knockback (§A.3.9).
+  // `waveIndex` positions both the blast's own visual (fireCannonBlastVfx)
+  // AND this same real per-blast POSITIONAL gating — an enemy standing
+  // well behind or ahead of where this specific blast lands takes no
+  // damage from it at all, even if a different blast in the same volley
+  // will reach them a moment later. (The real Cat Cannon knockback's own
+  // 55px/11-frame-invincibility specifics still aren't modeled — this
+  // engine's knockback distances are all tuned to its own compressed
+  // ~800px lane rather than the guide's raw several-thousand-unit
+  // battlefield, so importing that one raw number would put it wildly out
+  // of scale with every other knockbackDistance in ENEMY_CONFIG.js.)
   fireCannonWave(waveIndex) {
     if (this.isGameOver) return;
     this.fireCannonBlastVfx(waveIndex);
 
     const burstDamage = CANNON_BASE_DAMAGE + this.cannonPowerBonus;
     const syntheticAttacker = { shape: { x: this.baseX } };
+
+    const originX = TOWER_PLAYER_DISPLAY_WIDTH * CANNON_BEAM_ORIGIN_X_FRACTION;
+    const blastCenterX = originX + CANNON_BLAST_FIRST_CENTER_OFFSET + CANNON_BLAST_ADVANCE * waveIndex;
+    const blastHalfWidth = CANNON_BLAST_WIDTH / 2;
+
     for (const enemy of this.enemies) {
       // Real Cat Cannon damage is a wave attack — a wave-immune enemy
       // takes none of it at all (guide Chapter 08: "波動無効の敵には
       // 一切効きません"). No enemy in this build's roster carries that
       // flag yet, but the check is here so adding one later just works.
-      if (enemy.hp > 0 && !enemy.config.waveImmune) {
+      if (enemy.hp > 0 && !enemy.config.waveImmune && Math.abs(enemy.shape.x - blastCenterX) <= blastHalfWidth) {
         enemy.hp -= burstDamage;
         enemy.lastAttacker = syntheticAttacker; // no .config at all — never counts as a zombieKiller finish, see processZombieRevives
         // Still bypasses the HP-threshold "endurance" gate (per this
