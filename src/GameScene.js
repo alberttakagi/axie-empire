@@ -341,6 +341,33 @@ const STATUS_DODGE_COLOR = 0xffffff; // a brief white flash — rare and outrank
 const HIT_FLASH_COLOR = 0xffffff;
 const HIT_FLASH_DURATION_MS = 100;
 
+// Status-effect ICONS (distinct from the tint above): unlike the tint,
+// which only ever shows the single highest-priority status so the entity's
+// silhouette reads as one clear state, these show every currently-active
+// status at once as small badges above the entity's head — Weaken in
+// particular never wins the tint priority chain but is still a real,
+// separate debuff worth surfacing. Warp has no icon: a warping entity is
+// invisible outright (see tickStatusEffects), so there'd be nothing to
+// pin it to. One Text glyph per status, reused every frame (created once
+// per entity in makeEntityState) rather than created/destroyed on the fly.
+const STATUS_ICON_GLYPH = {
+  [STATUS_TYPES.STOP]: '✳', // ✳ stun
+  [STATUS_TYPES.CURSE]: '☠', // ☠ ability suppressed
+  [STATUS_TYPES.SLOW]: '❄', // ❄ slowed
+  [STATUS_TYPES.WEAKEN]: '↓', // ↓ weakened
+};
+const STATUS_ICON_ORDER = [STATUS_TYPES.STOP, STATUS_TYPES.CURSE, STATUS_TYPES.SLOW, STATUS_TYPES.WEAKEN];
+const toHexColor = (n) => `#${n.toString(16).padStart(6, '0')}`;
+const STATUS_ICON_COLOR = {
+  [STATUS_TYPES.STOP]: toHexColor(STATUS_STOP_COLOR),
+  [STATUS_TYPES.CURSE]: toHexColor(STATUS_CURSE_COLOR),
+  [STATUS_TYPES.SLOW]: toHexColor(STATUS_SLOW_COLOR),
+  [STATUS_TYPES.WEAKEN]: toHexColor(STATUS_WEAKEN_COLOR),
+};
+const STATUS_ICON_FONT_SIZE = 13;
+const STATUS_ICON_SPACING = 15;
+const STATUS_ICON_GAP_ABOVE_SPRITE = 14;
+
 // Dodge (bible §A.3.8): "a % chance to take zero damage... for a short
 // window after triggering; cannot re-trigger while already active" — see
 // tryDodge. Used as the fallback window length for a unit whose config
@@ -1796,6 +1823,27 @@ export default class GameScene extends Phaser.Scene {
   // evolved ("awakened") texture set instead of its base one, when
   // `config.sprite.evolved` exists — see UNIT_CONFIG.js's field comment and
   // PartEvolution.js.
+  // One hidden glyph per STATUS_ICON_ORDER entry, parked at the entity's
+  // spawn position — updateStatusIcons shows/repositions/hides these every
+  // frame rather than creating new ones, since which statuses are active
+  // changes constantly but the set of possible statuses doesn't.
+  createStatusIcons(shape) {
+    const icons = {};
+    for (const key of STATUS_ICON_ORDER) {
+      const icon = this.add
+        .text(shape.x, shape.y, STATUS_ICON_GLYPH[key], {
+          fontFamily: 'Rowdies, sans-serif', fontSize: `${STATUS_ICON_FONT_SIZE}px`,
+          color: STATUS_ICON_COLOR[key],
+          stroke: '#1d1a16', strokeThickness: 3,
+        })
+        .setOrigin(0.5)
+        .setVisible(false);
+      this.uiCamera.ignore(icon); // world object (see setupZoomControls) — zooms/pans with the battlefield
+      icons[key] = icon;
+    }
+    return icons;
+  }
+
   createEntityVisual(x, config, labelColor, isPlayerSide, visualScaleMultiplier = 1, isEvolved = false) {
     if (config.sprite) {
       const prefix = isPlayerSide ? 'unit' : 'enemy';
@@ -2055,6 +2103,10 @@ export default class GameScene extends Phaser.Scene {
       // the signed distance applied once warpMs reaches 0.
       warpMs: 0,
       warpOffset: 0,
+      // One reusable glyph per status type (see STATUS_ICON_GLYPH), shown/
+      // hidden and repositioned every frame in updateStatusIcons — created
+      // once here rather than churned per-frame.
+      statusIcons: this.createStatusIcons(shape),
       // Barrier shield (bible §A.3.8) — starts full if this config has one;
       // 0/undefined configs never enter the barrier-absorption branch at
       // all, see applyDamageAndEffects.
@@ -3040,6 +3092,11 @@ export default class GameScene extends Phaser.Scene {
     if (entity.dodgeMs > 0) entity.dodgeMs = Math.max(0, entity.dodgeMs - deltaMs);
     if (entity.hitFlashMs > 0) entity.hitFlashMs = Math.max(0, entity.hitFlashMs - deltaMs);
 
+    // Runs before the warp early-return below so a warping entity's icons
+    // get hidden too (updateStatusIcons checks warpMs itself) instead of
+    // freezing at wherever they last were.
+    this.updateStatusIcons(entity);
+
     if (entity.warpMs > 0) {
       entity.warpMs = Math.max(0, entity.warpMs - deltaMs);
       entity.shape.setVisible(false);
@@ -3080,6 +3137,29 @@ export default class GameScene extends Phaser.Scene {
       else if (entity.slowMs > 0) entity.shape.fillColor = STATUS_SLOW_COLOR;
       else if (entity.weakenMs > 0) entity.shape.fillColor = STATUS_WEAKEN_COLOR;
       else entity.shape.fillColor = entity.config.color;
+    }
+  }
+
+  // Unlike the tint above (only ever the single highest-priority status),
+  // shows a small badge for EVERY currently-active status at once, centered
+  // in a row above the entity's head — see STATUS_ICON_GLYPH's header
+  // comment for why Weaken needs its own visible cue despite never winning
+  // the tint. No badge for Warp: the whole entity is invisible while
+  // warping (see the caller in tickStatusEffects), so hide every icon then.
+  updateStatusIcons(entity) {
+    const active = entity.warpMs > 0 ? [] : STATUS_ICON_ORDER.filter((key) => entity[`${key}Ms`] > 0);
+    const rowWidth = (active.length - 1) * STATUS_ICON_SPACING;
+    const startX = entity.shape.x - rowWidth / 2;
+    const iconY = entity.shape.y - entity.config.radius - STATUS_ICON_GAP_ABOVE_SPRITE;
+
+    for (const key of STATUS_ICON_ORDER) {
+      const icon = entity.statusIcons[key];
+      const slot = active.indexOf(key);
+      if (slot === -1) {
+        icon.setVisible(false);
+        continue;
+      }
+      icon.setPosition(startX + slot * STATUS_ICON_SPACING, iconY).setVisible(true);
     }
   }
 
@@ -3307,6 +3387,7 @@ export default class GameScene extends Phaser.Scene {
         const entity = list[i];
         entity.shape.destroy();
         if (entity.label) entity.label.destroy();
+        for (const icon of Object.values(entity.statusIcons)) icon.destroy();
         list.splice(i, 1);
         if (onKill) onKill(entity);
       }
