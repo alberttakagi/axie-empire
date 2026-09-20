@@ -1,20 +1,18 @@
 import Phaser from 'phaser';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { FONT } from './UITheme.js';
-import { hasSeenOpening, markOpeningSeen } from './OpeningStory.js';
 
-// Opening lore screen (guide Chapter 04's 起動・タイトル・オープニング) —
-// real Battle Cats plays a bottom-to-top auto-scrolling story text only
-// once, on a device's very first launch, before ever reaching the main
-// menu. Every later launch skips straight past this scene (see create()'s
-// very first check) — HomeScene stays the game's normal entry point, this
-// is purely a first-run intro in front of it (see main.js's scene order).
+// Opening lore screen (guide Chapter 04's 起動・タイトル・オープニング,
+// adapted per the user's own call: play it on every launch, not just the
+// first — a deliberate departure from the real game's one-time intro).
+// HomeScene stays the game's normal destination; this is the scene that
+// boots first and always hands off to it, either after the full scroll or
+// the instant the player taps Skip (see main.js's scene order).
 //
 // The reference spec (guide): ~27px/sec scroll (a full real chapter intro
 // runs ~40 real seconds), a tap-hold 3x speed-up, top/bottom fade zones,
-// and a Skip button that fades in shortly after start and works
-// immediately with no confirmation. Reproduced here at the same relative
-// pace, just with far shorter (original) flavor text than a real 6-10-line
+// and a Skip button that works immediately with no confirmation — kept
+// here, just with far shorter (original) flavor text than a real 6-10-line
 // chapter intro, since this project has exactly one such intro to write,
 // not one per chapter.
 const SCROLL_SPEED_PX_PER_SEC = 26;
@@ -47,13 +45,6 @@ export default class OpeningScene extends Phaser.Scene {
   }
 
   create() {
-    // The one and only gate: every later launch skips this whole scene
-    // silently and instantly, straight into the game's real entry point.
-    if (hasSeenOpening()) {
-      this.scene.start('HomeScene');
-      return;
-    }
-
     const { width, height } = this.scale;
 
     addBackground(this, 'temple');
@@ -85,11 +76,11 @@ export default class OpeningScene extends Phaser.Scene {
     bottomFade.fillRect(0, height - FADE_ZONE_HEIGHT, width, FADE_ZONE_HEIGHT);
 
     this.skipText = this.add
-      .text(width - 20, 20, 'Skip »', {
+      .text(20, height - 20, 'Skip »', {
         fontFamily: FONT, fontSize: '14px', color: '#ffffff',
         stroke: '#1d1a16', strokeThickness: 3,
       })
-      .setOrigin(1, 0)
+      .setOrigin(0, 1)
       .setAlpha(0)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.finishOpening());
@@ -113,7 +104,6 @@ export default class OpeningScene extends Phaser.Scene {
   finishOpening() {
     if (this.isFinishing) return; // Skip tapped again during the natural end-hold delay, or twice in a row
     this.isFinishing = true;
-    markOpeningSeen();
     this.scene.start('HomeScene');
   }
 }
