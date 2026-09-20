@@ -45,6 +45,7 @@ import {
   playDefeatSfx,
   playHitSfx,
   playCritSfx,
+  playUiTapSfx,
   playSfxFile,
   playMusic,
   stopMusic,
@@ -130,6 +131,7 @@ const MONEY_RAMP_START_MULTIPLIER = 0.4;
 const MONEY_RAMP_DURATION_MS = 60000;
 
 const TREASURE_TIER_NAMES = ['', 'Bronze', 'Silver', 'Gold'];
+const TREASURE_TIER_COLOR = [0x000000, 0xcd7f32, 0xc0c0c0, 0xffd700]; // index 0 (none) never drawn — see playVictorySequence
 
 // Stage-clear XP reward decay (bible §A.5.1 — repeat clears taper toward a
 // floor rather than paying full XP forever): each previous clear of this
@@ -3634,14 +3636,9 @@ export default class GameScene extends Phaser.Scene {
       : rollTreasureForStage(this.stage.id);
     const droppedItem = rollBattleItemDrop();
 
-    const lines = ['STAGE CLEAR', `Score: ${finalScore}`, `+${xpReward.toLocaleString()} XP`];
-    if (rewards.evoShardsGranted) lines.push('+1 Evo Shard!');
-    if (rewards.growthCharmsGranted) lines.push('+1 Growth Charm!');
-    if (treasureResult.improved) lines.push(`${TREASURE_TIER_NAMES[treasureResult.tier]} Treasure!`);
-    if (droppedItem) lines.push(`+1 ${droppedItem.displayName}!`);
-    if (!wasAlreadyCleared) {
+    const isFirstClear = !wasAlreadyCleared;
+    if (isFirstClear) {
       addGems(this.stage.gemsFirstClear);
-      lines.push(`+${this.stage.gemsFirstClear} Gems! (First Clear)`);
       addUserRank(RANK_PER_FIRST_CLEAR); // User Rank (bible §A.7.4) — see UserRank.js
     }
 
@@ -3655,7 +3652,12 @@ export default class GameScene extends Phaser.Scene {
     const globalIndex = STAGE_CONFIG.indexOf(this.stage);
     const nextStage = STAGE_CONFIG[globalIndex + 1] || null;
 
-    this.showEndScreen(lines, nextStage);
+    this.playVictorySequence({
+      finalScore, xpReward, treasureResult, droppedItem, isFirstClear,
+      evoShardsGranted: rewards.evoShardsGranted,
+      growthCharmsGranted: rewards.growthCharmsGranted,
+      gemsAwarded: this.stage.gemsFirstClear,
+    }, nextStage);
   }
 
   // XP reward for THIS clear (bible §A.5.1): full baseXp on a first win,
@@ -3679,9 +3681,16 @@ export default class GameScene extends Phaser.Scene {
     this.gameOverText.setText(lines.join('\n'));
     this.gameOverBackdrop.setVisible(true);
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
+    this.createEndScreenButtons(nextStage, this.scale.height / 2 + 90);
+  }
 
-    const { width, height } = this.scale;
-    const buttonY = height / 2 + 90;
+  // Restart/Next Stage/Menu row shared by the plain loss/Dojo end screen
+  // (showEndScreen) and the win-only staged reveal (playVictorySequence) —
+  // `startAlpha`/fade-in lets the latter hold these back until its own
+  // sequence finishes instead of dumping every button on screen at once
+  // alongside a still-animating reward reveal.
+  createEndScreenButtons(nextStage, buttonY, startAlpha = 1) {
+    const { width } = this.scale;
     const buttonWidth = 160;
     const buttonGap = 20;
 
@@ -3691,6 +3700,7 @@ export default class GameScene extends Phaser.Scene {
 
     const totalWidth = labels.length * buttonWidth + (labels.length - 1) * buttonGap;
     const startX = (width - totalWidth) / 2 + buttonWidth / 2;
+    const buttons = [];
 
     labels.forEach((label, index) => {
       const x = startX + index * (buttonWidth + buttonGap);
@@ -3725,6 +3735,138 @@ export default class GameScene extends Phaser.Scene {
         fontSize: 18,
       });
       this.cameras.main.ignore(button); // UI (see setupZoomControls)
+      button.setAlpha(startAlpha);
+      if (startAlpha === 0) button.bcHit.disableInteractive(); // the container itself is never interactive — only its bcHit child is
+      buttons.push(button);
+    });
+    return buttons;
+  }
+
+  // The win-only staged reveal (guide Chapter 08's リザルトとお宝演出) — every
+  // other ending (loss, Dojo time-up) stays the plain instant showEndScreen
+  // above, since neither carries structured reward data nor gets the
+  // guide's own elaborate treatment there. Real frame counts (30fps) are
+  // adapted to real-time durations rather than followed literally — the
+  // guide's own numbers are reproduction values, not confirmed originals
+  // (see its own 事実/仕様/要計測 labeling), and some (e.g. "XP count-up
+  // spans 2 frames") clearly don't survive that conversion literally.
+  // Sequence: banner+score drop in with a bounce, XP counts up, each bonus
+  // line (Evo Shard/Growth Charm/Battle Item/first-clear Gems) scales in
+  // with a stagger, a treasure upgrade gets its own darkened reveal beat,
+  // and only THEN do the Restart/Next Stage/Menu buttons fade in — so the
+  // player watches the payout resolve before being invited to move on,
+  // instead of everything landing in one static block at once.
+  playVictorySequence(result, nextStage) {
+    if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
+
+    const { width, height } = this.scale;
+    const panelWidth = 380;
+    const hasTreasure = result.treasureResult?.improved;
+    const bonusLines = [];
+    if (result.evoShardsGranted) bonusLines.push('+1 Evo Shard!');
+    if (result.growthCharmsGranted) bonusLines.push('+1 Growth Charm!');
+    if (result.droppedItem) bonusLines.push(`+1 ${result.droppedItem.displayName}!`);
+    if (result.isFirstClear) bonusLines.push(`+${result.gemsAwarded} Gems! (First Clear)`);
+
+    const panelHeight = 150 + bonusLines.length * 22;
+    const restY = height / 2 - 40;
+
+    // Banner + score panel drops from off-screen with a bounce (guide:
+    // "victory banner drops from top, bounces twice").
+    const panel = drawBcPanel(this, width / 2, restY, panelWidth, panelHeight);
+    panel.y = -panelHeight;
+    const bannerText = this.add
+      .text(width / 2, restY - panelHeight / 2 + 30, 'STAGE CLEAR', { fontFamily: FONT, fontSize: '24px', color: BC.inkHex })
+      .setOrigin(0.5);
+    bannerText.y -= panelHeight;
+    const scoreText = this.add
+      .text(width / 2, restY - panelHeight / 2 + 62, `Score: ${result.finalScore}`, { fontFamily: FONT, fontSize: '14px', color: '#7a5c1e' })
+      .setOrigin(0.5);
+    scoreText.y -= panelHeight;
+
+    this.cameras.main.ignore([panel, bannerText, scoreText]); // UI (see setupZoomControls)
+    this.tweens.add({
+      targets: [panel, bannerText, scoreText], y: `+=${panelHeight}`,
+      duration: 420, ease: 'Bounce.easeOut',
+    });
+
+    // XP count-up (guide: begins once the banner's landed, reaches the
+    // real total over a short linear ramp).
+    const xpY = restY - panelHeight / 2 + 90;
+    const xpText = this.add
+      .text(width / 2, xpY, '+0 XP', { fontFamily: FONT, fontSize: '16px', color: BC.goldInk })
+      .setOrigin(0.5)
+      .setAlpha(0);
+    this.cameras.main.ignore(xpText);
+
+    const xpCounter = { value: 0 };
+    this.time.delayedCall(500, () => {
+      xpText.setAlpha(1);
+      this.tweens.add({
+        targets: xpCounter, value: result.xpReward,
+        duration: 700, ease: 'Cubic.easeOut',
+        onUpdate: () => xpText.setText(`+${Math.round(xpCounter.value).toLocaleString()} XP`),
+      });
+    });
+
+    // Bonus lines scale in one at a time (guide: 12F each, 6F stagger).
+    const bonusStartY = xpY + 30;
+    bonusLines.forEach((line, i) => {
+      const bonusText = this.add
+        .text(width / 2, bonusStartY + i * 22, line, { fontFamily: FONT, fontSize: '13px', color: BC.inkHex })
+        .setOrigin(0.5)
+        .setScale(0)
+        .setAlpha(0);
+      this.cameras.main.ignore(bonusText);
+      this.time.delayedCall(1300 + i * 180, () => {
+        playUiTapSfx();
+        this.tweens.add({ targets: bonusText, scale: 1, alpha: 1, duration: 220, ease: 'Back.easeOut' });
+      });
+    });
+
+    const sequenceEndMs = 1300 + bonusLines.length * 180 + 300;
+
+    // Treasure upgrade gets its own darkened reveal beat (guide: screen
+    // darkens, treasure card appears rotating) — only when one actually
+    // happened, same "only decorate what's real" rule the plain
+    // showEndScreen's line list already followed.
+    let buttonDelayMs = sequenceEndMs;
+    if (hasTreasure) {
+      const treasureDelayMs = sequenceEndMs;
+      buttonDelayMs = treasureDelayMs + 900;
+      this.time.delayedCall(treasureDelayMs, () => {
+        const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setDepth(999);
+        this.cameras.main.ignore(dim);
+        this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 200 });
+
+        const cardColor = TREASURE_TIER_COLOR[result.treasureResult.tier];
+        const card = this.add.rectangle(width / 2, height / 2, 150, 190, cardColor).setStrokeStyle(4, BC.ink).setDepth(1000);
+        card.setScale(0);
+        card.setAngle(-25);
+        this.cameras.main.ignore(card);
+        const cardLabel = this.add
+          .text(width / 2, height / 2, `${TREASURE_TIER_NAMES[result.treasureResult.tier]}\nTreasure!`, {
+            fontFamily: FONT, fontSize: '16px', color: BC.inkHex, align: 'center',
+          })
+          .setOrigin(0.5)
+          .setDepth(1001)
+          .setScale(0);
+        this.cameras.main.ignore(cardLabel);
+
+        playUiTapSfx();
+        this.tweens.add({
+          targets: [card, cardLabel], scale: 1, angle: 0,
+          duration: 500, ease: 'Back.easeOut',
+        });
+      });
+    }
+
+    // Only now do Restart/Next Stage/Menu fade in — the payout has finished
+    // resolving by this point instead of sitting there the whole time.
+    this.time.delayedCall(buttonDelayMs, () => {
+      const buttons = this.createEndScreenButtons(nextStage, height / 2 + 90, 0);
+      this.tweens.add({ targets: buttons, alpha: 1, duration: 300 });
+      buttons.forEach((b) => b.bcHit.setInteractive({ useHandCursor: true }));
     });
   }
 }
