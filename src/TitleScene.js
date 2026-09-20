@@ -10,14 +10,17 @@ import {
 // Title screen (guide Chapter 04's 起動・タイトル・オープニング) — the one
 // piece of that boot sequence this project had skipped entirely: it went
 // straight from `new Phaser.Game` into the opening lore scroll with no
-// logo/"Game Start" screen in front of it at all. Sits first in main.js's
-// scene list now, in front of OpeningScene.
+// logo/"Game Start" screen at all. Reached from OpeningScene once the lore
+// scroll finishes (or Skip is tapped); "Game Start" here hands off to
+// HomeScene.
 //
 // Real Battle Cats: Splash -> Loading -> Title -> Opening (first launch
 // only) -> Menu. This project's Splash/Loading has nothing to actually
 // wait on (everything's a local Vite build, not a downloaded asset
-// bundle), so those two are skipped outright — Title is the real first
-// screen a player sees.
+// bundle), so those two are skipped outright. The Title/Opening ORDER is
+// also deliberately swapped from the guide's own — per the user's own
+// call, the lore plays first and this screen second — so main.js boots
+// straight into OpeningScene, not this one.
 const LOGO_BOB_PX = 6;
 const LOGO_BOB_MS = 1400;
 const VERSION_TEXT = 'v1.0';
@@ -59,7 +62,7 @@ export default class TitleScene extends Phaser.Scene {
 
     createBcButton(this, width / 2, height * 0.62, 260, 72, 'Game Start', () => {
       playUiTapSfx();
-      this.scene.start('OpeningScene');
+      this.scene.start('HomeScene');
     }, { fontSize: 22 });
 
     createBcCircleButton(this, width - 30, height - 30, 20, '⚙', () => this.showSettingsPopup(), { fill: 0x8a8a8a, highlight: 0xbbbbbb });

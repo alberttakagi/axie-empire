@@ -23,14 +23,14 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  // TitleScene is first in this list, so it's the scene Phaser boots
-  // into (guide Chapter 04's boot sequence: Title -> Opening -> Menu —
-  // this project's own Splash/Loading steps have nothing to wait on, so
-  // they're skipped). "Game Start" hands off to OpeningScene, which in
-  // turn always hands off to HomeScene (see OpeningScene.js's own header).
+  // OpeningScene is first in this list, so it's the scene Phaser boots
+  // into — per the user's own call, the lore scroll plays before the
+  // title screen, not after it (a deliberate departure from the guide's
+  // own Title -> Opening -> Menu order). OpeningScene always hands off to
+  // TitleScene, whose "Game Start" then hands off to HomeScene.
   scene: [
-    TitleScene,
     OpeningScene,
+    TitleScene,
     HomeScene,
     SagaSelectScene,
     StageSelectScene,

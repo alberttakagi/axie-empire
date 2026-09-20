@@ -3,11 +3,13 @@ import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { FONT } from './UITheme.js';
 
 // Opening lore screen (guide Chapter 04's 起動・タイトル・オープニング,
-// adapted per the user's own call: play it on every launch, not just the
-// first — a deliberate departure from the real game's one-time intro).
-// HomeScene stays the game's normal destination; this is the scene that
-// boots first and always hands off to it, either after the full scroll or
-// the instant the player taps Skip (see main.js's scene order).
+// adapted per the user's own call in two ways: it plays on every launch,
+// not just the first (a departure from the real game's one-time intro),
+// and it runs BEFORE the title screen rather than after it (a departure
+// from the guide's own Title -> Opening order). This is the scene that
+// boots first (see main.js's scene order) and always hands off to
+// TitleScene next, either after the full scroll or the instant the player
+// taps Skip.
 //
 // The reference spec (guide): ~27px/sec scroll (a full real chapter intro
 // runs ~40 real seconds), a tap-hold 3x speed-up, top/bottom fade zones,
@@ -19,7 +21,7 @@ const SCROLL_SPEED_PX_PER_SEC = 26;
 const HOLD_SPEED_MULTIPLIER = 3;
 const FADE_ZONE_HEIGHT = 46;
 const SKIP_BUTTON_FADE_IN_MS = 900;
-const END_HOLD_MS = 500; // pause once the text fully clears the top fade, before handing off to HomeScene
+const END_HOLD_MS = 500; // pause once the text fully clears the top fade, before handing off to TitleScene
 
 // This game's own opening narration — told in the same earnest, mythic
 // campfire-story register as Axie Infinity's real "Tales of Lunacia" (a
@@ -119,6 +121,6 @@ export default class OpeningScene extends Phaser.Scene {
   finishOpening() {
     if (this.isFinishing) return; // Skip tapped again during the natural end-hold delay, or twice in a row
     this.isFinishing = true;
-    this.scene.start('HomeScene');
+    this.scene.start('TitleScene');
   }
 }
