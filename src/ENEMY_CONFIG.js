@@ -51,6 +51,24 @@
 
 import { NO_STATUS } from './STATUS_CONFIG.js';
 
+// Enemy rarity (this build's own addition — no real Battle Cats enemy has
+// a rarity at all, and the Origins Asset Kit's own Chimera catalog carries
+// no such field either). Read by GameScene's fitSpriteToRadius/
+// spawnScriptedEnemy to size a sprite up as rarity increases, mostly
+// bucketed by `threat` below (a reasonable "how special is this" proxy)
+// with one deliberate exception: Behemoth/Werewolf sits alone at MYTHIC,
+// specifically so it renders bigger than the player/enemy base towers —
+// not the highest-threat enemy in the roster (Titan, the real stage-48
+// final boss, is LEGENDARY), just the one this reskin wants to loom over
+// everything else on the field.
+export const ENEMY_RARITY = {
+  COMMON: 'Common',
+  RARE: 'Rare',
+  EPIC: 'Epic',
+  LEGENDARY: 'Legendary',
+  MYTHIC: 'Mythic',
+};
+
 export const ENEMY_CONFIG = {
   basic: {
     id: 'basic',
@@ -58,6 +76,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Slime', // わんこ (Doge) — the first enemy in the real game
     role: 'basic',
     threat: 2,
+    rarity: ENEMY_RARITY.COMMON,
     money: 15,
     hp: 90,
     damage: 8,
@@ -84,6 +103,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Gray Wolf', // にょろ (Snache)
     role: 'fast',
     threat: 4,
+    rarity: ENEMY_RARITY.COMMON,
     money: 30,
     hp: 100,
     damage: 15,
@@ -110,6 +130,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Treant', // カバちゃん (Hippoe) — real Battle Cats' own early "wall boss"
     role: 'tank',
     threat: 10,
+    rarity: ENEMY_RARITY.RARE,
     money: 400,
     hp: 1000,
     damage: 100,
@@ -136,6 +157,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Aquatic Slime', // パオン (Paon) — real long-range artillery
     role: 'ranged',
     threat: 25,
+    rarity: ENEMY_RARITY.LEGENDARY,
     money: 1300,
     hp: 4000,
     damage: 654,
@@ -162,6 +184,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Dryad Mage', // ブタヤロウ (Piggeh) — the first Red enemy
     role: 'aoe',
     threat: 12,
+    rarity: ENEMY_RARITY.RARE,
     money: 400,
     hp: 1500,
     damage: 120,
@@ -190,6 +213,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Forest Slime Fighter', // リッスントゥミー — cheap, extremely fast swarm filler
     role: 'swarm',
     threat: 3,
+    rarity: ENEMY_RARITY.COMMON,
     money: 100,
     hp: 80,
     damage: 30,
@@ -216,6 +240,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Dryad Ranger', // ジャッキー・ペン (Jackie Penguin) — a fast attacker
     role: 'sniper',
     threat: 14,
+    rarity: ENEMY_RARITY.EPIC,
     money: 450,
     hp: 1300,
     damage: 80,
@@ -242,6 +267,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Flowering Treant', // クマ先生 (Kuma-sensei) — long range, KB10
     role: 'guardian',
     threat: 18,
+    rarity: ENEMY_RARITY.EPIC,
     money: 2000,
     hp: 3000,
     damage: 1000,
@@ -268,6 +294,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Aquatic Flowering Slime', // ゴマさま (Gomasama) — fast Red area attacker
     role: 'support',
     threat: 16,
+    rarity: ENEMY_RARITY.EPIC,
     money: 650,
     hp: 2500,
     damage: 150,
@@ -301,6 +328,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Daddy Bear', // カオル君 (Kaoru-kun) — the real Empire of Cats Chapter 1 final boss (stage 48, 西表島)
     role: 'titan',
     threat: 80,
+    rarity: ENEMY_RARITY.LEGENDARY,
     money: 4000,
     hp: 99999,
     damage: 2000,
@@ -328,6 +356,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Slime', // 例のヤツ (That Guy) — real early stage filler, KB1
     role: 'thatguy',
     threat: 5,
+    rarity: ENEMY_RARITY.COMMON,
     money: 75,
     hp: 200,
     damage: 20,
@@ -354,6 +383,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Alpha Wolf', // ゴリさん (Gory) — real stage-16 boss, fast AoE
     role: 'gory',
     threat: 16,
+    rarity: ENEMY_RARITY.EPIC,
     money: 550,
     hp: 1000,
     damage: 80,
@@ -380,6 +410,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Slime', // メェメェ (Meh Meh) — plain early filler
     role: 'mehmeh',
     threat: 8,
+    rarity: ENEMY_RARITY.RARE,
     money: 150,
     hp: 500,
     damage: 50,
@@ -406,6 +437,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Gray Wolf', // ワニック (Wanikun) — weak but fast filler
     role: 'wanikun',
     threat: 3,
+    rarity: ENEMY_RARITY.COMMON,
     money: 50,
     hp: 70,
     damage: 30,
@@ -432,6 +464,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Gray Wolf', // ウサ銀 (Usagin) — real Red-attribute speedster
     role: 'usagin',
     threat: 9,
+    rarity: ENEMY_RARITY.RARE,
     money: 180,
     hp: 500,
     damage: 50,
@@ -459,6 +492,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Wolf', // カ・ンガリュ (Kangaroo) — real stage-35/Tokyo boss
     role: 'kangaroo',
     threat: 35,
+    rarity: ENEMY_RARITY.LEGENDARY,
     money: 1400,
     hp: 4000,
     damage: 250,
@@ -485,6 +519,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Behemoth', // 一角くん (Ikkaku-kun) — real stage-41 boss, ultra-close range, Red
     role: 'ikkaku',
     threat: 45,
+    rarity: ENEMY_RARITY.LEGENDARY,
     money: 2500,
     hp: 15000,
     damage: 500,
@@ -512,6 +547,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Elder Aquatic Wolf', // ガガガガ (Gagagaga) — real stage-38 boss, Floating
     role: 'gagagaga',
     threat: 40,
+    rarity: ENEMY_RARITY.LEGENDARY,
     money: 1800,
     hp: 5000,
     damage: 350,
@@ -546,6 +582,7 @@ export const ENEMY_CONFIG = {
     role: 'kanban',
     nonBlocking: true, // see file header — never lets her wall off the lane or drive the endless trickle
     threat: 2,
+    rarity: ENEMY_RARITY.COMMON,
     money: 1,
     hp: 10000,
     damage: 1,
@@ -581,6 +618,7 @@ export const ENEMY_CONFIG = {
     role: 'zombie',
     attribute: 'zombie',
     threat: 10,
+    rarity: ENEMY_RARITY.RARE,
     hp: 40,
     damage: 8,
     attackSpeed: 1,
@@ -608,6 +646,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Alpha Wolf',
     role: 'colossus',
     threat: 22,
+    rarity: ENEMY_RARITY.EPIC,
     hp: 320,
     damage: 35,
     attackSpeed: 0.4,
@@ -634,6 +673,7 @@ export const ENEMY_CONFIG = {
     characterName: 'Werewolf',
     role: 'behemoth',
     threat: 35,
+    rarity: ENEMY_RARITY.MYTHIC,
     hp: 500,
     damage: 55,
     attackSpeed: 0.35,

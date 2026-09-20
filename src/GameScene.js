@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
-import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
+import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
@@ -219,10 +219,26 @@ const WORLD_ZOOM_WHEEL_SENSITIVITY = 0.001; // fraction of zoom changed per whee
 // pixel-identical to its normal namesake enemy aside from a big hp
 // multiplier — the shockwave/warning flash at the moment it spawns is a
 // one-time announcement, not an ongoing visual cue for the rest of the
-// fight. A straightforward size bump (visual only — its actual gameplay
-// radius/hitbox is untouched, so this doesn't change combat/spacing at
-// all) keeps it reading as "the big one" for as long as it's alive.
+// fight. A straightforward size bump keeps it reading as "the big one" for
+// as long as it's alive — see spawnScriptedEnemy for why this scales
+// radius/range directly rather than being a sprite-only multiplier (the
+// hitbox needs to keep pace with what's actually on screen).
 const BOSS_VISUAL_SCALE_MULTIPLIER = 1.6;
+
+// Enemy rarity (see ENEMY_CONFIG.js's own ENEMY_RARITY header) — the same
+// radius-scaling technique as the boss multiplier just above, applied by
+// baseline rarity instead of a scripted boss flag; see spawnScriptedEnemy
+// for why a scripted boss's own multiplier takes priority instead of the
+// two stacking (a Legendary enemy scripted as a stage's boss should look
+// like a normal boss, not both bonuses compounding into something bigger
+// than intended).
+const ENEMY_RARITY_SIZE_MULTIPLIER = {
+  [ENEMY_RARITY.COMMON]: 1,
+  [ENEMY_RARITY.RARE]: 1.15,
+  [ENEMY_RARITY.EPIC]: 1.35,
+  [ENEMY_RARITY.LEGENDARY]: 1.6,
+  [ENEMY_RARITY.MYTHIC]: 2.6, // Behemoth/Werewolf alone — see ENEMY_CONFIG.js's own comment on why
+};
 
 // Part evolution's glow (see PartEvolution.js/spawnUnit) — a single flat,
 // subtle strength rather than something that draws the eye across the
@@ -1003,6 +1019,15 @@ export default class GameScene extends Phaser.Scene {
       hp: Math.round(base.hp * (1 + tier * DOJO_CONFIG.hpMultiplierPerTier)),
       moveSpeed: base.moveSpeed * (1 + tier * DOJO_CONFIG.speedMultiplierPerTier),
     };
+
+    // Same rarity-driven size bump as a real stage's spawnScriptedEnemy —
+    // Dojo reuses this same roster and shouldn't be the one place a
+    // Legendary/Mythic enemy renders at its plain base size.
+    const sizeMultiplier = ENEMY_RARITY_SIZE_MULTIPLIER[base.rarity] || 1;
+    if (sizeMultiplier !== 1) {
+      config.radius = Math.round(base.radius * sizeMultiplier);
+      if (base.range === base.radius) config.range = config.radius;
+    }
 
     this.createEnemy(type, config);
   }
@@ -1922,25 +1947,28 @@ export default class GameScene extends Phaser.Scene {
       damage: Math.round(base.damage * entry.statMultiplier),
     };
 
-    if (entry.isBoss) {
-      // A boss needs to look BOSS_VISUAL_SCALE_MULTIPLIER bigger than its
-      // base config would normally render (createEnemy's own
-      // fitSpriteToRadius already sizes a sprite off config.radius alone,
-      // so inflating radius here is what makes it look bigger — no
-      // separate visual-only multiplier is applied on top anymore, which
-      // would double it up). Left unscaled, radius/range would still be
-      // pure numbers with no idea the sprite got bigger —
-      // inRange/getMaxRange only ever look at these fields, never the
-      // actual rendered pixel size — so a small enough unit's per-frame
-      // step could carry it from "not yet in range" to "already past the
-      // boss's position" without ever registering as in range at all,
-      // visibly walking through the oversized sprite and straight on
-      // toward the enemy base while the boss stands there undamaged.
-      // Scaling radius (and range too, for every boss role here, where
-      // range === radius —
-      // a pure melee identity) by the same multiplier keeps the hitbox
-      // honest against what's actually on screen.
-      config.radius = Math.round(base.radius * BOSS_VISUAL_SCALE_MULTIPLIER);
+    // A boss needs to look BOSS_VISUAL_SCALE_MULTIPLIER bigger than its base
+    // config would normally render, and a non-boss enemy's own rarity (see
+    // ENEMY_RARITY_SIZE_MULTIPLIER) needs the same treatment — a scripted
+    // boss takes its own multiplier instead of stacking both, since a
+    // Legendary enemy scripted as a stage's boss should read as a normal
+    // boss, not both bonuses compounding. Either way this inflates radius
+    // directly (createEnemy's own fitSpriteToRadius sizes the sprite off
+    // config.radius alone, so this IS what makes it look bigger — no
+    // separate visual-only multiplier on top, which would double it up).
+    // Left unscaled, radius/range would still be pure numbers with no idea
+    // the sprite got bigger — inRange/getMaxRange only ever look at these
+    // fields, never the actual rendered pixel size — so a small enough
+    // unit's per-frame step could carry it from "not yet in range" to
+    // "already past" without ever registering as in range at all, visibly
+    // walking through the oversized sprite and straight on toward the
+    // enemy base while it stands there undamaged. Scaling radius (and
+    // range too, wherever range === radius — a pure melee identity) by the
+    // same multiplier keeps the hitbox honest against what's actually on
+    // screen.
+    const sizeMultiplier = entry.isBoss ? BOSS_VISUAL_SCALE_MULTIPLIER : ENEMY_RARITY_SIZE_MULTIPLIER[base.rarity] || 1;
+    if (sizeMultiplier !== 1) {
+      config.radius = Math.round(base.radius * sizeMultiplier);
       if (base.range === base.radius) config.range = config.radius;
     }
 
