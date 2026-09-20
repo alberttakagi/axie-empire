@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import OpeningScene from './OpeningScene.js';
 import HomeScene from './HomeScene.js';
 import SagaSelectScene from './SagaSelectScene.js';
 import StageSelectScene from './StageSelectScene.js';
@@ -21,8 +22,11 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
-  // HomeScene is first in this list, so it's the scene Phaser boots into.
+  // OpeningScene is first in this list, so it's the scene Phaser boots
+  // into — it immediately hands off to HomeScene on every launch except
+  // the device's very first one (see OpeningScene.js's own header).
   scene: [
+    OpeningScene,
     HomeScene,
     SagaSelectScene,
     StageSelectScene,
