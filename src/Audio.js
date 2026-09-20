@@ -136,8 +136,16 @@ function playTone({ freq, startOffset = 0, duration = 0.15, type = 'sine', peakG
 // A generic UI "tock" for menu navigation/confirm taps (Home's primary
 // buttons, a Mission claim, a Gacha roll) — distinct from Deploy's own sfx
 // below so an in-battle spawn still reads as its own, busier sound.
+// A crisp two-tone "click" (a quick bright tick, then a softer low thock
+// right on its heels) rather than the old single flat triangle blip — see
+// UITheme.js's pressFeedback, which is now the ONE place this actually
+// fires from for every createBcButton/createBcCircleButton in the game,
+// instead of a handful of individual scenes remembering to call it
+// themselves (most didn't, which is exactly why most of the game's
+// buttons played nothing at all on tap).
 export function playUiTapSfx() {
-  playTone({ freq: 340, duration: 0.05, type: 'triangle', peakGain: 0.1 });
+  playTone({ freq: 780, duration: 0.035, type: 'sine', peakGain: 0.14 });
+  playTone({ freq: 480, startOffset: 0.02, duration: 0.05, type: 'sine', peakGain: 0.08 });
 }
 
 // A short, low-gain percussive "thwack" for a normal hit landing — kept

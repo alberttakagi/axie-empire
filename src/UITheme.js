@@ -1,3 +1,5 @@
+import { playUiTapSfx } from './Audio.js';
+
 // Shared Battle Cats visual language — colors, fonts, and reusable Phaser
 // widget factories — so every scene (Home, Saga/Stage select, Loadout,
 // Upgrade, Gacha, Catalog, Treasure, Missions, GameScene's own HUD chrome)
@@ -29,8 +31,15 @@ export const BC = {
 
 export { FONT };
 
+// The ONE place every createBcButton/createBcCircleButton press actually
+// makes a sound — most scenes never called playUiTapSfx() themselves (a
+// handful did, redundantly, right alongside this same visual bounce), so
+// the overwhelming majority of the game's buttons played nothing at all on
+// tap. Centralizing it here instead of in each scene's own onClick means
+// every button gets it automatically, with nothing left to forget.
 function pressFeedback(scene, face, text, extra = []) {
   return () => {
+    playUiTapSfx();
     face.y = 4;
     text.y = 4;
     extra.forEach((o) => { o.y += 4; });

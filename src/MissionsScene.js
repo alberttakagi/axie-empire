@@ -2,7 +2,6 @@ import Phaser from 'phaser';
 import { getMissionsWithStatus, claimMission } from './Missions.js';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
-import { playUiTapSfx } from './Audio.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawWoodFrame } from './UITheme.js';
 
 // The bible §A.10.1 Missions icon — previously a "coming soon" toast (see
@@ -162,7 +161,6 @@ export default class MissionsScene extends Phaser.Scene {
 
     return createBcButton(this, x, y, 120, 40, `Claim\n${mission.rewardGems} Gems`, () => {
       if (!mission.isComplete) return;
-      playUiTapSfx();
       const claimed = claimMission(mission.id);
       if (claimed) this.showMessage(`+${claimed.rewardGems} Gems!`);
       this.refresh();

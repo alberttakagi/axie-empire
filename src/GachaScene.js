@@ -8,7 +8,6 @@ import {
   rollMulti,
 } from './Gacha.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
-import { playUiTapSfx } from './Audio.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 
 // The bible's §A.10.7 Gacha screen — adapted per Gacha.js's scope note
@@ -71,7 +70,6 @@ export default class GachaScene extends Phaser.Scene {
         this.resultText.setText('Not enough Gems!');
         return;
       }
-      playUiTapSfx();
       this.resultText.setText(result.rewards.map((label, index) => `${index + 1}. ${label}`).join('\n'));
       this.refreshGems();
     }, { fill: 0xb98cff, highlight: 0xd9c3ff, textColor: '#2a1a3a', fontSize: 14, ...opts });

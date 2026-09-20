@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
-import { isMuted, setMuted, playUiTapSfx, playMusic } from './Audio.js';
+import { isMuted, setMuted, playMusic } from './Audio.js';
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
@@ -112,7 +112,6 @@ export default class HomeScene extends Phaser.Scene {
     buttons.forEach((button, index) => {
       const y = startY + index * (PRIMARY_BUTTON_HEIGHT + PRIMARY_BUTTON_GAP);
       createBcButton(this, centerX, y, PRIMARY_BUTTON_WIDTH, PRIMARY_BUTTON_HEIGHT, button.label, () => {
-        playUiTapSfx();
         this.scene.start(button.scene);
       }, { fontSize: 17 });
     });
@@ -136,7 +135,6 @@ export default class HomeScene extends Phaser.Scene {
     const y = (stackBottom + iconRowTop) / 2;
 
     createBcButton(this, x, y, 200, 34, 'Sparring Grounds', () => {
-      playUiTapSfx();
       this.scene.start('GameScene', { mode: 'dojo' });
     }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 });
   }
@@ -160,10 +158,7 @@ export default class HomeScene extends Phaser.Scene {
     ];
 
     icons.forEach((icon) => {
-      createBcCircleButton(this, icon.x, y, 28, icon.glyph, () => {
-        playUiTapSfx();
-        icon.action();
-      });
+      createBcCircleButton(this, icon.x, y, 28, icon.glyph, () => icon.action());
       this.add
         .text(icon.x, y + 38, icon.label, { fontFamily: FONT, fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
         .setOrigin(0.5);

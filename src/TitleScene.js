@@ -4,7 +4,7 @@ import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './U
 import {
   getSfxVolumeLevel, cycleSfxVolumeLevel,
   getBgmVolumeLevel, cycleBgmVolumeLevel,
-  VOLUME_LEVEL_LABELS, playUiTapSfx,
+  VOLUME_LEVEL_LABELS,
 } from './Audio.js';
 
 // Title screen (guide Chapter 04's 起動・タイトル・オープニング) — the one
@@ -61,7 +61,6 @@ export default class TitleScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     createBcButton(this, width / 2, height * 0.62, 260, 72, 'Game Start', () => {
-      playUiTapSfx();
       this.scene.start('HomeScene');
     }, { fontSize: 22 });
 
