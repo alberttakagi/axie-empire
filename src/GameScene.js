@@ -179,6 +179,15 @@ const SPRITE_MIN_DIAMETER = 58;
 const SPRITE_MIN_RADIUS = 10; // swarm — the smallest unit's radius
 const SPRITE_SIZE_SLOPE = 1.45; // px of extra diameter per point of radius above the min
 
+// How much bigger a non-idle pose is allowed to render than idle (see
+// setEntityPose) before it gets scaled back down — a modest amount of
+// "the swung weapon reaches further out" growth is intentional and reads
+// fine (a few real rosters' attack frames run ~1.1-1.3x idle's own bounding
+// box), but a handful of frames (Dryad Mage/Piggeh's own attack frame
+// among them, at ~1.5x) blow well past that into a jarring sudden-growth
+// pop with no gameplay reason for it.
+const MAX_POSE_SCALE_GROWTH = 1.3;
+
 // Run-pose animation (see updateRunCycle) — how long one full run_0/run_1
 // alternation takes.
 const RUN_FRAME_PERIOD_MS = 320;
@@ -348,24 +357,28 @@ const HIT_FLASH_DURATION_MS = 100;
 // particular never wins the tint priority chain but is still a real,
 // separate debuff worth surfacing. Warp has no icon: a warping entity is
 // invisible outright (see tickStatusEffects), so there'd be nothing to
-// pin it to. One Text glyph per status, reused every frame (created once
-// per entity in makeEntityState) rather than created/destroyed on the fly.
-const STATUS_ICON_GLYPH = {
-  [STATUS_TYPES.STOP]: '✳', // ✳ stun
-  [STATUS_TYPES.CURSE]: '☠', // ☠ ability suppressed
-  [STATUS_TYPES.SLOW]: '❄', // ❄ slowed
-  [STATUS_TYPES.WEAKEN]: '↓', // ↓ weakened
+// pin it to. One Image per status, reused every frame (created once per
+// entity in makeEntityState) rather than created/destroyed on the fly.
+//
+// Real Axie Infinity status-icon art (Origins Asset Kit's StatusIcons set,
+// see public/icons/status/ + its own README) — picked by matching NAME to
+// what each of our own effects actually does, not just by look: Stop
+// freezes an entity in place exactly like Axie's own "Stunned" (can't
+// act at all); Weaken cuts outgoing damage exactly like Axie's own "Weak"
+// (-20% DMG in the real card game); Curse already shares its name
+// outright. Axie's real status list has no "Slow" at all — a real-time-
+// only concept its turn-based card battles never needed — so Slow
+// borrows the closest analog on hand, "Sleep," for both its icon and (see
+// UnitDescription.js) its display name.
+const STATUS_ICON_TEXTURE = {
+  [STATUS_TYPES.STOP]: { key: 'status_icon_stop', file: 'stunned.png' },
+  [STATUS_TYPES.CURSE]: { key: 'status_icon_curse', file: 'curse.png' },
+  [STATUS_TYPES.SLOW]: { key: 'status_icon_slow', file: 'sleep.png' },
+  [STATUS_TYPES.WEAKEN]: { key: 'status_icon_weaken', file: 'weak.png' },
 };
 const STATUS_ICON_ORDER = [STATUS_TYPES.STOP, STATUS_TYPES.CURSE, STATUS_TYPES.SLOW, STATUS_TYPES.WEAKEN];
-const toHexColor = (n) => `#${n.toString(16).padStart(6, '0')}`;
-const STATUS_ICON_COLOR = {
-  [STATUS_TYPES.STOP]: toHexColor(STATUS_STOP_COLOR),
-  [STATUS_TYPES.CURSE]: toHexColor(STATUS_CURSE_COLOR),
-  [STATUS_TYPES.SLOW]: toHexColor(STATUS_SLOW_COLOR),
-  [STATUS_TYPES.WEAKEN]: toHexColor(STATUS_WEAKEN_COLOR),
-};
-const STATUS_ICON_FONT_SIZE = 13;
-const STATUS_ICON_SPACING = 15;
+const STATUS_ICON_DISPLAY_SIZE = 16;
+const STATUS_ICON_SPACING = 18;
 const STATUS_ICON_GAP_ABOVE_SPRITE = 14;
 
 // Dodge (bible §A.3.8): "a % chance to take zero damage... for a short
@@ -472,6 +485,9 @@ export default class GameScene extends Phaser.Scene {
     preloadAttackVfx(this);
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
     if (!this.textures.exists(TOWER_ENEMY_SPRITE_KEY)) this.load.image(TOWER_ENEMY_SPRITE_KEY, '/sprites/structures/tower_enemy.png');
+    for (const { key, file } of Object.values(STATUS_ICON_TEXTURE)) {
+      if (!this.textures.exists(key)) this.load.image(key, `/icons/status/${file}`);
+    }
     // Music/sfx audio files need no Phaser preload step at all — Audio.js's
     // own playMusic/playSfxFile fetch+decode real files directly via the
     // Web Audio API (see its header comment), independent of Phaser's
@@ -1023,9 +1039,12 @@ export default class GameScene extends Phaser.Scene {
   // base stats mean anything.
   showBattleTooltip(config, liveStats = null) {
     const header = `${config.characterName}  (${config.abilityLabel || config.displayName})`;
+    // Cost isn't repeated here even on a spawn-button hover (liveStats ===
+    // null) — the button underneath already prints its own price, so this
+    // stayed a plain HP/DMG line either way.
     const statsLine = liveStats
       ? `HP: ${Math.max(0, Math.round(liveStats.hp))}/${liveStats.maxHp}   DMG: ${config.damage}`
-      : `HP: ${config.hp}   DMG: ${config.damage}   Cost: ${config.cost}円`;
+      : `HP: ${config.hp}   DMG: ${config.damage}`;
     const abilityLines = describeUnit(config);
     const lines = [header, statsLine, ...abilityLines.map((line) => `• ${line}`)];
     this.battleTooltipText.setText(lines.join('\n'));
@@ -1823,20 +1842,16 @@ export default class GameScene extends Phaser.Scene {
   // evolved ("awakened") texture set instead of its base one, when
   // `config.sprite.evolved` exists — see UNIT_CONFIG.js's field comment and
   // PartEvolution.js.
-  // One hidden glyph per STATUS_ICON_ORDER entry, parked at the entity's
-  // spawn position — updateStatusIcons shows/repositions/hides these every
-  // frame rather than creating new ones, since which statuses are active
-  // changes constantly but the set of possible statuses doesn't.
+  // One hidden real-Axie status icon per STATUS_ICON_ORDER entry, parked at
+  // the entity's spawn position — updateStatusIcons shows/repositions/hides
+  // these every frame rather than creating new ones, since which statuses
+  // are active changes constantly but the set of possible statuses doesn't.
   createStatusIcons(shape) {
     const icons = {};
     for (const key of STATUS_ICON_ORDER) {
       const icon = this.add
-        .text(shape.x, shape.y, STATUS_ICON_GLYPH[key], {
-          fontFamily: 'Rowdies, sans-serif', fontSize: `${STATUS_ICON_FONT_SIZE}px`,
-          color: STATUS_ICON_COLOR[key],
-          stroke: '#1d1a16', strokeThickness: 3,
-        })
-        .setOrigin(0.5)
+        .image(shape.x, shape.y, STATUS_ICON_TEXTURE[key].key)
+        .setDisplaySize(STATUS_ICON_DISPLAY_SIZE, STATUS_ICON_DISPLAY_SIZE)
         .setVisible(false);
       this.uiCamera.ignore(icon); // world object (see setupZoomControls) — zooms/pans with the battlefield
       icons[key] = icon;
@@ -1876,11 +1891,18 @@ export default class GameScene extends Phaser.Scene {
   // Scales a freshly-textured sprite so every unit reads at a sensible,
   // consistent on-screen size — see SPRITE_MIN_DIAMETER/SPRITE_SIZE_SLOPE's
   // comment for why this is a floor-plus-gentle-slope rather than a plain
-  // multiple of `radius`.
+  // multiple of `radius`. Runs once, against the idle texture (see
+  // setEntityPose's own comment for why every later pose reuses this same
+  // fit rather than re-measuring itself) — idleMaxDim/baseTargetSize are
+  // stashed on the sprite here so setEntityPose can rescale a later pose
+  // relative to THIS one instead of blindly reapplying the same scale
+  // factor to a texture of a very different native size.
   fitSpriteToRadius(sprite, radius, visualScaleMultiplier = 1) {
     const targetSize =
       (SPRITE_MIN_DIAMETER + Math.max(0, radius - SPRITE_MIN_RADIUS) * SPRITE_SIZE_SLOPE) * visualScaleMultiplier;
-    sprite.setScale(targetSize / Math.max(sprite.width, sprite.height));
+    sprite.idleMaxDim = Math.max(sprite.width, sprite.height);
+    sprite.baseTargetSize = targetSize;
+    sprite.setScale(targetSize / sprite.idleMaxDim);
   }
 
   // Stage mode: fixed script — no randomness, no tier-based auto-scaling.
@@ -2103,7 +2125,7 @@ export default class GameScene extends Phaser.Scene {
       // the signed distance applied once warpMs reaches 0.
       warpMs: 0,
       warpOffset: 0,
-      // One reusable glyph per status type (see STATUS_ICON_GLYPH), shown/
+      // One reusable icon per status type (see STATUS_ICON_TEXTURE), shown/
       // hidden and repositioned every frame in updateStatusIcons — created
       // once here rather than churned per-frame.
       statusIcons: this.createStatusIcons(shape),
@@ -2638,20 +2660,23 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // idle/attack/hit/run_0/run_1 are all just texture swaps on the SAME
-  // sprite — none of them ever touch scale. fitSpriteToRadius runs exactly
-  // once, in createEntityVisual, sized off the idle texture; every later
-  // pose reuses that one scale. This used to re-fit on every swap, which
-  // seems reasonable (each pose gets sized to the same target diameter)
-  // but is actually wrong: every pose is trimmed to its OWN tight bounding
-  // box (see tools/sprite-gen's trimTransparentPadding), and an attack
-  // pose's box is bigger than idle's (a swung weapon/limb reaches further
-  // out) even though the character's actual body is the same true size in
-  // both — fitting THAT bigger box to the same target diameter shrank the
-  // whole sprite, which read as "enemies get small mid-attack." Keeping
-  // one fixed scale for the sprite's whole lifetime means each pose just
-  // renders at its own natural relative size (attack's weapon reaches out
-  // further, idle doesn't) instead of every pose being force-normalized to
-  // an identical bounding-box size.
+  // sprite — none of them ever manually pick a scale. fitSpriteToRadius
+  // runs exactly once, in createEntityVisual, sized off the idle texture;
+  // every later pose starts from that same base scale. This used to
+  // re-fit on every swap, which seems reasonable (each pose gets sized to
+  // the same target diameter) but is actually wrong: every pose is
+  // trimmed to its OWN tight bounding box (see tools/sprite-gen's
+  // trimTransparentPadding), and an attack pose's box is usually bigger
+  // than idle's (a swung weapon/limb reaches further out) even though the
+  // character's actual body is the same true size in both — fitting THAT
+  // bigger box to the same target diameter shrank the whole sprite, which
+  // read as "enemies get small mid-attack." Reusing idle's scale instead
+  // means each pose mostly renders at its own natural relative size
+  // instead of being force-normalized to an identical bounding-box size —
+  // "mostly" because rescaleForCurrentTexture below still steps in when a
+  // pose's own box is disproportionately bigger than idle's (see
+  // MAX_POSE_SCALE_GROWTH), rather than letting an outlier frame like
+  // Dryad Mage's attack pose balloon the whole sprite.
   setEntityPose(entity, pose) {
     if (!entity.spriteImage || entity.currentPose === pose) return;
     entity.currentPose = pose;
@@ -2669,6 +2694,20 @@ export default class GameScene extends Phaser.Scene {
       // frame" hazard as the sprite's initial creation.
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`, '__BASE');
     }
+    this.rescaleForCurrentTexture(entity.spriteImage);
+  }
+
+  // Clamps how far a pose swap (see setEntityPose) can grow the sprite
+  // beyond its idle size — `sprite.width`/`height` here read the NEW
+  // texture's raw frame size regardless of the sprite's current scale
+  // (Phaser's Components.ComputedSize — displayWidth/Height are the ones
+  // scale actually affects), so this is comparing that pose's real native
+  // bounding box against idle's, not anything already-scaled.
+  rescaleForCurrentTexture(sprite) {
+    const poseMaxDim = Math.max(sprite.width, sprite.height);
+    const growth = poseMaxDim / sprite.idleMaxDim;
+    const cappedGrowth = Math.min(growth, MAX_POSE_SCALE_GROWTH);
+    sprite.setScale((sprite.baseTargetSize * cappedGrowth) / poseMaxDim);
   }
 
   // A single static "moving" pose read as barely different from idle for
@@ -3142,7 +3181,7 @@ export default class GameScene extends Phaser.Scene {
 
   // Unlike the tint above (only ever the single highest-priority status),
   // shows a small badge for EVERY currently-active status at once, centered
-  // in a row above the entity's head — see STATUS_ICON_GLYPH's header
+  // in a row above the entity's head — see STATUS_ICON_TEXTURE's header
   // comment for why Weaken needs its own visible cue despite never winning
   // the tint. No badge for Warp: the whole entity is invisible while
   // warping (see the caller in tickStatusEffects), so hide every icon then.
@@ -3588,7 +3627,7 @@ export default class GameScene extends Phaser.Scene {
     const globalIndex = STAGE_CONFIG.indexOf(this.stage);
     const nextStage = STAGE_CONFIG[globalIndex + 1] || null;
 
-    this.showEndScreen(lines, nextStage, this.stage.id);
+    this.showEndScreen(lines, nextStage);
   }
 
   // XP reward for THIS clear (bible §A.5.1): full baseXp on a first win,
@@ -3607,11 +3646,8 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // `nextStage` (winStage only) adds a third "Next Stage" button (bible
-  // §A.10.5) alongside the always-present Restart/Menu pair. `wonStageId`
-  // (winStage only, otherwise null) is passed through to StageSelectScene's
-  // "Menu" button so its map screen knows a real win just happened here,
-  // rather than a loss/dojo-timeout — see that button's onClick above.
-  showEndScreen(lines, nextStage = null, wonStageId = null) {
+  // §A.10.5) alongside the always-present Restart/Menu pair.
+  showEndScreen(lines, nextStage = null) {
     this.gameOverText.setText(lines.join('\n'));
     this.gameOverBackdrop.setVisible(true);
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
@@ -3650,10 +3686,8 @@ export default class GameScene extends Phaser.Scene {
         // directly), so "Menu" should return there instead. A normal stage
         // battle returns to its OWN saga's stage list (bible §A.6.1), not
         // always saga1's — this.stage.saga is read straight off the stage
-        // record STAGE_CONFIG already resolved in create(). `wonStageId`
-        // (only set on an actual win — see winStage) tells the map screen
-        // which node to walk its cat marker forward from.
-        onClick = () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga, clearedStageId: wonStageId });
+        // record STAGE_CONFIG already resolved in create().
+        onClick = () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga });
       }
 
       const button = createBcButton(this, x, buttonY, buttonWidth, 60, label, onClick, {

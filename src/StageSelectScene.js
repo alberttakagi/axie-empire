@@ -5,6 +5,7 @@ import { loadStageProgress } from './StageProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
 import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
+import { preloadSpriteRoster } from './SpriteIcon.js';
 import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 import { playUiTapSfx, playLockedTapSfx, playMapArrivalSfx } from './Audio.js';
 
@@ -53,16 +54,20 @@ const BOSS_NODE_SCALE = 1.4;
 const BOSS_RING_COLOR = BC.red;
 const NEXT_NODE_PULSE_COLOR = BC.gold;
 
-// Walking cat marker (guide Chapter 06's ネコアイコンの挙動) — a plain
-// Phaser-drawn mascot (two triangle ears, an ellipse body, two dot eyes)
-// rather than a new art asset, matching the guide's own reference demo's
-// equally simple canvas-drawn cat.
-const CAT_BODY_COLOR = 0xf7f7f2;
-const CAT_GAP_ABOVE_NODE = 30;
-const CAT_IDLE_BOB_PX = 4;
-const CAT_IDLE_BOB_MS = 900;
-const CAT_WALK_DURATION_MS = 650;
-const CAT_ARRIVAL_BOUNCE_SCALE = 1.25;
+// Tripp marker (guide Chapter 06's ネコアイコンの挙動, reinterpreted per the
+// user's own call: not a progress indicator, just a fun running mascot that
+// chases whichever node sits at the center of the viewport — see
+// updateTrippTarget/runTrippTo). Tripp is UNIT_CONFIG's real starter Axie
+// ('basic') — same idle/run art GameScene battles use, loaded standalone
+// here since this scene has no reason to preload the rest of the roster.
+const TRIPP_UNIT_ID = 'basic';
+const TRIPP_DISPLAY_SIZE = 40;
+const TRIPP_GAP_ABOVE_NODE = 34;
+const TRIPP_IDLE_BOB_PX = 3;
+const TRIPP_IDLE_BOB_MS = 900;
+const TRIPP_RUN_SPEED_PX_PER_SEC = 320;
+const TRIPP_RUN_DURATION_MIN_MS = 220;
+const TRIPP_RUN_FRAME_MS = 160; // run_0/run_1 alternation while moving — same cadence GameScene's own updateRunCycle uses (its RUN_FRAME_PERIOD_MS / 2)
 
 export default class StageSelectScene extends Phaser.Scene {
   constructor() {
@@ -74,6 +79,11 @@ export default class StageSelectScene extends Phaser.Scene {
   // until create() runs.
   preload() {
     preloadSagaBackgrounds(this);
+    // Tripp marker (see createTrippMarker) — just the one roster entry,
+    // not the whole UNIT_CONFIG (preloadSpriteRoster is guarded by
+    // textures.exists, so this is a no-op on a scene reached after a
+    // battle already loaded the full roster).
+    preloadSpriteRoster(this, { [TRIPP_UNIT_ID]: UNIT_CONFIG[TRIPP_UNIT_ID] }, true);
   }
 
   create(data) {
@@ -87,11 +97,6 @@ export default class StageSelectScene extends Phaser.Scene {
     // erroring.
     this.sagaId = data?.sagaId || STAGE_CONFIG[0].saga;
     this.sagaStages = STAGE_CONFIG.filter((stage) => stage.saga === this.sagaId);
-    // Set only when this screen was reached by actually winning a stage
-    // (see GameScene's winStage/showEndScreen) — read by createCatMarker/
-    // catWalkStartLocalIndex to decide whether the cat marker has anywhere
-    // to walk from.
-    this.clearedStageId = data?.clearedStageId || null;
 
     // Backdrop matches the chosen saga (see Backdrop.js), dimmed by a flat
     // scrim for the stage grid's own text/contrast — mirrors HomeScene's
@@ -107,8 +112,8 @@ export default class StageSelectScene extends Phaser.Scene {
     // painted over it once scrolled). Building the header last guarantees
     // it always draws on top regardless, and the mask is the real fix.
     this.createStageMap(progress);
-    this.createCatMarker();
     this.setupMapScroll();
+    this.createTrippMarker();
 
     createTitlePill(this, 24, 26, 'Select Stage');
     createBackButton(this, () => this.scene.start('SagaSelectScene'));
@@ -116,10 +121,13 @@ export default class StageSelectScene extends Phaser.Scene {
     this.createMapArrows();
   }
 
-  // Inertia + rubber-band-snap-back tick (see setupMapScroll) — the only
-  // reason this scene needs its own update() at all.
+  // Inertia + rubber-band-snap-back tick (see setupMapScroll) plus Tripp
+  // re-targeting whenever scrolling changes which node sits at the
+  // viewport's center (see updateTrippTarget) — the two reasons this scene
+  // needs its own update() at all.
   update() {
     this.tickMapScroll();
+    this.updateTrippTarget();
   }
 
   // Energy/Stamina (bible §A.9) — the one piece of the old header worth
@@ -176,7 +184,7 @@ export default class StageSelectScene extends Phaser.Scene {
       }
     }
     this.mapContainer.add(trailDots);
-    this.nodePositions = positions; // reused by createCatMarker/animateCatWalk
+    this.nodePositions = positions; // reused by createTrippMarker/centerNodeLocalIndex/runTrippTo
 
     // The first unlocked-but-not-yet-cleared stage is "current" — the one
     // node that gets the bigger highlighted marker and an always-visible
@@ -326,82 +334,102 @@ export default class StageSelectScene extends Phaser.Scene {
     this.mapContentRight = positions[positions.length - 1].x + 80;
   }
 
-  // A plain-drawn stand-in mascot (see CAT_BODY_COLOR's header comment) that
-  // marks the player's real position on this saga's path — parked at
-  // whichever node is "current" (see createStageMap), or walked there from
-  // `clearedStageId`'s node first when that's the stage this screen was
-  // just reached from finishing (see GameScene's winStage/showEndScreen).
-  createCatMarker() {
-    const cat = this.add.graphics();
-    cat.fillStyle(CAT_BODY_COLOR, 1);
-    cat.lineStyle(2, BC.ink, 1);
-    // ears
-    cat.beginPath(); cat.moveTo(-7, -7); cat.lineTo(-6, -15); cat.lineTo(-1, -6); cat.closePath();
-    cat.fillPath(); cat.strokePath();
-    cat.beginPath(); cat.moveTo(7, -7); cat.lineTo(6, -15); cat.lineTo(1, -6); cat.closePath();
-    cat.fillPath(); cat.strokePath();
-    // body
-    cat.fillEllipse(0, 0, 20, 16);
-    cat.strokeEllipse(0, 0, 20, 16);
-    // eyes
-    cat.fillStyle(BC.ink, 1);
-    cat.fillCircle(-4, -1, 1.6);
-    cat.fillCircle(4, -1, 1.6);
-    this.catMarker = cat;
-    this.mapContainer.add(cat);
+  // Tripp (see TRIPP_* constants' header) starts parked on whichever node
+  // the initial centerOnCurrentStage() scroll left in the viewport's
+  // center — called after setupMapScroll runs that scroll, so this reads
+  // its real final resting position rather than the pre-scroll default.
+  createTrippMarker() {
+    const tripp = this.add.image(0, 0, `unit_${TRIPP_UNIT_ID}_idle`, '__BASE');
+    tripp.setScale(TRIPP_DISPLAY_SIZE / Math.max(tripp.width, tripp.height));
+    this.tripp = tripp;
+    this.mapContainer.add(tripp);
 
-    const startLocalIndex = this.catWalkStartLocalIndex();
-    const { x, y } = this.nodePositions[startLocalIndex];
-    cat.setPosition(x, y - CAT_GAP_ABOVE_NODE);
-    this.startCatIdleBob();
-
-    if (startLocalIndex !== this.currentLocalIndex) this.animateCatWalk(startLocalIndex, this.currentLocalIndex);
+    this.trippTargetIndex = this.centerNodeLocalIndex();
+    const { x, y } = this.nodePositions[this.trippTargetIndex];
+    tripp.setPosition(x, y - TRIPP_GAP_ABOVE_NODE);
+    this.startTrippIdleBob();
   }
 
-  // Resolves where the cat should START from: right on the just-cleared
-  // stage's own node when this screen was reached by clearing the stage
-  // that used to BE this saga's current one (a genuine frontier advance —
-  // see GameScene's winStage), otherwise straight onto today's current
-  // node with no walk at all (a fresh visit, a loss, dojo, or replaying
-  // stage well behind the frontier).
-  catWalkStartLocalIndex() {
-    if (!this.clearedStageId) return this.currentLocalIndex;
-    const clearedLocalIndex = this.sagaStages.findIndex((s) => s.id === this.clearedStageId);
-    if (clearedLocalIndex === -1) return this.currentLocalIndex;
-    const advancedByOne = this.currentLocalIndex === clearedLocalIndex + 1;
-    const clearedTheWholeSaga = this.currentLocalIndex === clearedLocalIndex && clearedLocalIndex === this.sagaStages.length - 1;
-    return advancedByOne || clearedTheWholeSaga ? clearedLocalIndex : this.currentLocalIndex;
+  // The local index of whichever node currently sits closest to the
+  // viewport's horizontal center — recomputed continuously (see
+  // updateTrippTarget), not tied to stage progress at all.
+  centerNodeLocalIndex() {
+    const { width } = this.scale;
+    const centerWorldX = -this.mapContainer.x + width / 2;
+    let closestIndex = 0;
+    let closestDist = Infinity;
+    this.nodePositions.forEach((pos, i) => {
+      const dist = Math.abs(pos.x - centerWorldX);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestIndex = i;
+      }
+    });
+    return closestIndex;
   }
 
-  startCatIdleBob() {
-    if (!this.catMarker) return;
+  // Runs every frame (see update()): whenever scrolling changes which node
+  // is centered, Tripp runs there — repeatedly, so scrolling back and
+  // forth sends him running back and forth right along with it. Purely a
+  // fun follow-the-viewport gimmick, not a progress indicator — his
+  // resting spot means nothing about which stage is actually unlocked.
+  updateTrippTarget() {
+    if (!this.tripp) return;
+    const centerIndex = this.centerNodeLocalIndex();
+    if (centerIndex === this.trippTargetIndex) return;
+    this.trippTargetIndex = centerIndex;
+    this.runTrippTo(centerIndex);
+  }
+
+  startTrippIdleBob() {
     this.tweens.add({
-      targets: this.catMarker, y: `-=${CAT_IDLE_BOB_PX}`,
-      duration: CAT_IDLE_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      targets: this.tripp, y: `-=${TRIPP_IDLE_BOB_PX}`,
+      duration: TRIPP_IDLE_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
   }
 
-  // Walks the cat marker from one node to the next on a genuine stage
-  // clear (see createCatMarker/catWalkStartLocalIndex) — a straight tween
-  // between the two nodes' own positions, landing with a quick squash-and-
-  // grow bounce plus the arrival "pon" (guide: ネコアイコンの挙動's landing
-  // jump + sound + node-unlock animation).
-  animateCatWalk(fromLocalIndex, toLocalIndex) {
-    const from = this.nodePositions[fromLocalIndex];
+  // Runs Tripp from wherever he currently is to `toLocalIndex`'s own node —
+  // interrupts any run/idle-bob already in progress, swaps to the
+  // run_0/run_1 cycle for the trip (same real art/cadence GameScene's own
+  // battle units use — see its updateRunCycle), and faces the direction
+  // he's actually travelling (the source art faces left by default, same
+  // convention GameScene's own player-side sprites flip from).
+  runTrippTo(toLocalIndex) {
     const to = this.nodePositions[toLocalIndex];
-    this.catMarker.setPosition(from.x, from.y - CAT_GAP_ABOVE_NODE);
+    const targetX = to.x;
+    const targetY = to.y - TRIPP_GAP_ABOVE_NODE;
+
+    this.tweens.killTweensOf(this.tripp);
+    this.tripp.setFlipX(targetX > this.tripp.x);
+
+    if (this.trippRunFrameEvent) this.trippRunFrameEvent.remove();
+    this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run_0`, '__BASE');
+    let runFrame = 0;
+    this.trippRunFrameEvent = this.time.addEvent({
+      delay: TRIPP_RUN_FRAME_MS,
+      loop: true,
+      callback: () => {
+        runFrame = runFrame === 0 ? 1 : 0;
+        this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run_${runFrame}`, '__BASE');
+      },
+    });
+
+    const distance = Phaser.Math.Distance.Between(this.tripp.x, this.tripp.y, targetX, targetY);
+    const duration = Math.max(TRIPP_RUN_DURATION_MIN_MS, (distance / TRIPP_RUN_SPEED_PX_PER_SEC) * 1000);
 
     this.tweens.add({
-      targets: this.catMarker,
-      x: to.x, y: to.y - CAT_GAP_ABOVE_NODE,
-      duration: CAT_WALK_DURATION_MS,
+      targets: this.tripp,
+      x: targetX, y: targetY,
+      duration,
       ease: 'Sine.easeInOut',
       onComplete: () => {
+        if (this.trippRunFrameEvent) {
+          this.trippRunFrameEvent.remove();
+          this.trippRunFrameEvent = null;
+        }
+        this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_idle`, '__BASE');
         playMapArrivalSfx();
-        this.tweens.add({
-          targets: this.catMarker, scale: CAT_ARRIVAL_BOUNCE_SCALE,
-          duration: 140, yoyo: true, ease: 'Quad.easeOut',
-        });
+        this.startTrippIdleBob();
       },
     });
   }
