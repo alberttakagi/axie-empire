@@ -27,7 +27,7 @@ const INSUFFICIENT_ENERGY_MESSAGE_MS = 1600;
 // exists in this repo, so the "map" is the saga backdrop itself; the path's
 // gentle vertical wave (NODE_WAVE_*) is what reads as a trail rather than a
 // flat row of icons.
-const NODE_SPACING_X = 88;
+const NODE_SPACING_X = 110; // widened alongside the bigger node radius below, so enlarged neighbors/labels still clear each other
 const NODE_WAVE_AMPLITUDE = 46;
 const NODE_WAVE_PERIOD = 6; // stages per full up/down cycle
 const MAP_VIEWPORT_TOP = 64;
@@ -70,8 +70,16 @@ const NEXT_NODE_PULSE_COLOR = BC.gold;
 // ('basic') — same idle/run art GameScene battles use, loaded standalone
 // here since this scene has no reason to preload the rest of the roster.
 const TRIPP_UNIT_ID = 'basic';
-const TRIPP_DISPLAY_SIZE = 40;
-const TRIPP_GAP_ABOVE_NODE = 34;
+const TRIPP_DISPLAY_SIZE = 64; // user feedback: too small to see — was 40
+// Gap between a node's own top edge and Tripp's sprite — must clear his
+// own half-height (TRIPP_DISPLAY_SIZE/2 = 32) just to avoid overlapping
+// the node's circle at all. The CURRENT node additionally stacks a name
+// label and a status ("Cost"/"Best") callout above it (see the node-
+// rendering loop below) — extra clearance there specifically, or Tripp
+// sits on top of that text instead of above it. Both feed getTrippClearance,
+// used by createTrippMarker/runTrippTo instead of each hand-rolling this.
+const TRIPP_NODE_GAP = 40;
+const TRIPP_CURRENT_NODE_EXTRA_CLEARANCE = 48;
 const TRIPP_IDLE_BOB_PX = 3;
 const TRIPP_IDLE_BOB_MS = 900;
 const TRIPP_RUN_SPEED_PX_PER_SEC = 320;
@@ -241,7 +249,10 @@ export default class StageSelectScene extends Phaser.Scene {
       // with a red ring regardless of their other states — the one node
       // shape that overrides the normal size/ring rules below.
       const isBoss = stage.difficulty === 'Boss';
-      const baseRadius = isCurrent ? 16 : 9;
+      // User feedback: nodes/text were too small to read comfortably — was
+      // 9/16 (non-current/current). Every badge/star/label below already
+      // sizes itself off `radius`, so this one change scales the whole node.
+      const baseRadius = isCurrent ? 26 : 16;
       const radius = isBoss ? Math.round(baseRadius * BOSS_NODE_SCALE) : baseRadius;
 
       const nodeObjects = [];
@@ -259,11 +270,15 @@ export default class StageSelectScene extends Phaser.Scene {
       // difficulty fill, so "not selectable yet" reads at a glance without
       // needing to tap it first.
       if (!isUnlocked) {
+        // Scaled off radius (was a fixed size drawn for the old 9px base
+        // radius alone) so it grows with the now-bigger node instead of
+        // reading as a tiny fleck on it.
+        const lockScale = radius / 9;
         const lock = this.add.graphics();
         lock.fillStyle(0x2a2a2a, 1);
-        lock.fillRoundedRect(x - 5, y - 2, 10, 9, 1.5);
-        lock.lineStyle(2, 0x2a2a2a, 1);
-        lock.strokeCircle(x, y - 3, 4.5);
+        lock.fillRoundedRect(x - 5 * lockScale, y - 2 * lockScale, 10 * lockScale, 9 * lockScale, 1.5 * lockScale);
+        lock.lineStyle(2 * lockScale, 0x2a2a2a, 1);
+        lock.strokeCircle(x, y - 3 * lockScale, 4.5 * lockScale);
         nodeObjects.push(lock);
       }
 
@@ -288,33 +303,34 @@ export default class StageSelectScene extends Phaser.Scene {
       const tier = getStageTier(stage.id);
       if (isUnlocked && tier > 0) {
         nodeObjects.push(
-          this.add.circle(x + radius - 2, y - radius, 5, TREASURE_TIER_COLORS[tier]).setStrokeStyle(1.5, BC.ink),
+          this.add.circle(x + radius - 2, y - radius, 7, TREASURE_TIER_COLORS[tier]).setStrokeStyle(1.5, BC.ink),
         );
       } else if (isUnlocked && isCleared) {
         const chest = this.add.graphics();
         chest.fillStyle(0x8a5a2b, 1);
-        chest.fillRoundedRect(x + radius - 6, y - radius - 4, 8, 6, 1);
+        chest.fillRoundedRect(x + radius - 8, y - radius - 5, 11, 8, 1.5);
         chest.lineStyle(1, 0x4a2f14, 1);
-        chest.strokeRoundedRect(x + radius - 6, y - radius - 4, 8, 6, 1);
+        chest.strokeRoundedRect(x + radius - 8, y - radius - 5, 11, 8, 1.5);
         nodeObjects.push(chest);
       }
       // Restriction Stage badge (bible §A.6.5) — small red "!" badge
       // above-left, mirroring the treasure dot. Full details show in the
       // deploy-confirmation popup (see showDeployPopup).
       if (isUnlocked && stage.restrictions) {
-        nodeObjects.push(this.add.circle(x - radius + 2, y - radius, 5, BC.red).setStrokeStyle(1.5, 0xffffff));
-        nodeObjects.push(this.add.text(x - radius + 2, y - radius, '!', { fontFamily: FONT, fontSize: '7px', color: '#ffffff' }).setOrigin(0.5));
+        nodeObjects.push(this.add.circle(x - radius + 2, y - radius, 7, BC.red).setStrokeStyle(1.5, 0xffffff));
+        nodeObjects.push(this.add.text(x - radius + 2, y - radius, '!', { fontFamily: FONT, fontSize: '10px', color: '#ffffff' }).setOrigin(0.5));
       }
 
       // Name label — alternates above/below the path per node so
       // consecutive close-together labels don't collide, same idea a real
-      // hand-drawn map's own place-names use.
+      // hand-drawn map's own place-names use. Offsets grown alongside the
+      // bigger radius/font above so labels keep clear of the node itself.
       const labelUp = localIndex % 2 === 0;
-      const labelY = isCurrent ? y - radius - 34 : y + (labelUp ? -radius - 12 : radius + 12);
+      const labelY = isCurrent ? y - radius - 46 : y + (labelUp ? -radius - 16 : radius + 16);
       nodeObjects.push(
         this.add
           .text(x, labelY, `${localIndex + 1}. ${stage.displayName}`, {
-            fontFamily: FONT, fontSize: isCurrent ? '11px' : '9px',
+            fontFamily: FONT, fontSize: isCurrent ? '16px' : '13px',
             color: isUnlocked ? '#ffffff' : '#aaaaaa',
             align: 'center',
             stroke: '#000000', strokeThickness: 3,
@@ -330,7 +346,7 @@ export default class StageSelectScene extends Phaser.Scene {
         const statusLabel = isCleared ? `Best: ${stageProgress.bestScore}` : `Cost: ${stage.energyCost} Energy`;
         nodeObjects.push(
           this.add
-            .text(x, y - radius - 18, statusLabel, { fontFamily: FONT, fontSize: '9px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
+            .text(x, y - radius - 26, statusLabel, { fontFamily: FONT, fontSize: '12px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
             .setOrigin(0.5, 1),
         );
       }
@@ -359,6 +375,28 @@ export default class StageSelectScene extends Phaser.Scene {
     this.mapContentRight = positions[positions.length - 1].x;
   }
 
+  // Same radius math as the node-rendering loop above (isCurrent/isBoss ->
+  // baseRadius -> BOSS_NODE_SCALE) — factored out here specifically for
+  // getTrippClearance, since Tripp's own resting height needs to know it
+  // too and duplicating the literal numbers would drift if one changed
+  // without the other.
+  getNodeRadius(localIndex) {
+    const stage = this.sagaStages[localIndex];
+    const isCurrent = localIndex === this.currentLocalIndex;
+    const isBoss = stage.difficulty === 'Boss';
+    const baseRadius = isCurrent ? 26 : 16;
+    return isBoss ? Math.round(baseRadius * BOSS_NODE_SCALE) : baseRadius;
+  }
+
+  // How far above a node's CENTER Tripp should rest — see TRIPP_NODE_GAP's
+  // own comment for why this has to account for both the node's actual
+  // radius (a boss node is much bigger) and whether it's the current node
+  // (which stacks extra text above it).
+  getTrippClearance(localIndex) {
+    const extra = localIndex === this.currentLocalIndex ? TRIPP_CURRENT_NODE_EXTRA_CLEARANCE : 0;
+    return this.getNodeRadius(localIndex) + TRIPP_NODE_GAP + extra;
+  }
+
   // Tripp (see TRIPP_* constants' header) starts parked on whichever node
   // the initial centerOnCurrentStage() scroll left in the viewport's
   // center — called after setupMapScroll runs that scroll, so this reads
@@ -371,7 +409,7 @@ export default class StageSelectScene extends Phaser.Scene {
 
     this.trippTargetIndex = this.centerNodeLocalIndex();
     const { x, y } = this.nodePositions[this.trippTargetIndex];
-    tripp.setPosition(x, y - TRIPP_GAP_ABOVE_NODE);
+    tripp.setPosition(x, y - this.getTrippClearance(this.trippTargetIndex));
     this.startTrippIdleBob();
   }
 
@@ -422,7 +460,7 @@ export default class StageSelectScene extends Phaser.Scene {
   runTrippTo(toLocalIndex) {
     const to = this.nodePositions[toLocalIndex];
     const targetX = to.x;
-    const targetY = to.y - TRIPP_GAP_ABOVE_NODE;
+    const targetY = to.y - this.getTrippClearance(toLocalIndex);
 
     this.tweens.killTweensOf(this.tripp);
     this.tripp.setFlipX(targetX > this.tripp.x);

@@ -45,7 +45,11 @@ export default class SagaSelectScene extends Phaser.Scene {
   renderSagaCards() {
     const { width } = this.scale;
     const progress = loadStageProgress();
-    const cardWidth = width - 64;
+    // User feedback: at width-64 the bottom card's left edge (x=32) sat
+    // right under the back button (createBackButton's default x=40,
+    // radius 26 -> spans x=14-66), overlapping it. Narrowed so the left
+    // edge (x=80) clears the button's right edge (66) with room to spare.
+    const cardWidth = width - 160;
     const startX = width / 2;
     const startY = 66 + CARD_HEIGHT / 2;
 

@@ -57,12 +57,12 @@ export default class HomeScene extends Phaser.Scene {
     addBackground(this, 'gauntletArena');
     drawWoodFrame(this, width, height);
 
-    // Real menu theme (Origins Asset Kit's PvE/Music/home.wav) — this
-    // screen had no music at all before. playMusic is a no-op if it's
-    // already the active track (returning here from any menu screen that
-    // doesn't touch music itself, e.g. Saga/Stage Select), so this never
-    // restarts the loop mid-phrase just from re-entering Home.
-    playMusic('/audio/bgm_home.wav');
+    // User-provided theme (replaces the Origins Asset Kit's own
+    // PvE/Music/home.wav). playMusic is a no-op if it's already the active
+    // track (returning here from any menu screen that doesn't touch music
+    // itself, e.g. Saga/Stage Select), so this never restarts the loop
+    // mid-phrase just from re-entering Home.
+    playMusic('/audio/bgm_forest_theme.mp3');
 
     createTitlePill(this, 24, 26, 'AXIE BASE');
 
@@ -162,10 +162,13 @@ export default class HomeScene extends Phaser.Scene {
   createSecondaryIcons() {
     const { height } = this.scale;
     const y = height - 62;
+    // Menu/Excavation/Missions centered on x=150 (80px spacing either side)
+    // to match createPrimaryButtons' own centerX — was 110/190/270, whose
+    // own midpoint (190) didn't line up with the button stack above it.
     const icons = [
-      { label: 'Menu', x: 110, glyph: '☰', action: () => this.showMenuPopup() },
-      { label: 'Gamatoto', x: 190, glyph: '⛏', action: () => this.showComingSoon('Gamatoto') },
-      { label: 'Missions', x: 270, glyph: '📋', action: () => this.scene.start('MissionsScene') },
+      { label: 'Menu', x: 70, glyph: '☰', action: () => this.showMenuPopup() },
+      { label: 'Excavation', x: 150, glyph: '⛏', action: () => this.showComingSoon('Excavation') },
+      { label: 'Missions', x: 230, glyph: '📋', action: () => this.scene.start('MissionsScene') },
       { label: 'Gacha', x: 560, glyph: '🎰', action: () => this.scene.start('GachaScene') },
       { label: 'Treasure', x: 650, glyph: '🏆', action: () => this.scene.start('TreasureScene') },
     ];

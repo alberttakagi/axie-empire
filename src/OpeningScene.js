@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { FONT } from './UITheme.js';
+import { playMusic } from './Audio.js';
 
 // Opening lore screen (guide Chapter 04's 起動・タイトル・オープニング,
 // adapted per the user's own call in two ways: it plays on every launch,
@@ -58,6 +59,10 @@ export default class OpeningScene extends Phaser.Scene {
 
     addBackground(this, 'dusk'); // a glowing moonlit forest — fits Lunacia's own moon-and-light imagery better than the temple ruins
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55);
+
+    // User-provided theme for the lore scroll — this screen had no music
+    // at all before.
+    playMusic('/audio/bgm_arctic_theme.mp3');
 
     this.storyText = this.add
       .text(width / 2, height, STORY_LINES.join('\n\n'), {
