@@ -49,12 +49,15 @@ Real Battle Cats' 10th Basic-tier lineage, **Superfeline (ネコ超人)**, only
 unlocks post-Cosmos-Chapter-3 — out of scope for a Chapter-1 pass, not
 mapped this round.
 
-**Shelved:** `guardian` (Xia) — a Barrier-tank identity that doesn't match
-any real Basic-tier lineage. Left fully wired in `UNIT_CONFIG.js` (real
-sprites, real stats structure) but excluded from the active roster —
-`unlockRequirement: { stageId: null }` never resolves true, so it never
-unlocks. Reclaim it for a real Rare/Super-Rare-tier unit once a future pass
-covers the guide's Chapter 12 EX/Rare roster.
+**Not stage-gated like the other 9:** `guardian` (Xia) — a Barrier-tank
+identity that doesn't match any real Basic-tier lineage. Left fully wired
+in `UNIT_CONFIG.js` (real sprites, real stats structure) but excluded from
+the stage-clear unlock chain. Instead gated on mastering one of the real
+lineages above: `unlockRequirement: { unitEvolved: 'basic' }` unlocks it
+once Tripp (the real day-1 Basic Cat lineage) reaches True Form — see
+`PlayerProgress.isUnitUnlocked`. Still a candidate to reclaim as a real
+Rare/Super-Rare-tier unit once a future pass covers the guide's Chapter 12
+EX/Rare roster; the mastery gate is this pass's placeholder identity for it.
 
 ## Enemy mapping — all 19 real enemies that appear across Chapter 1
 

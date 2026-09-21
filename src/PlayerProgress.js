@@ -77,11 +77,19 @@ export function getUnitProgress(progress, unitType) {
 // column), rather than handing the player the whole roster on day one —
 // UNIT_CONFIG.js's `unlockRequirement` field encodes exactly that gate:
 // null = always available (Cat); { stageId } = unlocked once that
-// STAGE_CONFIG entry has been cleared; { stageId: null } = never satisfied
-// (the shelved Guardian/Xia slot — see UNIT_CONFIG.js's own note).
+// STAGE_CONFIG entry has been cleared; { unitEvolved: unitType } = unlocked
+// once that OTHER unit has reached its final evolution stage (Guardian/Xia's
+// mastery gate, tied to Tripp/basic — see UNIT_CONFIG.js's own note).
 export function isUnitUnlocked(unitType) {
   const requirement = UNIT_CONFIG[unitType]?.unlockRequirement;
   if (requirement === null || requirement === undefined) return true;
+
+  if (requirement.unitEvolved) {
+    const config = PROGRESSION_CONFIG[requirement.unitEvolved];
+    const unitProgress = getUnitProgress(loadPlayerProgress(), requirement.unitEvolved);
+    return unitProgress.evolutionStage >= config.evolutions.length;
+  }
+
   if (!requirement.stageId) return false;
 
   const stageProgress = loadStageProgress();

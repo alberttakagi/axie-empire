@@ -431,14 +431,16 @@ export default class LoadoutScene extends Phaser.Scene {
     this.renderCards();
   }
 
-  // Names exactly which stage clear unlocks a still-locked lineage (see
-  // UNIT_CONFIG.js's unlockRequirement/PlayerProgress.isUnitUnlocked) —
-  // "Not unlocked yet!" alone left the player with no idea how far off it
-  // was. Guardian/Xia's requirement is permanently unsatisfiable
-  // (stageId: null — see UNIT_CONFIG.js's own shelving note), so it gets
-  // its own message rather than naming a stage that doesn't actually grant it.
+  // Names exactly which stage clear (or, for Guardian/Xia, which other
+  // unit's mastery) unlocks a still-locked lineage (see UNIT_CONFIG.js's
+  // unlockRequirement/PlayerProgress.isUnitUnlocked) — "Not unlocked yet!"
+  // alone left the player with no idea how far off it was.
   describeLockedUnit(type) {
     const requirement = UNIT_CONFIG[type]?.unlockRequirement;
+    if (requirement?.unitEvolved) {
+      const otherName = UNIT_CONFIG[requirement.unitEvolved]?.characterName ?? requirement.unitEvolved;
+      return `Evolve ${otherName} to True Form to unlock!`;
+    }
     const stage = requirement?.stageId && STAGE_CONFIG.find((s) => s.id === requirement.stageId);
     return stage ? `Clear "${stage.displayName}" to unlock!` : 'Not available yet!';
   }

@@ -341,22 +341,21 @@ export const UNIT_CONFIG = {
     sprite: { idle: "/sprites/units/unit_titan_idle.png", attack: "/sprites/units/unit_titan_attack.png", hit: "/sprites/units/unit_titan_hit.png", run: ["/sprites/units/unit_titan_run_0.png", "/sprites/units/unit_titan_run_1.png"], idleAnim: ["/sprites/units/unit_titan_idleanim_0.png", "/sprites/units/unit_titan_idleanim_1.png"] },
   },
 
-  // --- Shelved, not part of the active Chapter-1 roster this pass (see
-  // docs/BATTLE_CATS_MAPPING.md's roadmap section). Xia/guardian doesn't
-  // correspond to any real Battle Cats Basic-tier lineage — its Barrier-tank
-  // identity belongs to a specific real Rare/Super-Rare-tier cat instead.
-  // Left in place (fully wired, real sprites) rather than deleted, since a
-  // future pass mapping the guide's Chapter 12 EX/Rare roster can reclaim it
-  // outright instead of rebuilding it from scratch. Excluded from
-  // PlayerProgress's default loadout and from every stage's unlock chain —
-  // see PlayerProgress.js's isUnitUnlocked, which never returns true for it.
+  // --- Not part of the stage-clear unlock chain the other 9 lineages use
+  // (see docs/BATTLE_CATS_MAPPING.md's roadmap section) — Xia/guardian
+  // doesn't correspond to any real Battle Cats Basic-tier lineage; its
+  // Barrier-tank identity belongs to a specific real Rare/Super-Rare-tier
+  // cat instead. Given a mastery-gated unlock instead: clearing Tripp
+  // (role 'basic', UNIT_CONFIG's `basic` entry) to its True Form is the
+  // natural "prove you've mastered the original Basic Cat lineage" gate —
+  // see PlayerProgress.js's isUnitUnlocked for how `unitEvolved` is checked.
   guardian: {
     id: 'guardian',
     displayName: 'Guardian',
     abilityLabel: 'Barrier Tank',
     characterName: 'Xia',
     role: 'guardian',
-    unlockRequirement: { stageId: null }, // never satisfied — see PlayerProgress.isUnitUnlocked
+    unlockRequirement: { unitEvolved: 'basic' }, // Tripp reaches True Form (evolutionStage 2)
     cost: 250,
     hp: 120,
     damage: 3,

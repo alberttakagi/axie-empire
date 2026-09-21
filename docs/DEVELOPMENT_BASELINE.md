@@ -51,8 +51,10 @@ identify uncertain numbers. Do not turn these into silent balance changes.
 ## Corrected handover claims
 
 - Catalog already dims locked units and shows locked detail text.
-- Ten player definitions include nine obtainable lineages and the permanently
-  locked Guardian/Xia slot; do not describe all ten as normally deployable.
+- Ten player definitions include nine stage-gated lineages and the
+  Guardian/Xia slot, which is not part of that stage-clear chain (mastery-
+  gated instead, see "Next milestones" #0 below); do not describe all ten
+  as unlocked the same way.
 - All three sagas have 48 stages with normalized spawn tables. Legacy-spawner
   comments in GameScene and old log sections do not describe current campaign data.
 - Unconfirmed choices include some unit unlock pacing, not only worker income.
@@ -93,10 +95,21 @@ eligibility/duplicate payouts. They do not replace browser combat verification.
    bible), Curse now actually suppresses applyStatusEffect/tryDodge/
    computeDamage's Strong-Against-Massive-Resistant bonuses (previously
    only 4 of 8 curse-suppressible sites checked it — applyStatusEffect,
-   the single biggest gap, had no check at all), and Dojo's
+   the single biggest gap, had no check at all), Dojo's
    roleUnlockTier now covers all 22 ENEMY_CONFIG roles instead of 13 (9
    were defaulting to tier 0, including 3 LEGENDARY late-campaign
-   bosses). All verified live except Slow/Curse specifically — no
+   bosses), and Xia/Guardian — previously permanently unsatisfiable
+   (`{ stageId: null }`) — now unlocks via a new `unlockRequirement`
+   shape, `{ unitEvolved: 'basic' }`: reaching Tripp's (the real day-1
+   Basic Cat lineage) True Form. User decision: tie the shelved
+   Barrier-tank slot to mastering one of the 9 real basic-tier lineages
+   rather than a stage clear, since it doesn't correspond to a real
+   Basic-tier unit itself (see UNIT_CONFIG.js's own note on this).
+   `isUnitUnlocked`, `LoadoutScene.describeLockedUnit`, and
+   `CatalogScene.describeLockedUnit` all handle the new shape; verified
+   live (locked with the default message, then auto-unlocks and
+   auto-seats into Formation the moment Tripp's evolutionStage reaches
+   2). All verified live except Slow/Curse specifically — no
    currently-deployed unit carries those abilities to force a live
    before/after, so those two rest on direct correspondence to the bug
    report rather than an observed repro (build + `npm test` still pass

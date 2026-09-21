@@ -125,6 +125,10 @@ export default class CatalogScene extends Phaser.Scene {
   // (enemies have no unlock concept at all).
   describeLockedUnit(type) {
     const requirement = UNIT_CONFIG[type]?.unlockRequirement;
+    if (requirement?.unitEvolved) {
+      const otherName = UNIT_CONFIG[requirement.unitEvolved]?.characterName ?? requirement.unitEvolved;
+      return `Evolve ${otherName} to True Form to unlock!`;
+    }
     const stage = requirement?.stageId && STAGE_CONFIG.find((s) => s.id === requirement.stageId);
     return stage ? `Clear "${stage.displayName}" to unlock!` : 'Not available yet!';
   }
