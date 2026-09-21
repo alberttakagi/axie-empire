@@ -37,11 +37,11 @@ identify uncertain numbers. Do not turn these into silent balance changes.
 | Canvas and touch targets | UI ch. 3: 1280×720, 24px safe area, 8px grid, 88px touch target | Game is 800×450 with FIT scaling. At that logical scale the guide corresponds to 15px safe area, 5px grid, 55px targets. Audit layouts before any resolution change: combat currently uses render coordinates. |
 | Formation entry | UI ch. 6: deploy popup → formation → battle | Game loads a saved Home-edited formation directly into battle. Keep this flow for the stability milestone; a contextual formation screen is future UX work. |
 | Simulation | Gameplay ch. 15: fixed 30 Hz, simulation-owned state, separate combat/gacha RNG | Variable delta, render-owned x, global Math.random and Phaser timers currently coexist. Add characterization tests before incremental separation. |
-| Targeting | Gameplay ch. 15: nearest enemy, stable ID tie-break | Game uses first eligible array entry. Older bible suggests random ties. Prefer the newer guide when implementing a separately verified targeting change. |
+| Targeting | Gameplay ch. 15: nearest enemy, stable ID tie-break | **Resolved 2026-09-21**: user decided nearest-enemy. All four acquisition sites (player primary/blind-spot, enemy primary/blind-spot) now use a shared `findNearest` helper (same |x delta| metric other distance checks in GameScene.js already use) instead of `Array.find`. Same eligibility predicates, only the among-eligible tie-break changed. Stable tie-break on exact-distance ties is still whichever candidate iterated first at that distance — not yet a stable ID rule; revisit if ties turn out to matter in practice. |
 | Knockback | Gameplay ch. 6/8: source-specific distance/invulnerability; one displacement when crossing several HP boundaries | Current shared slide permits incoming hits and increments multiple thresholds. Guide's generic KB text mentions 11–12F while its source-specific table gives HP KB 24F/cannon 11F. Resolve source-specific behavior with tests, not a blanket constant replacement. |
-| Cannon | Gameplay ch. 8: wave immunity, propagation, source-specific KB, can push knockback-immune enemies | Game respects knockback immunity and damages enemy base on every blast regardless of position. The guide does not explicitly settle this build's base-hit behavior. Preserve pending focused mechanics work. Its F8/F14/F20 timing is explicitly a reproduction choice. |
+| Cannon | Gameplay ch. 8: wave immunity, propagation, source-specific KB, can push knockback-immune enemies | **Resolved 2026-09-21**: user decided base hits should be positionally gated like enemy hits — treated as a bug, not intended behavior. `fireCannonWave` now only calls `damageEnemyBase` when `blastCenterX` is within `blastHalfWidth` of `this.enemyBaseX`, same check already applied to enemies. Verified live: default Cannon Power/Range (no upgrades) still lands ~100 base damage on a fresh blast, so this closes a loophole (any blast, anywhere, always hit) without silently nerfing default pacing. Its F8/F14/F20 timing is still explicitly a reproduction choice, untouched here. |
 | Pause | UI ch. 7: pause/resume; gameplay ch. 15: simulation owns timers | Only update() is gated; cannon/surge/Dojo timers can continue. Next stability milestone should cover all gameplay timers without freezing menu controls. |
-| Retry energy | UI screen data: Retry → deploy confirmation; gameplay ch. 3: energy on stage entry | Game's direct Restart is free. Keep until retry policy is explicitly resolved; do not change a currency sink incidentally. |
+| Retry energy | UI screen data: Retry → deploy confirmation; gameplay ch. 3: energy on stage entry | **Resolved 2026-09-21**: user decided Restart should cost Energy, for consistency with map entry and Next Stage. `createEndScreenButtons`'s Restart handler now calls `trySpendEnergy(this.stage.energyCost)` and shows the same "not enough Energy" message Next Stage already had, before `scene.restart()`. Dojo Restart stays free (its synthetic `this.stage` has no `energyCost` field, mode check skips the charge) — Sparring Grounds is meant to be a free, endless mode. |
 | Economy | Gameplay ch. 8: table assumes max facilities/treasures; fresh-account values explicitly unverified | Current worker +8/sec and other pacing assumptions are not justified by copying the maxed table. Preserve while establishing an explicit Axie balance baseline. |
 | Growth/evolution | Gameplay ch. 6/9: growth breakpoint 60, evolved at 10, story/plus-level conditions | Game tapers growth at 10 and has separately purchased forms/materials. This is a material progression difference, not a safe numerical cleanup. |
 | Treasure | UI ch. 11: regional sets activate after all pieces; 10 listed sets, two locations unconfirmed | Game has 36 sets (12 per saga), partial bonuses, own effects. Any replacement must preserve earned stage tiers and address migration/balance. |
@@ -82,9 +82,17 @@ eligibility/duplicate payouts. They do not replace browser combat verification.
 
 ## Next milestones
 
+0. Done outside this milestone sequence, by explicit user decision (see the
+   reconciliation table above for each): tutorial base-direction claims
+   removed, Cat Cannon base-hit positional gating, Restart now spends
+   Energy like any other stage entry, and target acquisition switched from
+   first-eligible-in-array to nearest. All four verified live (build +
+   `npm test` still pass; cannon/targeting also checked in a running
+   battle). Knockback, slow, curse, and simulation/timing work below are
+   still open.
 1. Pause/timer correctness and scene reuse: reproduce paused cannon/Dojo/surge,
    verify resume and speed changes, and protect restart/retreat cycles.
-2. Characterize combat timing, acquisition, damage, knockback and status rules;
+2. Characterize combat timing, damage, knockback and status rules;
    fix one rule at a time with explicit before/after checks.
 3. Move combat positions and timers into simulation state incrementally, then
    introduce fixed steps and isolated deterministic RNG without a wholesale rewrite.
