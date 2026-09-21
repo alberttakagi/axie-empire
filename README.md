@@ -1,6 +1,6 @@
-# Axie Skirmish
+# Axie Empire
 
-A single-lane tower-defense game — a mechanical clone of *The Battle Cats*, reskinned with Axie Infinity characters. Built with [Phaser 3](https://phaser.io) and [Vite](https://vitejs.dev).
+A single-lane tower-defense game, a mechanical clone of *The Battle Cats*, reskinned with Axie Infinity characters. Built with [Phaser 3](https://phaser.io) and [Vite](https://vitejs.dev). Formerly named "Axie Skirmish" (see git history/older docs for that name).
 
 For full project documentation (architecture, systems, data, known issues, current status), see **[PROJECT_HANDOVER.md](./PROJECT_HANDOVER.md)**.
 

@@ -53,8 +53,11 @@ export default class TitleScene extends Phaser.Scene {
     addBackground(this, 'gauntletArena');
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.35);
 
+    // Renamed from "Axie Skirmish" per the user's own call ("skirmish
+    // doesn't sound right"). The old "Empire of Axies" subtitle line
+    // beneath it is gone entirely, not just reworded.
     const logo = this.add
-      .text(width / 2, height * 0.32, 'AXIE SKIRMISH', {
+      .text(width / 2, height * 0.32, 'AXIE EMPIRE', {
         fontFamily: FONT, fontSize: '46px', color: '#ffe58a',
         stroke: '#1d1a16', strokeThickness: 8,
       })
@@ -63,12 +66,6 @@ export default class TitleScene extends Phaser.Scene {
       targets: logo, y: logo.y - LOGO_BOB_PX,
       duration: LOGO_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
     });
-    this.add
-      .text(width / 2, height * 0.32 + 40, 'Empire of Axies', {
-        fontFamily: FONT, fontSize: '16px', color: '#f5ead0',
-        stroke: '#1d1a16', strokeThickness: 4,
-      })
-      .setOrigin(0.5);
 
     createBcButton(this, width / 2, height * 0.62, 260, 72, 'Game Start', () => {
       this.scene.start('HomeScene');
