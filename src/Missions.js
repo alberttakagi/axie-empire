@@ -57,7 +57,10 @@ function getMissionProgressValue(mission) {
       return levels.length ? Math.max(...levels) : 0;
     }
     case 'formationSize':
-      return loadLoadout().length;
+      // loadLoadout() is a fixed-length sparse array now (Loadout.js) —
+      // .length is always MAX_LOADOUT_SIZE regardless of how many slots are
+      // actually filled, so count the real occupants instead.
+      return loadLoadout().filter(Boolean).length;
     default:
       return 0;
   }

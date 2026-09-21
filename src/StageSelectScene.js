@@ -96,6 +96,21 @@ export default class StageSelectScene extends Phaser.Scene {
   }
 
   create(data) {
+    // Phaser reuses this same scene INSTANCE across every scene.start —
+    // it's registered as a class in main.js, so create() re-runs on the
+    // same object rather than a fresh one each time. isLeavingScene (see
+    // enterStage/onStageSelected) MUST be reset here for exactly that
+    // reason: once set true by a successful Deploy!!, it would otherwise
+    // stay true forever — permanently blocking every stage tap on any
+    // later visit to this screen (e.g. quitting a battle and coming back)
+    // — a real regression this pass's own re-entrancy guard introduced.
+    this.isLeavingScene = false;
+    // Same reused-instance reasoning: if a player ever left this screen
+    // (e.g. tapped Back) while the deploy-confirm popup was still open,
+    // showDeployPopup's own "if (this.deployPopupObjects) return" guard
+    // would otherwise silently no-op forever on every later visit.
+    this.deployPopupObjects = null;
+
     const { width, height } = this.scale;
     const progress = loadStageProgress();
 
@@ -565,16 +580,36 @@ export default class StageSelectScene extends Phaser.Scene {
   // Previously only Restriction Stages got a popup at all; a normal stage
   // skipped straight into battle with no confirmation step.
   onStageSelected(stage) {
+    // Guard against re-opening the popup (or worse, stacking a second
+    // enterStage) while a previous Deploy!! is already mid-fade-out below —
+    // a node tap during that ~267ms window used to be able to fire a
+    // second fadeOut + a second queued 'camerafadeoutcomplete' listener,
+    // so BOTH eventually called scene.start('GameScene', ...) back to back
+    // (once for each stage), which Phaser's scene manager doesn't expect
+    // and could leave the transition stuck rather than actually entering
+    // either stage.
+    if (this.isLeavingScene) return;
     this.showDeployPopup(stage);
   }
 
   enterStage(stage) {
+    if (this.isLeavingScene) return;
     if (!trySpendEnergy(stage.energyCost)) {
       this.showInsufficientEnergyMessage();
       return;
     }
+    this.isLeavingScene = true;
 
-    this.scene.start('GameScene', { stageId: stage.id });
+    // 戦闘開始！！ transition (guide Chapter 10's own transition table, the
+    // one confirmed real value in that row): fade to black over 8F
+    // (≈267ms @30fps), THEN load the battle scene — replaces the old
+    // instant hard cut straight into GameScene. GameScene.js's own create()
+    // handles the matching fade back in (and the "settled before input"
+    // half of the same guide row) on the other side of this transition.
+    this.cameras.main.fadeOut(267, 0, 0, 0);
+    this.cameras.main.once('camerafadeoutcomplete', () => {
+      this.scene.start('GameScene', { stageId: stage.id });
+    });
   }
 
   formatRestrictionLines(restrictions) {

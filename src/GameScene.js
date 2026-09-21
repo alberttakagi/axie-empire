@@ -25,7 +25,6 @@ import {
   getBaseUpgradeLevel,
   addGems,
   trySpendGems,
-  isUnitUnlocked,
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
@@ -46,6 +45,7 @@ import {
   playUiTapSfx,
   playSfxFile,
   playMusic,
+  preloadMusic,
   stopMusic,
   VOLUME_LEVEL_LABELS,
   getSfxVolumeLevel,
@@ -575,15 +575,14 @@ export default class GameScene extends Phaser.Scene {
     // getMoneyAccrualPerSec instead of cached here like its neighbors.
     this.moneyIncomeBonusPercent = getBonusPercent('moneyIncomePercent');
 
-    // The player's chosen Formation (bible §A.10.3) — only these units get
-    // a deploy button at all, see createSpawnButtons. Falls back to every
-    // unit if nothing's saved (Loadout.js's own default), so this never
-    // regresses a player who's never opened the Formation screen. Filtered
-    // against isUnitUnlocked as a safety net regardless of what's saved —
-    // a lineage still gated behind a stage clear (or the shelved Guardian
-    // slot, see UNIT_CONFIG.js) never gets a deploy button, even if an old
-    // save somehow still lists it.
-    this.loadout = loadLoadout().filter((key) => isUnitUnlocked(key));
+    // The player's chosen Formation (bible §A.10.3) — a fixed-length
+    // sparse array (Loadout.js): this.loadout[i] is whichever unit is
+    // permanently seated in deploy-bar slot i (Tripp always slot 0, Olek
+    // slot 1, ... as a default), or null for an empty slot — never
+    // filtered/compacted here, since createSpawnButtons reads it index by
+    // index and a locked/invalid entry can't appear in it to begin with
+    // (Loadout.js's own sanitizeSlot already guarantees that).
+    this.loadout = loadLoadout();
 
     // Cat-Combo-equivalent team synergy (bible §A.7.3) — purely a function
     // of which units are in the current Formation, read once here and
@@ -654,6 +653,21 @@ export default class GameScene extends Phaser.Scene {
     this.elapsedMs = 0;
     this.isGameOver = false;
     this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
+    // Popup-tracking fields reset here for the same reason isGameOver/
+    // isPaused are: Phaser reuses this same scene INSTANCE across every
+    // scene.start (it's registered as a class in main.js), so a stale
+    // non-null reference left over from a PREVIOUS visit survives into
+    // this fresh create() otherwise. quitConfirmObjects specifically had a
+    // real bug from this: the Quit button jumps straight to
+    // scene.start('HomeScene') without calling hideQuitConfirm() first, so
+    // it never got nulled out — meaning showQuitConfirm()'s own
+    // "if (this.quitConfirmObjects) return" guard would then silently
+    // no-op on every later battle this same instance ever loaded again,
+    // permanently breaking Retreat's confirm dialog (found while chasing
+    // the analogous StageSelectScene.isLeavingScene bug this same pass).
+    this.quitConfirmObjects = null;
+    this.settingsPopupObjects = null;
+    this.tutorialObjects = null;
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
     // real game gates 2x/3x behind item charges and a subscription perk;
     // out of scope here, see the Battle Items note in this session's
@@ -817,6 +831,28 @@ export default class GameScene extends Phaser.Scene {
     // bulk diff instead of an ignore() call at every UI helper.
     this.setupZoomControls();
 
+    // 戦闘開始！！ transition, other half (guide Chapter 10's transition
+    // table): this scene loads fully black — see StageSelectScene's
+    // matching fadeOut right before this scene starts — and fades back in
+    // over the remaining 16F (≈533ms) of that same 24F transition. Both
+    // cameras (cameras.main = battlefield, uiCamera = fixed HUD — see
+    // setupZoomControls just above) fade together so the deploy bar/HUD
+    // comes in right alongside the battlefield instead of popping in
+    // ahead of it. A full-screen fixed blocker (same "ignore cameras.main"
+    // UI convention every other full-screen overlay in this file uses)
+    // eats every click for that same window, matching the guide's own
+    // "城と地面が確定してから入力可" (input only unlocks once the base/ground
+    // have visually settled).
+    const introFadeMs = 533;
+    this.cameras.main.fadeIn(introFadeMs, 0, 0, 0);
+    this.uiCamera.fadeIn(introFadeMs, 0, 0, 0);
+    const introBlocker = this.add
+      .rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+      .setDepth(20000)
+      .setInteractive();
+    this.cameras.main.ignore(introBlocker);
+    this.time.delayedCall(introFadeMs, () => introBlocker.destroy());
+
     // Enemy spawning starts the instant the battle does, matching real
     // Battle Cats (every stage's own spawn timing — STAGE_CONFIG.js's
     // firstMs — is authored relative to battle start, not the player's
@@ -835,6 +871,15 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode !== 'dojo' && !hasCompletedTutorial()) this.showBattleTutorial();
 
     playMusic(BATTLE_MUSIC_URL);
+    // Warm the boss/victory/defeat tracks' decoded-buffer cache right now,
+    // in the background, rather than only starting to fetch+decode them at
+    // the exact moment one is needed — e.g. the defeat stinger firing the
+    // instant a player declines the Continue offer (endGame) used to have
+    // an audible gap here on a track that had never played yet this
+    // session (see Audio.js's preloadMusic/bufferCache).
+    preloadMusic(BOSS_MUSIC_URL);
+    preloadMusic(VICTORY_MUSIC_URL);
+    preloadMusic(DEFEAT_MUSIC_URL);
     // Stop the battle music no matter HOW this scene ends — Restart, Quit,
     // the post-battle Menu button, Next Stage, all of them just call
     // scene.start/scene.restart, and Phaser fires 'shutdown' on every one
@@ -1518,12 +1563,16 @@ export default class GameScene extends Phaser.Scene {
     );
 
     const buttonY = height / 2 + 30;
-    // Dojo wasn't reached via Stage Select at all (HomeScene launches it
-    // directly), but unlike the post-battle Menu button, quitting mid-battle
-    // always goes all the way back to the Home hub/lobby regardless of
-    // mode — there's no "current saga's stage list" to return to mid-run.
+    // Same destination rule the post-battle Menu button already uses
+    // (createEndScreenButtons): Dojo wasn't reached via Stage Select at all
+    // (HomeScene launches it directly), so it has no saga stage list to go
+    // back to — everything else returns to THIS stage's own saga list
+    // rather than all the way out to the Home hub, so quitting mid-battle
+    // drops you back where you'd actually pick another stage.
     objects.push(
-      createBcButton(this, width / 2 - 80, buttonY, 130, 48, 'Quit', () => this.scene.start('HomeScene'), {
+      createBcButton(this, width / 2 - 80, buttonY, 130, 48, 'Quit', () => {
+        this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga });
+      }, {
         fill: BC.red, highlight: BC.redHighlight, textColor: '#ffffff', fontSize: 16,
       }),
     );
@@ -3828,6 +3877,20 @@ export default class GameScene extends Phaser.Scene {
 
     const sequenceEndMs = 1300 + bonusLines.length * 180 + 300;
 
+    // Only now do Restart/Next Stage/Menu fade in — the payout has finished
+    // resolving by this point instead of sitting there the whole time.
+    // Shared between the natural timeout below and a manual treasure-card
+    // dismiss (see hasTreasure below), guarded so a dismiss tap that lands
+    // after the timeout already fired can't create a second button row.
+    let buttonsShown = false;
+    const revealButtons = () => {
+      if (buttonsShown) return;
+      buttonsShown = true;
+      const buttons = this.createEndScreenButtons(nextStage, height / 2 + 90, 0);
+      this.tweens.add({ targets: buttons, alpha: 1, duration: 300 });
+      buttons.forEach((b) => b.bcHit.setInteractive({ useHandCursor: true }));
+    };
+
     // Treasure upgrade gets its own darkened reveal beat (guide: screen
     // darkens, treasure card appears rotating) — only when one actually
     // happened, same "only decorate what's real" rule the plain
@@ -3837,7 +3900,18 @@ export default class GameScene extends Phaser.Scene {
       const treasureDelayMs = sequenceEndMs;
       buttonDelayMs = treasureDelayMs + 900;
       this.time.delayedCall(treasureDelayMs, () => {
-        const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setDepth(999);
+        // Bug fix: this card used to just sit here forever once shown,
+        // right on top of the Restart/Next Stage/Menu row that faded in
+        // underneath it a moment later — with nothing to dismiss it, it
+        // was blocking those buttons for the rest of the results screen.
+        // `dim` is now interactive and covers the full screen specifically
+        // so a tap ANYWHERE dismisses the whole reveal early and drops
+        // straight into the (now unobstructed) button row, instead of only
+        // ever being decorative.
+        const dim = this.add
+          .rectangle(width / 2, height / 2, width, height, 0x000000, 0)
+          .setDepth(999)
+          .setInteractive({ useHandCursor: true });
         this.cameras.main.ignore(dim);
         this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 200 });
 
@@ -3860,15 +3934,22 @@ export default class GameScene extends Phaser.Scene {
           targets: [card, cardLabel], scale: 1, angle: 0,
           duration: 500, ease: 'Back.easeOut',
         });
+
+        dim.on('pointerdown', () => {
+          dim.disableInteractive();
+          this.tweens.add({
+            targets: [dim, card, cardLabel], alpha: 0, duration: 150,
+            onComplete: () => {
+              dim.destroy();
+              card.destroy();
+              cardLabel.destroy();
+            },
+          });
+          revealButtons(); // don't make the player wait out the rest of the original timer too
+        });
       });
     }
 
-    // Only now do Restart/Next Stage/Menu fade in — the payout has finished
-    // resolving by this point instead of sitting there the whole time.
-    this.time.delayedCall(buttonDelayMs, () => {
-      const buttons = this.createEndScreenButtons(nextStage, height / 2 + 90, 0);
-      this.tweens.add({ targets: buttons, alpha: 1, duration: 300 });
-      buttons.forEach((b) => b.bcHit.setInteractive({ useHandCursor: true }));
-    });
+    this.time.delayedCall(buttonDelayMs, revealButtons);
   }
 }

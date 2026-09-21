@@ -35,6 +35,16 @@ export default class TitleScene extends Phaser.Scene {
   }
 
   create() {
+    // Phaser reuses this same scene instance across every scene.start
+    // (registered as a class in main.js) — see StageSelectScene's
+    // isLeavingScene/deployPopupObjects and GameScene's quitConfirmObjects
+    // for the confirmed real bug this exact pattern already caused
+    // elsewhere this pass. Not known to be reachable here today (the
+    // settings overlay's own full-screen interactive scrim should block
+    // "Game Start" underneath it), but resetting defensively costs
+    // nothing and matches the convention everywhere else now.
+    this.settingsPopupObjects = null;
+
     const { width, height } = this.scale;
 
     // Same backdrop HomeScene uses — Title and the hub it leads into read

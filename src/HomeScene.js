@@ -1,7 +1,13 @@
 import Phaser from 'phaser';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
-import { isMuted, setMuted, playMusic } from './Audio.js';
+import {
+  getSfxVolumeLevel, cycleSfxVolumeLevel,
+  getBgmVolumeLevel, cycleBgmVolumeLevel,
+  VOLUME_LEVEL_LABELS,
+  isMuted, setMuted,
+  playMusic,
+} from './Audio.js';
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
@@ -64,7 +70,6 @@ export default class HomeScene extends Phaser.Scene {
     this.createPrimaryButtons();
     this.createDojoButton();
     this.createSecondaryIcons();
-    this.createSoundToggle();
 
     this.messageText = this.add
       .text(width / 2, height - 26, '', { fontFamily: FONT, fontSize: '13px', color: '#ffdd33', stroke: '#000000', strokeThickness: 3 })
@@ -147,9 +152,6 @@ export default class HomeScene extends Phaser.Scene {
     const { height } = this.scale;
     const y = height - 62;
     const icons = [
-      // Starts clear of the audio toggle's own bottom-left corner slot
-      // (x=40) — x:70 put "Menu"'s label close enough to visually collide
-      // with it.
       { label: 'Menu', x: 110, glyph: '☰', action: () => this.showMenuPopup() },
       { label: 'Gamatoto', x: 190, glyph: '⛏', action: () => this.showComingSoon('Gamatoto') },
       { label: 'Missions', x: 270, glyph: '📋', action: () => this.scene.start('MissionsScene') },
@@ -192,7 +194,7 @@ export default class HomeScene extends Phaser.Scene {
     objects.push(overlay);
 
     const panelWidth = 300;
-    const panelHeight = 190;
+    const panelHeight = 250;
     const panel = drawBcPanel(this, width / 2, height / 2, panelWidth, panelHeight);
     objects.push(panel);
 
@@ -213,36 +215,81 @@ export default class HomeScene extends Phaser.Scene {
     ];
     guideButtons.forEach((guide, index) => {
       const bx = width / 2 + (index === 0 ? -76 : 76);
-      const by = height / 2 + 18;
+      const by = height / 2 - 6;
       const btn = createBcButton(this, bx, by, 130, 74, guide.label, () => {
         this.scene.start('CatalogScene', { rosterType: guide.rosterType });
       }, { fontSize: 13 });
       objects.push(btn);
     });
 
+    // Settings (SFX/BGM volume) — moved in here from its own standalone
+    // bottom-left icon per the user's own call, same "Menu -> Settings"
+    // structure the reference game itself uses rather than a floating
+    // audio toggle loose on the hub screen.
+    objects.push(
+      createBcButton(this, width / 2, height / 2 + 74, 268, 40, 'Settings', () => {
+        closePopup();
+        this.showSettingsPopup();
+      }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 14 }),
+    );
+
     const closePopup = () => objects.forEach((obj) => obj.destroy());
     overlay.on('pointerdown', closePopup);
   }
 
-  // Placeholder audio (bible §A.10.8, see Audio.js) is synthesized rather
-  // than sampled — cheap and functional, but with a harsher/more artificial
-  // timbre than shipped sound assets would have, so an easy-to-find mute
-  // toggle matters more here than it would for a finished game.
-  createSoundToggle() {
-    // Bottom-left corner — the one slot every other screen in this pass
-    // reserves for a circular icon button (their own Back button); Home is
-    // the root screen and has no "back" to put there, so the audio toggle
-    // takes that same visual slot instead of floating in the header.
-    const x = 40;
-    const y = this.scale.height - 34;
+  // Same SFX/BGM volume controls as GameScene's/TitleScene's own Options
+  // popup, PLUS the master Mute toggle that used to be its own standalone
+  // bottom-left icon (see showMenuPopup) — that button was removed outright
+  // when this moved into Menu -> Settings without anywhere else picking up
+  // its job, which left a muted save with no way to ever un-mute again
+  // (a real regression, caught from the user asking "why is no sound
+  // playing" — isMuted overrides the volume levels below regardless of
+  // what they're set to, so losing access to it meant losing all audio).
+  showSettingsPopup() {
+    const { width, height } = this.scale;
+    const objects = [];
+    const panelY = height / 2;
 
-    const toggle = createBcCircleButton(this, x, y, 22, isMuted() ? '🔇' : '🔊', () => {
-      const muted = !isMuted();
-      setMuted(muted);
-      toggle.list[3].setText(muted ? '🔇' : '🔊');
-    }, { fill: BC.blue, highlight: BC.blueHighlight });
-    // list[3] is the glyph Text object per createBcCircleButton's own
-    // [shadow, face, sheen, text, hit] container order.
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+    objects.push(drawBcPanel(this, width / 2, panelY, 320, 210));
+    objects.push(this.add.text(width / 2, panelY - 80, 'Settings', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex }).setOrigin(0.5));
+    objects.push(createBcCircleButton(this, width / 2 + 145, panelY - 85, 14, '✕', () => closePopup(), { fill: BC.gold }));
+
+    objects.push(
+      this.add.text(width / 2 - 120, panelY - 40, 'Mute All', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0, 0.5),
+    );
+    const muteButton = createBcButton(
+      this, width / 2 + 90, panelY - 40, 100, 32, isMuted() ? 'On' : 'Off',
+      () => {
+        const muted = !isMuted();
+        setMuted(muted);
+        muteButton.bcText.setText(muted ? 'On' : 'Off');
+      },
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(muteButton);
+
+    objects.push(
+      this.add.text(width / 2 - 120, panelY, 'SFX Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0, 0.5),
+    );
+    const sfxButton = createBcButton(
+      this, width / 2 + 90, panelY, 100, 32, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()],
+      () => sfxButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]),
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(sfxButton);
+
+    objects.push(
+      this.add.text(width / 2 - 120, panelY + 40, 'BGM Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0, 0.5),
+    );
+    const bgmButton = createBcButton(
+      this, width / 2 + 90, panelY + 40, 100, 32, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()],
+      () => bgmButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]),
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(bgmButton);
+
+    const closePopup = () => objects.forEach((obj) => obj.destroy());
   }
 
   showComingSoon(label) {

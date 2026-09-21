@@ -278,6 +278,18 @@ function stopMusicNodes() {
   }
 }
 
+// Warms the decoded-buffer cache for a track without playing it — call this
+// for any music that might need to start INSTANTLY later (victory/defeat
+// stings triggered by a game-over event) so the fetch+decode round trip
+// (only ever paid once per URL per page load — see bufferCache) has
+// already happened well before that moment, instead of playMusic() only
+// starting it then and the player hearing a beat of silence first.
+export function preloadMusic(url) {
+  const ctx = getCtx();
+  if (!ctx) return;
+  loadBuffer(ctx, url).catch(() => {});
+}
+
 export function playMusic(url) {
   if (musicUrl === url && musicSource) return; // already the active track
   musicUrl = url;

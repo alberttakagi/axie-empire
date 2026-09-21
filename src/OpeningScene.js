@@ -23,30 +23,22 @@ const FADE_ZONE_HEIGHT = 46;
 const SKIP_BUTTON_FADE_IN_MS = 900;
 const END_HOLD_MS = 500; // pause once the text fully clears the top fade, before handing off to TitleScene
 
-// This game's own opening narration — told in the same earnest, mythic
-// campfire-story register as Axie Infinity's real "Tales of Lunacia" (a
-// comedic Battle-Cats-parody pass was tried and rejected: it read as
-// dumb, not charming, and the user wants the tone Axie's real lore
-// actually has, not a joke about it). The BEATS are also corrected against
-// that real source rather than assumed from memory: Atia isn't shown
-// losing an active fight — the real text has the Chimeras corrupt him,
-// and his collapse is a deliberate sacrifice (pouring his own life into
-// the world) rather than a defeat, which is the nuance line 5 below
-// preserves; everything else (Lunacia, the Axies born from Atia's
-// remains, the Empire of Axies, Argonia shattering the moon, moon shards
-// on the totems) follows that same source.
+// This game's own opening narration — back to the very first draft's
+// original "Empire of Axies vs. the Chimeras" story (no real Axie-lore
+// names/beats borrowed), per the user's own standing call: they want the
+// ORIGINAL narrative's lighter, Battle-Cats-style tone over a faithful
+// retelling of Axie Infinity's actual lore — later passes that leaned into
+// the real "Tales of Lunacia" material (Atia, moon shards, etc.) were a
+// deviation from that, not an improvement on it.
 const STORY_LINES = [
-  'Gather together, children of light. We have a story to share, the first of many.',
-  'Long before the Empire, before the war, there was Atia — a sun god who searched the cosmos for a thousand years, seeking a world worthy of his light.',
-  'He found Lunacia. And here, at last, life began to bloom in his loving embrace.',
-  'But wherever life takes root, corruption follows close behind. The Chimeras descended upon Lunacia, and even Atia’s own light could not hold them back.',
-  'Overwhelmed, but never hopeless, Atia made his final choice: he let himself fall, pouring every last spark of his being into the world he loved, so its light would not go out with him.',
-  'From the pieces of that fallen god, the Axies were born.',
-  'Outnumbered and untested, they rose anyway, carrying Atia’s own light into battle against the Chimera legions.',
-  'In time, they built an Empire from the ashes — the Empire of Axies, first line of defense against the Chimera tide.',
-  'Desperate, the Chimera lord Argonia struck at the one thing left to break: he shattered the moon itself, and the invasion pressed on.',
-  'The Axies endured. What remained of the moon, they gathered and set atop ancient totems, to light the way for the settlements still standing.',
-  'This is only the first page. The war for Lunacia continues still.',
+  'Long ago, the Empire of Axies flourished in peace, its lineages thriving from coast to coast.',
+  'Then, without warning, the Chimeras came — twisted, hungry things from far beyond the borders.',
+  'Village after village fell silent. The Empire’s armies were never built for a war like this one.',
+  'But deep in the old bloodlines, a strength remained: small, round, and utterly relentless.',
+  'One by one, the Axies rose to answer the call.',
+  'Their weapons were humble. Their numbers, endless. Their spirit, unbreakable.',
+  'This is the story of that stand — stage by stage, chapter by chapter — until the Empire stands again.',
+  'The battle for the Empire of Axies begins now.',
 ];
 
 export default class OpeningScene extends Phaser.Scene {
