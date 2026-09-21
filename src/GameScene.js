@@ -868,6 +868,19 @@ export default class GameScene extends Phaser.Scene {
     // eats every click for that same window, matching the guide's own
     // "城と地面が確定してから入力可" (input only unlocks once the base/ground
     // have visually settled).
+    //
+    // Real bug, found live: this used this.time.delayedCall to self-destruct,
+    // which is gated by this.time.timeScale — and the first-ever battle's
+    // own tutorial (showBattleTutorial, called a few lines below) calls
+    // setPaused(true) essentially the same instant this blocker is created,
+    // freezing timeScale at 0 before the 533ms could ever elapse. The
+    // blocker (depth 20000, full-screen, invisible) then never destroyed
+    // itself and sat on top of the tutorial's own Next/Skip buttons
+    // forever, silently swallowing every click — a first-time player could
+    // never get past "Step 1 of 5", the game looked completely frozen. A
+    // one-time UI transition blocker has no business being pausable in the
+    // first place, so this now uses a plain setTimeout (always real time)
+    // instead of the game's own pausable clock.
     const introFadeMs = 533;
     this.cameras.main.fadeIn(introFadeMs, 0, 0, 0);
     this.uiCamera.fadeIn(introFadeMs, 0, 0, 0);
@@ -876,7 +889,7 @@ export default class GameScene extends Phaser.Scene {
       .setDepth(20000)
       .setInteractive();
     this.cameras.main.ignore(introBlocker);
-    this.time.delayedCall(introFadeMs, () => introBlocker.destroy());
+    setTimeout(() => introBlocker.destroy(), introFadeMs);
 
     // Enemy spawning starts the instant the battle does, matching real
     // Battle Cats (every stage's own spawn timing — STAGE_CONFIG.js's
