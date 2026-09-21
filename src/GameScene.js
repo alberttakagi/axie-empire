@@ -2880,7 +2880,13 @@ export default class GameScene extends Phaser.Scene {
   // phaseMs) deals no damage at all for that cycle: the windup is simply
   // wasted, matching the bible's interruption rule (§A.3.4).
   tickCombatPhase(attacker, deltaMs, onHit) {
-    attacker.phaseMs -= deltaMs * attacker.slowMultiplier;
+    // slowMultiplier deliberately NOT applied here — bible §A.3.8: Slow
+    // "reduces the target's movement speed... does not touch attack
+    // power." Movement (moveStep in updatePlayerUnits/updateEnemies) is
+    // the only place slowMultiplier should apply; this used to also slow
+    // the attack foreswing/backswing cycle itself (and, since the lunge
+    // animation reads this same phaseMs, the attack animation too).
+    attacker.phaseMs -= deltaMs;
 
     while (attacker.phaseMs <= 0) {
       if (attacker.attackPhase === 'windup') {
@@ -3026,6 +3032,10 @@ export default class GameScene extends Phaser.Scene {
   tryDodge(entity) {
     const dodgeChance = entity.config.dodgeChance;
     if (!dodgeChance) return false;
+    // Curse (bible §A.3.8) suppresses Dodge too, same as every other
+    // special ability — a cursed entity can't evade while cursed, even if
+    // it was already mid-dodge-window from a prior successful roll.
+    if (entity.curseMs > 0) return false;
 
     if (entity.dodgeMs > 0) return true;
 
@@ -3173,6 +3183,14 @@ export default class GameScene extends Phaser.Scene {
   applyStatusEffect(attacker, defender) {
     const status = attacker.config.statusOnHit;
     if (!status || status.type === STATUS_TYPES.NONE) return;
+    // Curse (bible §A.3.8): "suppresses Weaken, Freeze, Slow, ... Warp,
+    // Curse itself... on whatever it hits" — every sibling special-ability
+    // function here (tryKnockbackOnHit, scheduleSurgeAttack,
+    // computeToxicBonus, applyWaveAttack) already gates on the attacker's
+    // own curseMs; this one — Slow/Stop/Weaken/Curse/Warp infliction — was
+    // the one place that check was missing, so a cursed attacker could
+    // still freely inflict every status effect it carries.
+    if (attacker.curseMs > 0) return;
     if (Math.random() > status.chance) return;
 
     // Real per-status stinger (Origins Asset Kit) — the guide never had a
@@ -3226,6 +3244,7 @@ export default class GameScene extends Phaser.Scene {
   applyStatusEffectToEnemyBase(attacker) {
     const status = attacker.config.statusOnHit;
     if (!status || status.type !== STATUS_TYPES.CURSE) return;
+    if (attacker.curseMs > 0) return; // same suppression as applyStatusEffect
     if (Math.random() > status.chance) return;
     this.enemyBaseCurseMs = status.durationMs;
   }
@@ -3355,8 +3374,13 @@ export default class GameScene extends Phaser.Scene {
     const unitConfig = attacker.isPlayerSide ? attacker.config : defender.config;
     const enemyAttribute = enemyConfig.attribute;
 
+    // Curse (bible §A.3.8) suppresses Strong Against/Resistant/Massive
+    // Damage same as every other special ability — dealt-side bonuses
+    // (strongBonus) are the ATTACKER's own ability, taken-side bonuses
+    // (resistMultiplier) are the DEFENDER's, so each checks its own side's
+    // curse state independently.
     let strongBonus = 1;
-    if (enemyAttribute) {
+    if (enemyAttribute && attacker.curseMs <= 0) {
       if (attacker.isPlayerSide && unitConfig.massiveVs === enemyAttribute) {
         strongBonus = MASSIVE_DEALT_MULTIPLIER; // Massive Damage: dealt only
       } else if (attacker.isPlayerSide && unitConfig.strongVs === enemyAttribute) {
@@ -3365,7 +3389,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     let resistMultiplier = 1;
-    if (!attacker.isPlayerSide && enemyAttribute) {
+    if (!attacker.isPlayerSide && enemyAttribute && defender.curseMs <= 0) {
       // The enemy is attacking; `unitConfig` is the defending unit here.
       if (unitConfig.strongVs === enemyAttribute) {
         resistMultiplier = STRONG_TAKEN_MULTIPLIER; // Strong Against, taken half
