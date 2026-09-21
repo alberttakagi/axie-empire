@@ -217,6 +217,41 @@ export function playBossShockwaveSfx() {
   playTone({ freq: 70, duration: 0.6, type: 'sawtooth', peakGain: 0.25 });
 }
 
+// Gacha reveal sequence (GachaScene) — a rising 4-note arpeggio for the
+// "something's about to happen" suspense beat before any reward shows,
+// then one reveal stinger per rarity tier, escalating in note count/pitch/
+// gain so a rarer pull reads as a bigger deal by ear, not just by color.
+export function playGachaChargeSfx() {
+  [440, 554, 659, 880].forEach((freq, i) => {
+    playTone({ freq, startOffset: i * 0.09, duration: 0.16, type: 'triangle', peakGain: 0.1 });
+  });
+}
+
+const GACHA_REVEAL_SFX = {
+  common: () => {
+    playTone({ freq: 700, duration: 0.08, type: 'sine', peakGain: 0.12 });
+  },
+  rare: () => {
+    playTone({ freq: 700, duration: 0.06, type: 'sine', peakGain: 0.13 });
+    playTone({ freq: 1050, startOffset: 0.05, duration: 0.1, type: 'sine', peakGain: 0.12 });
+  },
+  epic: () => {
+    playTone({ freq: 660, duration: 0.06, type: 'sine', peakGain: 0.13 });
+    playTone({ freq: 880, startOffset: 0.05, duration: 0.08, type: 'sine', peakGain: 0.13 });
+    playTone({ freq: 1320, startOffset: 0.1, duration: 0.14, type: 'sine', peakGain: 0.13 });
+  },
+  legendary: () => {
+    playTone({ freq: 70, duration: 0.5, type: 'sawtooth', peakGain: 0.2 }); // low fanfare rumble underneath
+    [660, 880, 1100, 1320, 1760].forEach((freq, i) => {
+      playTone({ freq, startOffset: i * 0.07, duration: 0.22, type: 'triangle', peakGain: 0.16 });
+    });
+  },
+};
+
+export function playGachaRevealSfx(rarity) {
+  (GACHA_REVEAL_SFX[rarity] || GACHA_REVEAL_SFX.common)();
+}
+
 // --- Real audio files (one-shot sfx + looping music) ---------------------
 //
 // Both share one small in-memory cache of decoded buffers, keyed by URL, so

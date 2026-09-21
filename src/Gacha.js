@@ -19,14 +19,32 @@ export const GACHA_SINGLE_ROLL_COST = 50;
 export const GACHA_MULTI_ROLL_COUNT = 11;
 export const GACHA_MULTI_ROLL_COST = 500; // ~9% cheaper than 11 singles, mirroring the bible's bulk-discount convention
 
+// Reference range for GachaScene's own "shinier at a higher XP amount"
+// treatment — the lowest and highest XP amount that can ever come out of
+// this pool (the jackpot's own 10,000 counts as the ceiling).
+export const XP_REWARD_MIN = 1000;
+export const XP_REWARD_MAX = 10000;
+
 // Weighted reward pool — weights sum to 100 for readability (treated as
-// percentages), not enforced at runtime.
+// percentages), not enforced at runtime. `rarity` drives GachaScene's own
+// reveal flourish (text/color/sound/particles) — ordered the same as the
+// weights (rarer reward = louder reveal), not a separate balance concept.
 const REWARD_POOL = [
-  { weight: 45, type: 'xp', amount: 1000, label: '1,000 XP' },
-  { weight: 25, type: 'xp', amount: 3000, label: '3,000 XP' },
-  { weight: 15, type: 'evoShard', amount: 1, label: '1 Evo Shard' },
-  { weight: 10, type: 'growthCharm', amount: 1, label: '1 Growth Charm' },
-  { weight: 5, type: 'jackpot', label: 'JACKPOT! 10,000 XP + 1 Evo Shard + 1 Growth Charm' },
+  { weight: 45, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
+  { weight: 25, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' },
+  { weight: 15, type: 'evoShard', amount: 1, label: '1 Evo Shard', rarity: 'epic' },
+  { weight: 10, type: 'growthCharm', amount: 1, label: '1 Growth Charm', rarity: 'epic' },
+  {
+    weight: 5,
+    type: 'jackpot',
+    label: 'JACKPOT!',
+    rarity: 'legendary',
+    bundle: [
+      { type: 'xp', amount: 10000 },
+      { type: 'evoShard', amount: 1 },
+      { type: 'growthCharm', amount: 1 },
+    ],
+  },
 ];
 
 function rollReward() {
@@ -40,29 +58,33 @@ function rollReward() {
   return REWARD_POOL[REWARD_POOL.length - 1];
 }
 
-function applyReward(reward) {
-  switch (reward.type) {
+function grantOne(type, amount) {
+  switch (type) {
     case 'xp':
-      addXp(reward.amount);
+      addXp(amount);
       break;
     case 'evoShard':
-      addEvoShards(reward.amount);
+      addEvoShards(amount);
       break;
     case 'growthCharm':
-      addGrowthCharms(reward.amount);
-      break;
-    case 'jackpot':
-      addXp(10000);
-      addEvoShards(1);
-      addGrowthCharms(1);
+      addGrowthCharms(amount);
       break;
   }
 }
 
+function applyReward(reward) {
+  if (reward.type === 'jackpot') {
+    reward.bundle.forEach(({ type, amount }) => grantOne(type, amount));
+  } else {
+    grantOne(reward.type, reward.amount);
+  }
+}
+
 // Spends `cost` Gems and performs `count` rolls, applying every reward.
-// Returns { ok, rewards } — `rewards` is the list of labels rolled, for the
-// results screen; `ok: false` (no Gems spent, no rewards rolled) if the
-// player can't afford it.
+// Returns { ok, rewards } — `rewards` is the full list of reward objects
+// rolled (type/amount/label/rarity/bundle), for GachaScene's own reveal
+// sequence; `ok: false` (no Gems spent, no rewards rolled) if the player
+// can't afford it.
 function performRolls(count, cost) {
   if (!trySpendGems(cost)) return { ok: false, rewards: [] };
 
@@ -70,7 +92,7 @@ function performRolls(count, cost) {
   for (let i = 0; i < count; i += 1) {
     const reward = rollReward();
     applyReward(reward);
-    rewards.push(reward.label);
+    rewards.push(reward);
   }
   return { ok: true, rewards };
 }
