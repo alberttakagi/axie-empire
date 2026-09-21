@@ -652,7 +652,7 @@ export default class GameScene extends Phaser.Scene {
     this.enemyBaseCurseMs = 0; // curse landed on the enemy base — currently a no-op, nothing to suppress there yet
     this.elapsedMs = 0;
     this.isGameOver = false;
-    this.isPaused = false; // true while the Quit confirm overlay is up — see showQuitConfirm/update
+    this.isPaused = false; // see setPaused — true while Options/tutorial/Quit-confirm/Continue-offer is up
     // Popup-tracking fields reset here for the same reason isGameOver/
     // isPaused are: Phaser reuses this same scene INSTANCE across every
     // scene.start (it's registered as a class in main.js), so a stale
@@ -675,6 +675,11 @@ export default class GameScene extends Phaser.Scene {
     // and Phaser's own timer clock (this.time.timeScale), so scripted
     // enemy spawns and the special-burst flash speed up consistently too.
     this.speedMultiplier = 1;
+    // Explicit reset (not just relying on Phaser's own Clock lifecycle) for
+    // the same reused-scene-instance reason as the popup-tracking fields
+    // above — see setPaused, which is the only other place this gets
+    // written, for why a stale non-1 value here would matter.
+    this.time.timeScale = 1;
 
     // Per-unit-type redeploy cooldown (bible §A.3.2/§A.3.7) — global floor
     // is 2000ms across every UNIT_CONFIG entry; see trySpawnUnit/update.
@@ -1272,7 +1277,7 @@ export default class GameScene extends Phaser.Scene {
   // row-wrapping), and vibration (no haptics on web).
   showSettingsPopup() {
     if (this.settingsPopupObjects) return; // already showing
-    this.isPaused = true;
+    this.setPaused(true);
 
     const { width, height } = this.scale;
     const objects = [];
@@ -1336,7 +1341,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.settingsPopupObjects) return;
     this.settingsPopupObjects.forEach((obj) => obj.destroy());
     this.settingsPopupObjects = null;
-    if (!opts.keepPaused) this.isPaused = false;
+    if (!opts.keepPaused) this.setPaused(false);
   }
 
   // First-battle walkthrough (new request: a fresh player dropped straight
@@ -1396,7 +1401,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   showBattleTutorial() {
-    this.isPaused = true;
+    this.setPaused(true);
     this.tutorialStepIndex = 0;
     this.renderTutorialStep();
   }
@@ -1482,7 +1487,7 @@ export default class GameScene extends Phaser.Scene {
     markTutorialCompleted();
     if (this.tutorialObjects) this.tutorialObjects.forEach((obj) => obj.destroy());
     this.tutorialObjects = null;
-    this.isPaused = false;
+    this.setPaused(false);
   }
 
   // Battle Items (bible §A.8) — a compact top-center row, one button per
@@ -1545,7 +1550,7 @@ export default class GameScene extends Phaser.Scene {
 
   showQuitConfirm() {
     if (this.quitConfirmObjects) return; // already showing
-    this.isPaused = true;
+    this.setPaused(true);
 
     const { width, height } = this.scale;
     const objects = [];
@@ -1590,7 +1595,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.quitConfirmObjects) return;
     this.quitConfirmObjects.forEach((obj) => obj.destroy());
     this.quitConfirmObjects = null;
-    this.isPaused = false;
+    this.setPaused(false);
   }
 
   // Bottom-LEFT circular icon, mirroring the Cat Cannon's own bottom-right
@@ -1702,6 +1707,23 @@ export default class GameScene extends Phaser.Scene {
     this.time.timeScale = this.speedMultiplier;
     this.speedUpText.setText(`${this.speedMultiplier}x SPEED`);
     this.speedUpButton.fillColor = this.speedMultiplier > 1 ? 0xffdd33 : 0x555566;
+  }
+
+  // The ONE place this.isPaused gets written (Options, the first-battle
+  // tutorial, the mid-battle Quit confirm, and the base-destroyed Continue
+  // offer all called `this.isPaused = true/false` directly before this).
+  // isPaused alone only ever gated update()'s own per-frame deltaMs work —
+  // it did nothing about Phaser's own Clock, so anything scheduled via
+  // this.time.delayedCall (Cat Cannon's own multi-wave sequencing, Dojo's
+  // self-rescheduling wave spawner, Surge Attack's delayed area hit) kept
+  // firing in the background the whole time a popup had the game "paused".
+  // Reuses the exact mechanism Speed Up already proved out for this same
+  // Clock (this.time.timeScale) — 0 freezes every pending TimerEvent
+  // without cancelling it, and un-pausing restores whatever speed setting
+  // was actually active rather than resetting it to 1x.
+  setPaused(paused) {
+    this.isPaused = paused;
+    this.time.timeScale = paused ? 0 : this.speedMultiplier;
   }
 
   // Level-1 values come from the stage itself; each Worker Cat level above 1
@@ -3581,7 +3603,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   showContinueOffer(cost) {
-    this.isPaused = true;
+    this.setPaused(true);
 
     const { width, height } = this.scale;
     const objects = [];
@@ -3643,7 +3665,7 @@ export default class GameScene extends Phaser.Scene {
     if (!this.continueOfferObjects) return;
     this.continueOfferObjects.forEach((obj) => obj.destroy());
     this.continueOfferObjects = null;
-    this.isPaused = false;
+    this.setPaused(false);
   }
 
   damageEnemyBase(amount) {
