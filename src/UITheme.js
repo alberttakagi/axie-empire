@@ -228,5 +228,10 @@ export function createResourceBadge(scene, x, y, tag, value, opts = {}) {
 
   container.add([pillBg, tagBg, tagText, valueText]);
   container.bcValueText = valueText;
+  // Total rendered pill width (pillRight - pillLeft) — lets a caller placing
+  // several of these side by side (this badge is right-anchored: content
+  // grows LEFTWARD from `x`) compute non-overlapping positions instead of
+  // guessing fixed x gaps that a long value string can close up.
+  container.bcWidth = pillRight - pillLeft;
   return container;
 }

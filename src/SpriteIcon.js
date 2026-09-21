@@ -141,10 +141,47 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
   const frames = idleAnimated && spriteSet.idleAnim ? frameKeys(prefix, config.id, evolvedTag, 'idleAnim', spriteSet.idleAnim.length) : null;
   const idleKey = `${prefix}_${config.id}${evolvedTag}_idle`;
 
+  // Only 2 real sampled frames exist per unit, so an instant texture swap
+  // every IDLE_ANIM_FRAME_MS read as a jarring flip/rattle (ガタガタ) rather
+  // than a "low frame rate" in the sense of missing frames — there's
+  // nothing to add more of. Crossfading between the two with a tween
+  // instead of hard-swapping textures reads as smooth continuous motion
+  // from the same 2 source images, so that's handled as its own branch,
+  // stacking two images in a container rather than retexturing one.
+  if (frames && frames.length > 1) {
+    const container = scene.add.container(x, y);
+    const iconA = scene.add.image(0, 0, frames[0]).setFlipX(isPlayerSide);
+    const iconB = scene.add.image(0, 0, frames[1]).setFlipX(isPlayerSide).setAlpha(0);
+    const scale = targetDiameter / Math.max(iconA.width, iconA.height);
+    iconA.setScale(scale);
+    iconB.setScale(scale);
+    container.add([iconA, iconB]);
+
+    // Both tweens share duration/ease and go in opposite directions, so at
+    // every instant their alphas sum to exactly 1 (Sine.easeInOut(t) +
+    // Sine.easeInOut(1-t) === 1) — a clean crossfade with no flash of
+    // double-opacity or double-transparency at the midpoint. Randomized
+    // start delay staggers a whole grid of icons so they don't visibly
+    // breathe in lockstep, replacing the old per-timer `startAt` desync.
+    const startDelay = Math.random() * IDLE_ANIM_FRAME_MS;
+    const tweenA = scene.tweens.add({ targets: iconA, alpha: 0, duration: IDLE_ANIM_FRAME_MS, delay: startDelay, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    const tweenB = scene.tweens.add({ targets: iconB, alpha: 1, duration: IDLE_ANIM_FRAME_MS, delay: startDelay, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+
+    // Same cleanup concern as the old per-icon timer: LoadoutScene/
+    // CatalogScene rebuild their cards (tapping one, paging the detail
+    // view, ...) without restarting the whole scene, destroying this
+    // container but leaving scene.tweens' own running tweens targeting its
+    // now-destroyed children otherwise.
+    container.once('destroy', () => {
+      tweenA.remove();
+      tweenB.remove();
+    });
+
+    return container;
+  }
+
   let icon;
-  if (frames) {
-    icon = scene.add.image(x, y, frames[0]);
-  } else if (faceZoom) {
+  if (faceZoom) {
     icon = scene.add.image(x, y, idleKey, ensureFaceFrame(scene, idleKey));
   } else {
     // Explicit '__BASE' (Phaser's own name for a single-image texture's
@@ -164,27 +201,6 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
   }
   icon.setFlipX(isPlayerSide);
   icon.setScale(targetDiameter / Math.max(icon.width, icon.height));
-
-  if (frames && frames.length > 1) {
-    let frame = 0;
-    const timer = scene.time.addEvent({
-      delay: IDLE_ANIM_FRAME_MS,
-      startAt: Math.random() * IDLE_ANIM_FRAME_MS,
-      loop: true,
-      callback: () => {
-        frame = (frame + 1) % frames.length;
-        icon.setTexture(frames[frame], '__BASE');
-      },
-    });
-    // LoadoutScene/CatalogScene rebuild their cards repeatedly (tapping a
-    // card, paging through the detail view, ...) without restarting the
-    // whole scene, which destroys THIS icon but leaves scene.time's own
-    // timer list (and this callback) running otherwise — it would keep
-    // firing against a destroyed Image forever. Tying its life to the
-    // icon's own 'destroy' event means every card rebuild cleans up
-    // exactly the timers that card's own icons started, no more.
-    icon.once('destroy', () => timer.remove());
-  }
 
   return icon;
 }

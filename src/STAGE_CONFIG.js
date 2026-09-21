@@ -1268,7 +1268,13 @@ export const STAGE_CONFIG = [
     moneyAccrualPerSec: 170,
     baseHp: 1000,
     maxEnemiesOnField: 4,
-    enemyBaseHp: 99999,
+    // Was 99999 — an unreviewed placeholder (a 3x+ spike over stage47's
+    // 30000 with none of this field's usual smooth-curve growth). Same
+    // treatment as the titan boss's own hp fix in ENEMY_CONFIG.js. This
+    // field stays flat across saga1/2/3 by this game's own established
+    // convention for enemyBaseHp (unlike enemy unit stats, which scale via
+    // spawnScript's statMultiplier) — see stage96/144's matching value.
+    enemyBaseHp: 40000,
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1, firstMs: 0, repeatMs: [1000, 2000], maxCount: null },
       { enemyId: 'tank', statMultiplier: 1, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },
@@ -2431,7 +2437,7 @@ export const STAGE_CONFIG = [
     moneyAccrualPerSec: 170,
     baseHp: 1000,
     maxEnemiesOnField: 4,
-    enemyBaseHp: 99999,
+    enemyBaseHp: 40000, // see stage48's own comment on this fix
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 1.5, firstMs: 0, repeatMs: [1000, 2000], maxCount: null },
       { enemyId: 'tank', statMultiplier: 1.5, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },
@@ -3594,7 +3600,7 @@ export const STAGE_CONFIG = [
     moneyAccrualPerSec: 170,
     baseHp: 1000,
     maxEnemiesOnField: 4,
-    enemyBaseHp: 99999,
+    enemyBaseHp: 40000, // see stage48's own comment on this fix
     spawnScript: [
       { enemyId: 'thatguy', statMultiplier: 4, firstMs: 0, repeatMs: [1000, 2000], maxCount: null },
       { enemyId: 'tank', statMultiplier: 4, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },

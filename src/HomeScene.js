@@ -91,9 +91,20 @@ export default class HomeScene extends Phaser.Scene {
     createResourceBadge(this, width - 24, 26, 'XP', Math.floor(playerProgress.xp), { valueColor: '#7fe0ff' });
 
     // Secondary status row, top-left under the title — mirrors the
-    // reference's own "(i) 2502 [calendar]" cluster position.
-    createResourceBadge(this, 140, 66, 'RANK', getUserRank(), { valueColor: '#e2b8ff', fontSize: 16 });
-    createResourceBadge(this, 300, 66, 'ENERGY', `${current}/${cap}`, { valueColor: '#8fffb0', fontSize: 16 });
+    // reference's own "(i) 2502 [calendar]" cluster position. Both badges
+    // are right-anchored (content grows LEFTWARD from their x), so a fixed
+    // x gap between them could get closed up by a long value string (a
+    // high Rank number, a raised Energy cap) — measure each one's actual
+    // rendered width instead and place Energy exactly BADGE_GAP to the
+    // right of wherever Rank's own content actually ends.
+    const STATUS_ROW_LEFT = 40;
+    const BADGE_GAP = 20;
+    const rankBadge = createResourceBadge(this, 0, 66, 'RANK', getUserRank(), { valueColor: '#e2b8ff', fontSize: 16 });
+    rankBadge.setPosition(STATUS_ROW_LEFT + rankBadge.bcWidth - 12, 66);
+
+    const energyBadge = createResourceBadge(this, 0, 66, 'ENERGY', `${current}/${cap}`, { valueColor: '#8fffb0', fontSize: 16 });
+    const energyLeftEdge = STATUS_ROW_LEFT + rankBadge.bcWidth + BADGE_GAP;
+    energyBadge.setPosition(energyLeftEdge + energyBadge.bcWidth - 12, 66);
 
     // Currency, bottom-right corner — mirrors the reference's ネコカン
     // position, clear of the icon row (and its under-labels) beneath it.

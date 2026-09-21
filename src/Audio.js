@@ -1,7 +1,9 @@
 // Two independent volume controls (bible/reference-screenshot-confirmed
 // in-battle Options popup: separate BGM note icon and SFX speaker icon),
-// each a 3-level cycle — Off / Low / High — rather than a continuous
-// slider, matching the reference UI's own discrete icon-cycle behavior.
+// each a 4-level cycle — Off / Low / Medium / High — rather than a
+// continuous slider, matching the reference UI's own discrete icon-cycle
+// behavior. User feedback: the old 2-step Low/High (0.5/1) had no quiet
+// option — old Low is now Medium, and the new Low is a genuinely quiet 0.15.
 // A separate master `isMuted` flag (HomeScene's own quick toggle) overrides
 // both outright, checked first in every play function below.
 //
@@ -21,10 +23,10 @@ const SFX_VOLUME_KEY = 'axieSkirmishSfxVolumeLevel';
 const BGM_VOLUME_KEY = 'axieSkirmishBgmVolumeLevel';
 const MUTED_KEY = 'axieSkirmishMuted';
 
-// Index = level (0 Off / 1 Low / 2 High); value = gain multiplier.
-export const VOLUME_LEVELS = [0, 0.5, 1];
-export const VOLUME_LEVEL_LABELS = ['Off', 'Low', 'High'];
-const DEFAULT_VOLUME_LEVEL = 2; // High
+// Index = level (0 Off / 1 Low / 2 Medium / 3 High); value = gain multiplier.
+export const VOLUME_LEVELS = [0, 0.15, 0.5, 1];
+export const VOLUME_LEVEL_LABELS = ['Off', 'Low', 'Medium', 'High'];
+const DEFAULT_VOLUME_LEVEL = 3; // High
 
 let audioCtx = null;
 
@@ -41,11 +43,34 @@ function getCtx() {
   return audioCtx;
 }
 
+// One-time migration for saves written under the old 3-level Off/Low/High
+// scheme (max index 2): index 1 (old Low, 0.5 gain) now means Medium, so a
+// bare re-read against the new 4-level range would silently reinterpret it
+// as the new, quieter Low (0.15) — and old index 2 (High) would silently
+// become Medium (0.5) — changing a real saved preference out from under the
+// player. Remaps {1->2, 2->3} exactly once per key, flagged so it never
+// re-applies to a level the player deliberately sets afterward.
+function migrateLevel(key) {
+  const migratedFlagKey = `${key}_migratedV2`;
+  try {
+    if (localStorage.getItem(migratedFlagKey) === 'true') return;
+    const raw = localStorage.getItem(key);
+    const oldLevel = raw === null ? null : Number(raw);
+    if (Number.isInteger(oldLevel) && oldLevel >= 1 && oldLevel <= 2) {
+      localStorage.setItem(key, String(oldLevel + 1));
+    }
+    localStorage.setItem(migratedFlagKey, 'true');
+  } catch {
+    // localStorage unavailable — nothing to migrate this run.
+  }
+}
+
 function readLevel(key) {
+  migrateLevel(key);
   try {
     const raw = localStorage.getItem(key);
     const level = raw === null ? DEFAULT_VOLUME_LEVEL : Number(raw);
-    return Number.isInteger(level) && level >= 0 && level <= 2 ? level : DEFAULT_VOLUME_LEVEL;
+    return Number.isInteger(level) && level >= 0 && level <= 3 ? level : DEFAULT_VOLUME_LEVEL;
   } catch {
     return DEFAULT_VOLUME_LEVEL;
   }

@@ -330,7 +330,14 @@ export const ENEMY_CONFIG = {
     threat: 80,
     rarity: ENEMY_RARITY.LEGENDARY,
     money: 4000,
-    hp: 99999,
+    // 99999 here (and the matching stage48/96/144 enemyBaseHp) was an
+    // unreviewed placeholder — the only stat on this whole enemy with no
+    // "// real ..." citation, and a 6-25x outlier against every other
+    // LEGENDARY-rarity boss (kangaroo 4000, gagagaga 5000, ikkaku 15000,
+    // all threat 35-45 vs this one's 80). Retuned to continue that same
+    // threat/hp curve as the true chapter-final boss, still scaled by the
+    // existing per-saga statMultiplier (1x/1.5x/4x) like every other enemy.
+    hp: 40000,
     damage: 2000,
     attackSpeed: 3.3, // dps ~106.9 — interval 9100ms (273F), split 35/65 below
     foreswingMs: 3185,
