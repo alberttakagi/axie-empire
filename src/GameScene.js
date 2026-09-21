@@ -28,6 +28,7 @@ import {
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
+import { findSetForStage } from './TREASURE_CONFIG.js';
 import { loadLoadout, MAX_LOADOUT_SIZE } from './Loadout.js';
 import { trySpendEnergy } from './Energy.js';
 import { getComboBonusValue } from './Combo.js';
@@ -130,6 +131,7 @@ const MONEY_RAMP_DURATION_MS = 60000;
 
 const TREASURE_TIER_NAMES = ['', 'Bronze', 'Silver', 'Gold'];
 const TREASURE_TIER_COLOR = [0x000000, 0xcd7f32, 0xc0c0c0, 0xffd700]; // index 0 (none) never drawn — see playVictorySequence
+const TREASURE_TIER_ICON_KEYS = [null, 'bronze', 'silver', 'gold']; // matches TreasureScene.js's own TIER_KEYS
 
 // Stage-clear XP reward decay (bible §A.5.1 — repeat clears taper toward a
 // floor rather than paying full XP forever): each previous clear of this
@@ -487,6 +489,14 @@ export default class GameScene extends Phaser.Scene {
     super('GameScene');
   }
 
+  // Phaser calls init(data) before preload() (create(data) gets the same
+  // object again later) — preload() itself is always called with no
+  // arguments, so this is the only way to know which stage (and therefore
+  // which Treasure set) is being loaded in time to queue its icons below.
+  init(data) {
+    this.pendingTreasureSet = data.mode === 'dojo' ? null : findSetForStage(data.stageId);
+  }
+
   // Real sprite art — Starter Axies for UNIT_CONFIG, PvE Chimeras for
   // ENEMY_CONFIG (see each file's `sprite` field and SpriteIcon.js) —
   // loaded once per texture key. Guarded by textures.exists (inside
@@ -503,6 +513,16 @@ export default class GameScene extends Phaser.Scene {
     if (!this.textures.exists(TOWER_ENEMY_SPRITE_KEY)) this.load.image(TOWER_ENEMY_SPRITE_KEY, '/sprites/structures/tower_enemy.png');
     for (const { key, file } of Object.values(STATUS_ICON_TEXTURE)) {
       if (!this.textures.exists(key)) this.load.image(key, `/icons/status/${file}`);
+    }
+    // This stage's own Treasure Set art (see the victory-sequence reveal
+    // card below) — only the 3 tier PNGs for the ONE set this stage
+    // belongs to, not TreasureScene's full 108-file roster, since a battle
+    // only ever reveals its own stage's set.
+    if (this.pendingTreasureSet) {
+      ['bronze', 'silver', 'gold'].forEach((tier) => {
+        const key = `treasure_${this.pendingTreasureSet.icon}_${tier}`;
+        if (!this.textures.exists(key)) this.load.image(key, `treasures/${this.pendingTreasureSet.icon}_${tier}.png`);
+      });
     }
     // Music/sfx audio files need no Phaser preload step at all — Audio.js's
     // own playMusic/playSfxFile fetch+decode real files directly via the
@@ -4014,34 +4034,62 @@ export default class GameScene extends Phaser.Scene {
         this.cameras.main.ignore(dim);
         this.tweens.add({ targets: dim, fillAlpha: 0.6, duration: 200 });
 
-        const cardColor = TREASURE_TIER_COLOR[result.treasureResult.tier];
-        const card = this.add.rectangle(width / 2, height / 2, 150, 190, cardColor).setStrokeStyle(4, BC.ink).setDepth(1000);
+        // Real reveal, not a generic tier-colored placeholder: shows the
+        // actual charm that dropped (this stage's own Treasure Set — see
+        // init()'s pendingTreasureSet/preload's own note) plus its real
+        // name, same art TreasureScene itself renders for an earned tier.
+        const tier = result.treasureResult.tier;
+        const set = this.pendingTreasureSet;
+        const iconKey = set ? `treasure_${set.icon}_${TREASURE_TIER_ICON_KEYS[tier]}` : null;
+        const hasIcon = iconKey && this.textures.exists(iconKey);
+
+        const cardWidth = 170;
+        const cardHeight = 220;
+        const card = this.add.container(width / 2, height / 2).setDepth(1000);
         card.setScale(0);
         card.setAngle(-25);
-        this.cameras.main.ignore(card);
-        const cardLabel = this.add
-          .text(width / 2, height / 2, `${TREASURE_TIER_NAMES[result.treasureResult.tier]}\nTreasure!`, {
-            fontFamily: FONT, fontSize: '16px', color: BC.inkHex, align: 'center',
+
+        const cardBg = this.add
+          .rectangle(0, 0, cardWidth, cardHeight, BC.panel)
+          .setStrokeStyle(4, TREASURE_TIER_COLOR[tier]);
+        const tierText = this.add
+          .text(0, -cardHeight / 2 + 24, `${TREASURE_TIER_NAMES[tier]} Treasure!`, {
+            fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
           })
-          .setOrigin(0.5)
-          .setDepth(1001)
-          .setScale(0);
-        this.cameras.main.ignore(cardLabel);
+          .setOrigin(0.5);
+        const nameText = this.add
+          .text(0, cardHeight / 2 - 30, set ? set.name : '', {
+            fontFamily: FONT, fontSize: '15px', color: BC.inkHex, align: 'center',
+            wordWrap: { width: cardWidth - 20 },
+          })
+          .setOrigin(0.5);
+        const cardParts = [cardBg, tierText, nameText];
+
+        if (hasIcon) {
+          cardParts.push(this.add.image(0, -8, iconKey).setDisplaySize(76, 76));
+        } else {
+          // Fallback for the practically-impossible case of a stage with no
+          // matching Treasure Set (every stage is covered by one — see
+          // TREASURE_CONFIG.js) — still shows SOMETHING instead of a blank card.
+          cardParts.push(this.add.circle(0, -8, 30, TREASURE_TIER_COLOR[tier]).setStrokeStyle(2, BC.ink));
+        }
+
+        card.add(cardParts);
+        this.cameras.main.ignore([card, ...cardParts]);
 
         playUiTapSfx();
         this.tweens.add({
-          targets: [card, cardLabel], scale: 1, angle: 0,
+          targets: card, scale: 1, angle: 0,
           duration: 500, ease: 'Back.easeOut',
         });
 
         dim.on('pointerdown', () => {
           dim.disableInteractive();
           this.tweens.add({
-            targets: [dim, card, cardLabel], alpha: 0, duration: 150,
+            targets: [dim, card], alpha: 0, duration: 150,
             onComplete: () => {
               dim.destroy();
               card.destroy();
-              cardLabel.destroy();
             },
           });
           revealButtons(); // don't make the player wait out the rest of the original timer too
