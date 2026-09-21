@@ -73,7 +73,18 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
 // (a different context entirely — that one's brisk, meant to sell
 // "walking"). Frame swaps are staggered per icon via a randomized initial
 // delay so a whole grid of them doesn't visibly breathe in lockstep.
-const IDLE_ANIM_FRAME_MS = 550;
+//
+// First pass here crossfaded continuously for the whole hold period (a
+// tween running the entire cycle instead of a quick blend at the switch
+// moment) — user feedback: that reads as a blurry double-exposure most of
+// the time rather than two distinct poses alternating ("not flashing").
+// HOLD_MS is how long each frame sits fully visible (the part that should
+// read as "a pose"); TRANSITION_MS is only the brief blend AT the switch
+// (long enough to avoid the original instant-swap jarring "ガタガタ" cut,
+// short enough that most of the cycle is spent clearly on one frame or
+// the other, not partway between both).
+const IDLE_ANIM_HOLD_MS = 480;
+const IDLE_ANIM_TRANSITION_MS = 130;
 
 // Universal "zoomed to face" crop, as fractions of the source PNG's own
 // width/height — used by the spawn-button portraits (real Battle Cats deploy
@@ -157,15 +168,27 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
     iconB.setScale(scale);
     container.add([iconA, iconB]);
 
-    // Both tweens share duration/ease and go in opposite directions, so at
-    // every instant their alphas sum to exactly 1 (Sine.easeInOut(t) +
-    // Sine.easeInOut(1-t) === 1) — a clean crossfade with no flash of
-    // double-opacity or double-transparency at the midpoint. Randomized
-    // start delay staggers a whole grid of icons so they don't visibly
-    // breathe in lockstep, replacing the old per-timer `startAt` desync.
-    const startDelay = Math.random() * IDLE_ANIM_FRAME_MS;
-    const tweenA = scene.tweens.add({ targets: iconA, alpha: 0, duration: IDLE_ANIM_FRAME_MS, delay: startDelay, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
-    const tweenB = scene.tweens.add({ targets: iconB, alpha: 1, duration: IDLE_ANIM_FRAME_MS, delay: startDelay, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
+    // Both tweens share duration/hold/ease and go in opposite directions,
+    // so at every instant their alphas sum to exactly 1 (Sine.easeInOut(t)
+    // + Sine.easeInOut(1-t) === 1) — a clean crossfade with no flash of
+    // double-opacity or double-transparency mid-blend. `hold` (after the
+    // forward tween, before yoyo) and `repeatDelay` (after yoyo, before the
+    // next repeat) are what create the "clearly on one frame, THEN a quick
+    // blend, THEN clearly on the other" rhythm — see IDLE_ANIM_HOLD_MS's
+    // own comment. Randomized start delay staggers a whole grid of icons
+    // so they don't visibly flash in lockstep.
+    const startDelay = Math.random() * (IDLE_ANIM_HOLD_MS + IDLE_ANIM_TRANSITION_MS);
+    const tweenOpts = {
+      duration: IDLE_ANIM_TRANSITION_MS,
+      delay: startDelay,
+      hold: IDLE_ANIM_HOLD_MS,
+      repeatDelay: IDLE_ANIM_HOLD_MS,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    };
+    const tweenA = scene.tweens.add({ targets: iconA, alpha: 0, ...tweenOpts });
+    const tweenB = scene.tweens.add({ targets: iconB, alpha: 1, ...tweenOpts });
 
     // Same cleanup concern as the old per-icon timer: LoadoutScene/
     // CatalogScene rebuild their cards (tapping one, paging the detail
