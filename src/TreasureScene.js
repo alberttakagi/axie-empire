@@ -17,6 +17,19 @@ const TIER_NAMES = ['None', 'Bronze', 'Silver', 'Gold'];
 const TIER_KEYS = [null, 'bronze', 'silver', 'gold'];
 const SETS_PER_PAGE = 2;
 
+// User feedback: the 4 stage-tier icons per set only filled a card's left
+// ~2/3 (4 columns spaced 145px apart, ending around x=495, inside a
+// ~768px-wide card) — a large blank strip on the right of every row, with
+// small 36px icons on top of it. Spread the same 4 columns across the
+// card's FULL width and size the icons up to match, rather than leaving
+// the extra room empty.
+const CARD_HEIGHT = 155;
+const ROW_SPACING = 175;
+const PAGER_Y = 414;
+const ICON_RING_RADIUS = 26;
+const ICON_SIZE = 46;
+const COL_SIDE_MARGIN = 56; // from each card edge to the first/last column center's own edge
+
 export default class TreasureScene extends Phaser.Scene {
   constructor() {
     super('TreasureScene');
@@ -55,7 +68,7 @@ export default class TreasureScene extends Phaser.Scene {
     createTitlePill(this, 24, 26, 'Treasure Sets');
     createBackButton(this, () => this.scene.start('HomeScene'));
 
-    const pagerY = 372;
+    const pagerY = PAGER_Y;
     createBcButton(this, width / 2 - 90, pagerY, 70, 28, '< Prev', () => {
       if (this.page > 0) {
         this.page -= 1;
@@ -83,7 +96,7 @@ export default class TreasureScene extends Phaser.Scene {
     const totalPages = Math.ceil(summary.length / SETS_PER_PAGE);
     const pageEntries = summary.slice(this.page * SETS_PER_PAGE, this.page * SETS_PER_PAGE + SETS_PER_PAGE);
 
-    pageEntries.forEach((entry, index) => this.renderSet(entry, 66 + index * 150));
+    pageEntries.forEach((entry, index) => this.renderSet(entry, 66 + index * ROW_SPACING));
 
     this.pageText.setText(`Page ${this.page + 1}/${totalPages}`);
   }
@@ -93,7 +106,7 @@ export default class TreasureScene extends Phaser.Scene {
     const { set, completion, bonusPercent, stageTiers } = entry;
     const rowObjects = [];
 
-    const cardHeight = 130;
+    const cardHeight = CARD_HEIGHT;
     const g = this.add.graphics();
     g.fillStyle(BC.ink, 0.2);
     g.fillRoundedRect(18, y + 5, width - 32, cardHeight, 14);
@@ -129,40 +142,43 @@ export default class TreasureScene extends Phaser.Scene {
         .setOrigin(0, 0.5),
     );
 
+    // Spread the fixed 4 columns evenly across the card's full interior
+    // width (COL_SIDE_MARGIN in from each edge) instead of clustering them
+    // at fixed 145px steps from the left — see this file's own top-level
+    // comment on why.
+    const colSpan = width - 32 - COL_SIDE_MARGIN * 2;
     stageTiers.forEach((stageTier, index) => {
       const stage = STAGE_CONFIG.find((s) => s.id === stageTier.stageId);
-      const x = 60 + index * 145;
-      const dotY = y + 80;
+      const x = 16 + COL_SIDE_MARGIN + (colSpan / stageTiers.length) * (index + 0.5);
+      const dotY = y + 92;
 
       // Medal-styled badge — a filled tier-colored ring, with the set's
       // real charm icon (its own colors untouched, with a tier-colored
       // glow drawn around it — see TREASURE_CONFIG.js's own note) layered
-      // on top once actually earned. Tier 0 ("None")
-      // has no charm art yet, so it stays the plain ring alone. Sized as
-      // large as fits without touching the tier-name label above (fixed
-      // at dotY-24) or the stage-name label below (fixed at dotY+22).
+      // on top once actually earned. Tier 0 ("None") has no charm art yet,
+      // so it stays the plain ring alone.
       rowObjects.push(
-        this.add.circle(x, dotY, 20, TIER_COLORS[stageTier.tier]).setStrokeStyle(2, BC.ink),
+        this.add.circle(x, dotY, ICON_RING_RADIUS, TIER_COLORS[stageTier.tier]).setStrokeStyle(2, BC.ink),
       );
       if (stageTier.tier > 0) {
         rowObjects.push(
-          this.add.image(x, dotY, `treasure_${set.icon}_${TIER_KEYS[stageTier.tier]}`).setDisplaySize(36, 36),
+          this.add.image(x, dotY, `treasure_${set.icon}_${TIER_KEYS[stageTier.tier]}`).setDisplaySize(ICON_SIZE, ICON_SIZE),
         );
       }
       rowObjects.push(
         this.add
-          .text(x, dotY + 22, stage.displayName, {
-            fontFamily: FONT, fontSize: '10px',
+          .text(x, dotY + ICON_RING_RADIUS + 14, stage.displayName, {
+            fontFamily: FONT, fontSize: '11px',
             color: '#7a5c1e',
             align: 'center',
-            wordWrap: { width: 130 },
+            wordWrap: { width: colSpan / stageTiers.length - 10 },
           })
           .setOrigin(0.5, 0),
       );
       rowObjects.push(
         this.add
-          .text(x, dotY - 24, TIER_NAMES[stageTier.tier], {
-            fontFamily: FONT, fontSize: '9px',
+          .text(x, dotY - ICON_RING_RADIUS - 10, TIER_NAMES[stageTier.tier], {
+            fontFamily: FONT, fontSize: '10px',
             color: '#5a5a5a',
           })
           .setOrigin(0.5, 1),
