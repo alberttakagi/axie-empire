@@ -1,10 +1,9 @@
 # treasure-gen
 
-Generates bronze/silver/gold duotone versions of a treasure charm icon.
-Each pixel's luminance is remapped onto a per-tier shadow→base→highlight
-gradient (alpha untouched) instead of a flat color multiply, so the result
-looks like the same icon cast in a different material rather than just
-darkened — see `gen-tiers.js`'s header comment for why.
+Generates bronze/silver/gold GLOW versions of a treasure charm icon: the
+original art is left untouched, with a colored rim + soft halo drawn
+around its silhouette (built from the icon's own alpha channel) —
+see `gen-tiers.js`'s header comment for how.
 
 ## Usage
 

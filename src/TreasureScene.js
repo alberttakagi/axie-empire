@@ -135,8 +135,9 @@ export default class TreasureScene extends Phaser.Scene {
       const dotY = y + 80;
 
       // Medal-styled badge — a filled tier-colored ring, with the set's
-      // real charm icon (tinted to that tier, see TREASURE_CONFIG.js's
-      // own note) layered on top once actually earned. Tier 0 ("None")
+      // real charm icon (its own colors untouched, with a tier-colored
+      // glow drawn around it — see TREASURE_CONFIG.js's own note) layered
+      // on top once actually earned. Tier 0 ("None")
       // has no charm art yet, so it stays the plain ring alone. Sized as
       // large as fits without touching the tier-name label above (fixed
       // at dotY-24) or the stage-name label below (fixed at dotY+22).
