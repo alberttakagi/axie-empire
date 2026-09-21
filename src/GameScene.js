@@ -2499,14 +2499,14 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (unit.target && (unit.target.hp <= 0 || unit.target.warpMs > 0 || !this.inRange(unit, unit.target))) {
+      if (unit.target && (unit.target.hp <= 0 || unit.target.warpMs > 0 || unit.target.knockbackMs > 0 || !this.inRange(unit, unit.target))) {
         unit.target = null;
       }
 
       if (!unit.target) {
         unit.target = this.findNearest(
           unit, this.enemies,
-          (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking && this.inRange(unit, enemy),
+          (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && enemy.knockbackMs <= 0 && !enemy.config.nonBlocking && this.inRange(unit, enemy),
         );
       }
 
@@ -2519,7 +2519,7 @@ export default class GameScene extends Phaser.Scene {
       if (!unit.target && unit.config.longDistance && unit.shape.x <= minRetreatX) {
         unit.target = this.findNearest(
           unit, this.enemies,
-          (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking
+          (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && enemy.knockbackMs <= 0 && !enemy.config.nonBlocking
             && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
         );
       }
@@ -2613,7 +2613,7 @@ export default class GameScene extends Phaser.Scene {
         continue;
       }
 
-      if (enemy.target && (enemy.target.hp <= 0 || enemy.target.warpMs > 0)) {
+      if (enemy.target && (enemy.target.hp <= 0 || enemy.target.warpMs > 0 || enemy.target.knockbackMs > 0)) {
         enemy.target = null;
       }
       if (enemy.target && !this.inRange(enemy, enemy.target)) {
@@ -2623,7 +2623,7 @@ export default class GameScene extends Phaser.Scene {
       if (!enemy.target) {
         enemy.target = this.findNearest(
           enemy, this.playerUnits,
-          (unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit),
+          (unit) => unit.hp > 0 && unit.warpMs <= 0 && unit.knockbackMs <= 0 && this.inRange(enemy, unit),
         );
       }
 
@@ -2639,7 +2639,7 @@ export default class GameScene extends Phaser.Scene {
       if (!enemy.target && enemy.config.longDistance && enemy.shape.x >= maxRetreatX) {
         enemy.target = this.findNearest(
           enemy, this.playerUnits,
-          (unit) => unit.hp > 0 && unit.warpMs <= 0
+          (unit) => unit.hp > 0 && unit.warpMs <= 0 && unit.knockbackMs <= 0
             && Math.abs(enemy.shape.x - unit.shape.x) < enemy.config.longDistance.min,
         );
       }
@@ -2970,6 +2970,17 @@ export default class GameScene extends Phaser.Scene {
   // can re-apply a hit's already-rolled damage value without re-rolling
   // Critical Hit/Weaken/trait matchups a second time.
   applyResolvedDamage(attacker, entity, totalDamage, isCrit = false) {
+    // "No hitbox" during a knockback shove (bible §A.3.5: "the unit has no
+    // hitbox — can't be hit, can't hit anything"). Target acquisition
+    // already excludes a currently-sliding entity (see findNearest's own
+    // callers), but that alone doesn't cover every path here — an AoE
+    // splash (dealDamage) or a Surge Attack's delayed follow-up hit
+    // (scheduleSurgeAttack) can still catch a NEIGHBOR that started
+    // sliding after the attack was already committed. A silent no-op, not
+    // a Dodge/miss — the hit isn't evaded, it simply never reaches a target
+    // with nothing to connect with.
+    if (entity.knockbackMs > 0) return;
+
     if (this.tryDodge(entity)) {
       showDamageNumber(this, entity.shape.x, entity.shape.y, 0, { isMiss: true });
       return;
