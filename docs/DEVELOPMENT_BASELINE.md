@@ -87,17 +87,26 @@ eligibility/duplicate payouts. They do not replace browser combat verification.
    tutorial base-direction claims removed, Cat Cannon base-hit positional
    gating, Restart now spends Energy like any other stage entry, target
    acquisition switched from first-eligible-in-array to nearest, pause now
-   freezes every this.time.delayedCall (not just update()), and sliding
+   freezes every this.time.delayedCall (not just update()), sliding
    (knocked-back) entities can no longer be targeted or damaged ("no
-   hitbox" — the incoming-hit half of knockback immunity). All verified
-   live (build + `npm test` still pass throughout). Still open: knockback's
-   own source-specific distance/duration tuning, slow-affecting-attack-
-   speed, curse suppression gaps, Dojo roster tier defaults, and
-   simulation/timing work below.
+   hitbox"), Slow no longer touches attack speed (movement-only per the
+   bible), Curse now actually suppresses applyStatusEffect/tryDodge/
+   computeDamage's Strong-Against-Massive-Resistant bonuses (previously
+   only 4 of 8 curse-suppressible sites checked it — applyStatusEffect,
+   the single biggest gap, had no check at all), and Dojo's
+   roleUnlockTier now covers all 22 ENEMY_CONFIG roles instead of 13 (9
+   were defaulting to tier 0, including 3 LEGENDARY late-campaign
+   bosses). All verified live except Slow/Curse specifically — no
+   currently-deployed unit carries those abilities to force a live
+   before/after, so those two rest on direct correspondence to the bug
+   report rather than an observed repro (build + `npm test` still pass
+   throughout regardless). Still open: knockback's own source-specific
+   distance/duration tuning and simulation/timing work below.
 1. ~~Pause/timer correctness~~ — done above. Scene-reuse protection for
    restart/retreat cycles specifically still worth a dedicated pass.
-2. Characterize combat timing, damage, knockback (source-specific tuning)
-   and status rules (slow, curse); fix one rule at a time with explicit
+2. ~~Damage and status rules (slow, curse)~~ — done above. Characterize
+   combat timing and knockback (source-specific tuning) still open;
+   fix one rule at a time with explicit
    before/after checks.
 3. Move combat positions and timers into simulation state incrementally, then
    introduce fixed steps and isolated deterministic RNG without a wholesale rewrite.
