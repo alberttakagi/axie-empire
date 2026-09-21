@@ -2251,6 +2251,28 @@ export default class GameScene extends Phaser.Scene {
     return config.longDistance ? config.longDistance.max : config.range;
   }
 
+  // Target acquisition (bible: nearest enemy, not first-in-spawn-order) —
+  // every acquisition site below used to be a plain Array.find(predicate),
+  // which effectively targeted whichever eligible entity happened to be
+  // earliest in this.enemies/this.playerUnits (spawn order), not the
+  // closest one. On this single-lane battlefield "nearest" is just the
+  // smallest |shape.x delta|, so this is a straight drop-in replacement —
+  // same predicate, same eligibility rules, only the tie-among-eligible
+  // selection changes.
+  findNearest(from, candidates, predicate) {
+    let best = null;
+    let bestDistance = Infinity;
+    for (const candidate of candidates) {
+      if (!predicate(candidate)) continue;
+      const distance = Math.abs(from.shape.x - candidate.shape.x);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+    return best;
+  }
+
   update(time, deltaMs) {
     if (this.isGameOver || this.isPaused) return;
 
@@ -2460,10 +2482,10 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (!unit.target) {
-        unit.target =
-          this.enemies.find(
-            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking && this.inRange(unit, enemy),
-          ) || null;
+        unit.target = this.findNearest(
+          unit, this.enemies,
+          (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking && this.inRange(unit, enemy),
+        );
       }
 
       // Mirrors the enemy-side blind-spot handling in updateEnemies: a Long
@@ -2473,11 +2495,11 @@ export default class GameScene extends Phaser.Scene {
       // ignoring it forever.
       const minRetreatX = this.baseX + BASE_WIDTH / 2 + unit.config.radius;
       if (!unit.target && unit.config.longDistance && unit.shape.x <= minRetreatX) {
-        unit.target =
-          this.enemies.find(
-            (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking
-              && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
-          ) || null;
+        unit.target = this.findNearest(
+          unit, this.enemies,
+          (enemy) => enemy.hp > 0 && enemy.warpMs <= 0 && !enemy.config.nonBlocking
+            && Math.abs(unit.shape.x - enemy.shape.x) < unit.config.longDistance.min,
+        );
       }
 
       if (!unit.target && inEnemyBaseReach) {
@@ -2577,8 +2599,10 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (!enemy.target) {
-        enemy.target =
-          this.playerUnits.find((unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit)) || null;
+        enemy.target = this.findNearest(
+          enemy, this.playerUnits,
+          (unit) => unit.hp > 0 && unit.warpMs <= 0 && this.inRange(enemy, unit),
+        );
       }
 
       // Long Distance blind spot (bible §A.3.8, see inRange): a unit inside
@@ -2591,11 +2615,11 @@ export default class GameScene extends Phaser.Scene {
       // leaving it untouched forever.
       const maxRetreatX = this.enemyBaseX - BASE_WIDTH / 2 - enemy.config.radius;
       if (!enemy.target && enemy.config.longDistance && enemy.shape.x >= maxRetreatX) {
-        enemy.target =
-          this.playerUnits.find(
-            (unit) => unit.hp > 0 && unit.warpMs <= 0
-              && Math.abs(enemy.shape.x - unit.shape.x) < enemy.config.longDistance.min,
-          ) || null;
+        enemy.target = this.findNearest(
+          enemy, this.playerUnits,
+          (unit) => unit.hp > 0 && unit.warpMs <= 0
+            && Math.abs(enemy.shape.x - unit.shape.x) < enemy.config.longDistance.min,
+        );
       }
 
       if (!enemy.target && inBaseReach) {
@@ -3498,7 +3522,14 @@ export default class GameScene extends Phaser.Scene {
     }
     this.processZombieRevives(this.enemies);
     this.removeDead(this.enemies, (enemy) => this.onEnemyKilled(enemy));
-    this.damageEnemyBase(burstDamage);
+    // Same positional gating this method already applies to every enemy
+    // (per its own header comment above) — this call used to run
+    // unconditionally regardless of where the blast actually landed, so
+    // even wave 0 (barely past the player's own base) could chip the
+    // enemy base from clear across the lane.
+    if (Math.abs(this.enemyBaseX - blastCenterX) <= blastHalfWidth) {
+      this.damageEnemyBase(burstDamage);
+    }
   }
 
   removeDead(list, onKill) {
@@ -3761,7 +3792,18 @@ export default class GameScene extends Phaser.Scene {
       const isPrimary = label === 'Next Stage';
       let onClick;
       if (label === 'Restart') {
-        onClick = () => this.scene.restart();
+        onClick = () => {
+          // Dojo is free entry (no energyCost on its synthetic this.stage —
+          // see create()) and stays free to retry. A real stage battle
+          // charges the same Energy a fresh map/Next-Stage entry would —
+          // Restart was the one entry point that let a player replay a
+          // stage for free, inconsistent with every other way in.
+          if (this.mode !== 'dojo' && !trySpendEnergy(this.stage.energyCost)) {
+            this.showRestrictionMessage('Not enough Energy to retry!');
+            return;
+          }
+          this.scene.restart();
+        };
       } else if (label === 'Next Stage') {
         onClick = () => {
           if (!trySpendEnergy(nextStage.energyCost)) {
