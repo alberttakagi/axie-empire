@@ -43,3 +43,19 @@ tools/sprite-gen/output/
 # as the Origins Asset Kit above: local-only, not redistributed. Their
 # distilled facts live in DEVELOPMENT_BASELINE.md's reconciliation table.
 docs/reference/
+
+# Treasure charm tier-generator (tools/treasure-gen/, see its README) — raw
+# downloaded charm source images and the bronze/silver/gold PNGs it
+# generates from them are a local working area, not shipped game code.
+# Only the final chosen icons, once copied into public/treasures/, are
+# tracked (same treatment as tools/sprite-gen/output/ below).
+tools/treasure-gen/node_modules/
+tools/treasure-gen/input/*
+tools/treasure-gen/output/*
+!tools/treasure-gen/input/.gitkeep
+!tools/treasure-gen/output/.gitkeep
+
+# User-supplied source dump of Axie Origins Charm marketplace art (the full
+# roster tools/treasure-gen's chosen 36 were copied from) — not shipped
+# game code, same treatment as the raw charm images above.
+Axie Origins Charms/

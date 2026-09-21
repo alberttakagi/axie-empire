@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { TREASURE_SETS } from './TREASURE_CONFIG.js';
 import { getTreasureSummary } from './Treasure.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
@@ -13,6 +14,7 @@ import { preloadBackgrounds, addBackground } from './Backdrop.js';
 
 const TIER_COLORS = [0xaaaaaa, 0xcd7f32, 0xc0c0c0, 0xffd700]; // none/bronze/silver/gold
 const TIER_NAMES = ['None', 'Bronze', 'Silver', 'Gold'];
+const TIER_KEYS = [null, 'bronze', 'silver', 'gold'];
 const SETS_PER_PAGE = 2;
 
 export default class TreasureScene extends Phaser.Scene {
@@ -22,6 +24,14 @@ export default class TreasureScene extends Phaser.Scene {
 
   preload() {
     preloadBackgrounds(this);
+    // Each set's real Axie Charm art (see TREASURE_CONFIG.js's own note),
+    // one bronze/silver/gold PNG per set from tools/treasure-gen — tier 0
+    // ("None") has no art of its own, stays the plain gray dot below.
+    TREASURE_SETS.forEach((set) => {
+      ['bronze', 'silver', 'gold'].forEach((tier) => {
+        this.load.image(`treasure_${set.icon}_${tier}`, `treasures/${set.icon}_${tier}.png`);
+      });
+    });
   }
 
   create() {
@@ -124,12 +134,18 @@ export default class TreasureScene extends Phaser.Scene {
       const x = 60 + index * 145;
       const dotY = y + 80;
 
-      // Medal-styled dot — a filled tier-colored circle with a gold ring
-      // once earned, echoing the reference's own bronze/silver/gold
-      // treasure-card border convention rather than a plain flat dot.
+      // Medal-styled badge — a filled tier-colored ring, with the set's
+      // real charm icon (tinted to that tier, see TREASURE_CONFIG.js's
+      // own note) layered on top once actually earned. Tier 0 ("None")
+      // has no charm art yet, so it stays the plain ring alone.
       rowObjects.push(
-        this.add.circle(x, dotY, 12, TIER_COLORS[stageTier.tier]).setStrokeStyle(2, BC.ink),
+        this.add.circle(x, dotY, 15, TIER_COLORS[stageTier.tier]).setStrokeStyle(2, BC.ink),
       );
+      if (stageTier.tier > 0) {
+        rowObjects.push(
+          this.add.image(x, dotY, `treasure_${set.icon}_${TIER_KEYS[stageTier.tier]}`).setDisplaySize(26, 26),
+        );
+      }
       rowObjects.push(
         this.add
           .text(x, dotY + 22, stage.displayName, {
