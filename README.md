@@ -4,6 +4,10 @@ A single-lane tower-defense game — a mechanical clone of *The Battle Cats*, re
 
 For full project documentation (architecture, systems, data, known issues, current status), see **[PROJECT_HANDOVER.md](./PROJECT_HANDOVER.md)**.
 
+For current guide reconciliation, stability work, and the next milestones, see
+**[Development baseline](./docs/DEVELOPMENT_BASELINE.md)**. This updates the
+historical handover where they differ.
+
 ## Requirements
 
 - Node.js and npm
@@ -38,7 +42,15 @@ Serves the built `dist/` output locally.
 
 ## Tests / Lint / Typecheck
 
-Not configured in this project.
+```bash
+npm test
+```
+
+Runs formation/save and progression regression checks with Node's built-in test
+runner and isolated in-memory storage. No browser saves are read or changed.
+Manual browser checks are still required for scenes and combat.
+
+Lint and typecheck are not configured.
 
 ## Project Structure
 

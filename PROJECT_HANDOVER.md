@@ -2,6 +2,12 @@
 
 Prepared for handover to another AI coding agent (ChatGPT Codex). This document is the primary orientation reference — read it before making changes.
 
+> Continuation note (2026-09-21): This is a historical snapshot. See
+> [Development baseline](docs/DEVELOPMENT_BASELINE.md) for the supplied HTML
+> guides, reconciled discrepancies, the new regression checks, and current
+> milestones. In particular, Catalog lock visuals already exist and tests are
+> now available through `npm test`.
+
 ## Project Overview
 
 **Axie Skirmish** is a single-lane tower-defense / lane-pusher game — a mechanical clone of *The Battle Cats* (にゃんこ大戦争), reskinned with Axie Infinity characters and an original light lore. Built from a detailed from-scratch systems spec (`battle-cats-clone-bible.md`) plus a later UI-fidelity pass logged in `docs/BATTLE_CATS_MAPPING.md`.

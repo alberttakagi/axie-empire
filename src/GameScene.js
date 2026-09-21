@@ -1359,7 +1359,7 @@ export default class GameScene extends Phaser.Scene {
           { x: TOWER_PLAYER_DISPLAY_WIDTH / 2, y: this.laneY, w: TOWER_PLAYER_DISPLAY_WIDTH + 12, h: TOWER_SPRITE_DISPLAY_HEIGHT + 12 },
           { x: width - TOWER_ENEMY_DISPLAY_WIDTH / 2, y: this.laneY, w: TOWER_ENEMY_DISPLAY_WIDTH + 12, h: TOWER_SPRITE_DISPLAY_HEIGHT + 12 },
         ],
-        text: 'Destroy the enemy base (left) before yours (right) falls. That’s the whole goal — everything else is just how you get there.',
+        text: 'Destroy the enemy base before yours falls. That’s the whole goal — everything else is just how you get there.',
       },
       {
         targets: [{

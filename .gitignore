@@ -37,3 +37,9 @@ tools/sprite-gen/public/chimeras/
 tools/sprite-gen/public/pve-chimeras.json
 tools/sprite-gen/public/bg-source/
 tools/sprite-gen/output/
+
+# Scraped fan-reference guides used for reconciliation (see
+# docs/DEVELOPMENT_BASELINE.md's own reference hierarchy) — same treatment
+# as the Origins Asset Kit above: local-only, not redistributed. Their
+# distilled facts live in DEVELOPMENT_BASELINE.md's reconciliation table.
+docs/reference/

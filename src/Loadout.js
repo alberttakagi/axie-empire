@@ -77,7 +77,7 @@ function migrateLegacySlot() {
     const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    const validKeys = parsed.filter((key) => UNIT_CONFIG[key]).slice(0, MAX_LOADOUT_SIZE);
+    const validKeys = parsed.filter((key) => ROSTER_KEYS.includes(key)).slice(0, MAX_LOADOUT_SIZE);
     if (validKeys.length === 0) return null;
 
     const arr = new Array(MAX_LOADOUT_SIZE).fill(null);
@@ -97,7 +97,27 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed.slots) && parsed.slots.length === FORMATION_SLOT_COUNT) return parsed;
+      if (parsed && !Array.isArray(parsed) && Array.isArray(parsed.slots)) {
+        // Repair each field independently: one damaged Formation must not
+        // discard the player's other rosters, custom order, or pinned units.
+        return {
+          ...parsed,
+          activeSlot: Number.isInteger(parsed.activeSlot) && parsed.activeSlot >= 0
+            && parsed.activeSlot < FORMATION_SLOT_COUNT ? parsed.activeSlot : 0,
+          slots: Array.from({ length: FORMATION_SLOT_COUNT }, (_, index) => {
+            const slot = parsed.slots[index];
+            const name = `Formation ${index + 1}`;
+            if (!slot || typeof slot !== 'object' || Array.isArray(slot)) return defaultSlot(name);
+            return {
+              ...slot,
+              name: typeof slot.name === 'string' ? slot.name : name,
+              unitKeys: Array.isArray(slot.unitKeys) ? slot.unitKeys : [],
+            };
+          }),
+          pinned: Array.isArray(parsed.pinned)
+            ? [...new Set(parsed.pinned.filter((key) => ROSTER_KEYS.includes(key)))] : [],
+        };
+      }
     }
   } catch {
     // falls through to a fresh default below
@@ -129,7 +149,7 @@ function save(data) {
 // the old (compacted) sanitizeUnitKeys had.
 function cleanUnitKeys(rawKeys) {
   const arr = new Array(MAX_LOADOUT_SIZE).fill(null);
-  (rawKeys || []).forEach((key, index) => {
+  (Array.isArray(rawKeys) ? rawKeys : []).forEach((key, index) => {
     // The isUnitUnlocked check guards against a real observed anomaly: a
     // unit stuck occupying a deploy slot after becoming locked again (e.g.
     // an unlockRequirement edited during dev against an existing save) —
@@ -137,7 +157,7 @@ function cleanUnitKeys(rawKeys) {
     // else in this file double-checks it on every load, so a stale save
     // could otherwise show a unit in the Formation the roster screen
     // itself marks "Locked", and GameScene would happily deploy it anyway.
-    if (index < MAX_LOADOUT_SIZE && key && UNIT_CONFIG[key] && isUnitUnlocked(key) && !arr.includes(key)) {
+    if (index < MAX_LOADOUT_SIZE && ROSTER_KEYS.includes(key) && isUnitUnlocked(key) && !arr.includes(key)) {
       arr[index] = key;
     }
   });
@@ -152,7 +172,7 @@ function cleanUnitKeys(rawKeys) {
 function sanitizeSlot(slot) {
   const arr = cleanUnitKeys(slot.unitKeys);
   const seenUnits = new Set(
-    Array.isArray(slot.seenUnits) ? slot.seenUnits.filter((key) => UNIT_CONFIG[key]) : arr.filter(Boolean),
+    Array.isArray(slot.seenUnits) ? slot.seenUnits.filter((key) => ROSTER_KEYS.includes(key)) : arr.filter(Boolean),
   );
 
   let changed = false;
@@ -176,7 +196,7 @@ function sanitizeSlot(slot) {
     return { slot: defaultSlot(slot.name), changed: true };
   }
 
-  return { slot: { name: slot.name, unitKeys: arr, seenUnits: [...seenUnits] }, changed };
+  return { slot: { ...slot, unitKeys: arr, seenUnits: [...seenUnits] }, changed };
 }
 
 export function loadFormationsData() {
