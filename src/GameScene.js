@@ -193,9 +193,19 @@ const SPRITE_SIZE_SLOPE = 1.45; // px of extra diameter per point of radius abov
 // pop with no gameplay reason for it.
 const MAX_POSE_SCALE_GROWTH = 1.3;
 
-// Run-pose animation (see updateRunCycle) — how long one full run_0/run_1
-// alternation takes.
-const RUN_FRAME_PERIOD_MS = 320;
+// Run-pose animation (see updateRunCycle) — how long one full gait cycle
+// (every frame, start back to start) takes to loop. Unchanged from the old
+// 2-frame version's own full-alternation period, so switching to the full
+// multi-frame sequence (tools/sprite-gen) keeps the same perceived running
+// tempo — just smoother, not faster or slower.
+const RUN_CYCLE_PERIOD_MS = 320;
+
+// Idle-pose breathing (see updateIdleCycle) — an entity standing still in
+// battle used to just sit on one frozen static frame forever; now it cycles
+// through idleAnim the same slow, calm way SpriteIcon.js's menu-screen
+// icons already do (same period, for a consistent feel between a unit's
+// Character Formation card and its actual in-battle look).
+const IDLE_CYCLE_PERIOD_MS = 1100;
 
 // Attack lunge (see updateAttackLunge) — a texture swap to the attack pose
 // alone (just the axie's face changing) barely reads as "attacking" at a
@@ -2280,12 +2290,21 @@ export default class GameScene extends Phaser.Scene {
       // ENEMY_CONFIG.js's sniper/Dryad Ranger entry).
       isMoving: false,
       // run-pose animation state — see updateRunCycle. runCycleMs tracks
-      // position within one run_0/run_1 alternation (reset whenever the
+      // position within one full run-sequence loop (reset whenever the
       // run pose is (re-)entered, in setEntityPose); runFrame is just the
-      // last-set frame index (0/1), kept so updateRunCycle only calls
-      // setTexture on an actual frame change rather than every tick.
+      // last-set frame index, kept so updateRunCycle only calls setTexture
+      // on an actual frame change rather than every tick.
       runCycleMs: 0,
       runFrame: 0,
+      // Idle-pose breathing state — see updateIdleCycle. idleCycleMs starts
+      // at a random offset (not 0) so a field full of units spawned at
+      // different moments doesn't all breathe in visible lockstep; idleFrame
+      // starts at -1 (not a real frame index) so updateIdleCycle's own
+      // first tick always counts as "changed" and actually sets a texture,
+      // rather than possibly matching frame 0's default and silently
+      // no-op'ing until the cycle comes back around.
+      idleCycleMs: Math.random() * IDLE_CYCLE_PERIOD_MS,
+      idleFrame: -1,
       // Attack lunge (see updateAttackLunge) — the px of forward offset
       // CURRENTLY applied to shape.x, so that method can compute this
       // tick's desired offset and adjust shape.x by just the difference,
@@ -2852,11 +2871,13 @@ export default class GameScene extends Phaser.Scene {
     for (const unit of this.playerUnits) {
       this.setEntityPose(unit, this.getDesiredPose(unit));
       this.updateRunCycle(unit, deltaMs);
+      this.updateIdleCycle(unit, deltaMs);
       this.updateAttackLunge(unit);
     }
     for (const enemy of this.enemies) {
       this.setEntityPose(enemy, this.getDesiredPose(enemy));
       this.updateRunCycle(enemy, deltaMs);
+      this.updateIdleCycle(enemy, deltaMs);
       this.updateAttackLunge(enemy);
     }
   }
@@ -2930,19 +2951,51 @@ export default class GameScene extends Phaser.Scene {
 
   // A single static "moving" pose read as barely different from idle for
   // these round, mostly-legless Axies/Chimeras (see SpriteIcon.js's own
-  // comment), so while an entity is on the run pose this alternates
-  // between its two run frames — same one fixed scale as every other pose
-  // (see setEntityPose's own comment) applies here too, unchanged.
+  // comment), so while an entity is on the run pose this cycles through
+  // its full run sequence (tools/sprite-gen now extracts every frame of
+  // the real gait-cycle clip, not just 2 sampled extremes — see
+  // RUN_CYCLE_PERIOD_MS's own comment) — generic over however many frames
+  // this entity's roster entry actually has rather than hardcoded to 2,
+  // same one fixed scale as every other pose (see setEntityPose's own
+  // comment) applies here too, unchanged.
   updateRunCycle(entity, deltaMs) {
     if (!entity.spriteImage || entity.currentPose !== 'run') return;
 
-    entity.runCycleMs = (entity.runCycleMs + deltaMs) % RUN_FRAME_PERIOD_MS;
-    const frame = entity.runCycleMs < RUN_FRAME_PERIOD_MS / 2 ? 0 : 1;
+    const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
+    const spriteSet = evolvedTag ? entity.config.sprite.evolved : entity.config.sprite;
+    const frameCount = spriteSet.run.length;
+
+    entity.runCycleMs = (entity.runCycleMs + deltaMs) % RUN_CYCLE_PERIOD_MS;
+    const frame = Math.min(frameCount - 1, Math.floor((entity.runCycleMs / RUN_CYCLE_PERIOD_MS) * frameCount));
     if (frame !== entity.runFrame) {
       entity.runFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
-      const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`, '__BASE');
+    }
+  }
+
+  // Idle-pose counterpart to updateRunCycle just above — same generic
+  // frame-count/cycle-period shape, driven purely off entity.currentPose
+  // (not off setEntityPose's own transition edge), so it keeps breathing
+  // the whole time an entity sits idle rather than only animating once per
+  // pose change. idleCycleMs is seeded with a random offset per entity at
+  // creation (see spawnUnit/createEnemy) so a field full of idle units
+  // doesn't all breathe in lockstep, the same reasoning as SpriteIcon.js's
+  // own randomized `startAt`.
+  updateIdleCycle(entity, deltaMs) {
+    if (!entity.spriteImage || entity.currentPose !== 'idle') return;
+
+    const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
+    const spriteSet = evolvedTag ? entity.config.sprite.evolved : entity.config.sprite;
+    if (!spriteSet.idleAnim) return;
+    const frameCount = spriteSet.idleAnim.length;
+
+    entity.idleCycleMs = (entity.idleCycleMs + deltaMs) % IDLE_CYCLE_PERIOD_MS;
+    const frame = Math.min(frameCount - 1, Math.floor((entity.idleCycleMs / IDLE_CYCLE_PERIOD_MS) * frameCount));
+    if (frame !== entity.idleFrame) {
+      entity.idleFrame = frame;
+      const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
+      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_idleanim_${frame}`, '__BASE');
     }
   }
 

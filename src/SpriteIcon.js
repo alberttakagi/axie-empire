@@ -65,15 +65,19 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
   }
 }
 
-// idleAnimated's cycle (see addUnitIcon) alternates the icon's texture
-// between idleAnim[0]/[1] — 2 real frames sampled from the same
-// "action/idle/normal" Spine clip GameScene's own idle pose already uses
-// (see tools/sprite-gen), rather than a made-up motion: a slow, subtle
+// idleAnimated's cycle (see addUnitIcon) steps the icon's texture through
+// every frame of idleAnim — the real "action/idle/normal" Spine clip
+// GameScene's own idle pose already uses, sampled across its full duration
+// (see tools/sprite-gen) rather than just 2 extremes: a slow, subtle
 // breathing-style loop, calmer/slower than GameScene's own run-cycle hop
 // (a different context entirely — that one's brisk, meant to sell
-// "walking"). Frame swaps are staggered per icon via a randomized initial
-// delay so a whole grid of them doesn't visibly breathe in lockstep.
-const IDLE_ANIM_FRAME_MS = 550;
+// "walking"). IDLE_ANIM_CYCLE_MS is the full loop's total duration —
+// unchanged from the old 2-frame version's own full alternation (550ms
+// × 2), so this reads at the same calm pace, just smoother across however
+// many frames idleAnim actually has instead of a hard blink between 2.
+// Frame swaps are staggered per icon via a randomized initial delay so a
+// whole grid of them doesn't visibly breathe in lockstep.
+const IDLE_ANIM_CYCLE_MS = 1100;
 
 // Universal "zoomed to face" crop, as fractions of the source PNG's own
 // width/height — used by the spawn-button portraits (real Battle Cats deploy
@@ -166,10 +170,18 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
   icon.setScale(targetDiameter / Math.max(icon.width, icon.height));
 
   if (frames && frames.length > 1) {
-    let frame = 0;
+    // Randomizes BOTH which frame this icon starts on AND its sub-frame
+    // timer phase (startAt must stay within one `delay` period — Phaser
+    // treats a bigger startAt as already having fired that many times) —
+    // together these reproduce the same "a whole grid doesn't breathe in
+    // lockstep" staggering the old 2-frame version got from randomizing
+    // across its one single (bigger) per-frame delay.
+    let frame = Math.floor(Math.random() * frames.length);
+    icon.setTexture(frames[frame], '__BASE');
+    const frameDelay = IDLE_ANIM_CYCLE_MS / frames.length;
     const timer = scene.time.addEvent({
-      delay: IDLE_ANIM_FRAME_MS,
-      startAt: Math.random() * IDLE_ANIM_FRAME_MS,
+      delay: frameDelay,
+      startAt: Math.random() * frameDelay,
       loop: true,
       callback: () => {
         frame = (frame + 1) % frames.length;

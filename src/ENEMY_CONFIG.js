@@ -95,7 +95,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png", "/sprites/enemies/enemy_basic_run_2.png", "/sprites/enemies/enemy_basic_run_3.png", "/sprites/enemies/enemy_basic_run_4.png", "/sprites/enemies/enemy_basic_run_5.png", "/sprites/enemies/enemy_basic_run_6.png", "/sprites/enemies/enemy_basic_run_7.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png", "/sprites/enemies/enemy_basic_idleanim_2.png", "/sprites/enemies/enemy_basic_idleanim_3.png", "/sprites/enemies/enemy_basic_idleanim_4.png", "/sprites/enemies/enemy_basic_idleanim_5.png", "/sprites/enemies/enemy_basic_idleanim_6.png", "/sprites/enemies/enemy_basic_idleanim_7.png"] },
   },
   fast: {
     id: 'fast',
@@ -122,7 +122,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png", "/sprites/enemies/enemy_fast_run_2.png", "/sprites/enemies/enemy_fast_run_3.png", "/sprites/enemies/enemy_fast_run_4.png", "/sprites/enemies/enemy_fast_run_5.png", "/sprites/enemies/enemy_fast_run_6.png", "/sprites/enemies/enemy_fast_run_7.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png", "/sprites/enemies/enemy_fast_idleanim_2.png", "/sprites/enemies/enemy_fast_idleanim_3.png", "/sprites/enemies/enemy_fast_idleanim_4.png", "/sprites/enemies/enemy_fast_idleanim_5.png", "/sprites/enemies/enemy_fast_idleanim_6.png", "/sprites/enemies/enemy_fast_idleanim_7.png"] },
   },
   tank: {
     id: 'tank',
@@ -149,7 +149,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'aoe', radius: 30 },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_tank_idle.png", attack: "/sprites/enemies/enemy_tank_attack.png", hit: "/sprites/enemies/enemy_tank_hit.png", run: ["/sprites/enemies/enemy_tank_run_0.png", "/sprites/enemies/enemy_tank_run_1.png"], idleAnim: ["/sprites/enemies/enemy_tank_idleanim_0.png", "/sprites/enemies/enemy_tank_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_tank_idle.png", attack: "/sprites/enemies/enemy_tank_attack.png", hit: "/sprites/enemies/enemy_tank_hit.png", run: ["/sprites/enemies/enemy_tank_run_0.png", "/sprites/enemies/enemy_tank_run_1.png", "/sprites/enemies/enemy_tank_run_2.png", "/sprites/enemies/enemy_tank_run_3.png", "/sprites/enemies/enemy_tank_run_4.png", "/sprites/enemies/enemy_tank_run_5.png", "/sprites/enemies/enemy_tank_run_6.png", "/sprites/enemies/enemy_tank_run_7.png"], idleAnim: ["/sprites/enemies/enemy_tank_idleanim_0.png", "/sprites/enemies/enemy_tank_idleanim_1.png", "/sprites/enemies/enemy_tank_idleanim_2.png", "/sprites/enemies/enemy_tank_idleanim_3.png", "/sprites/enemies/enemy_tank_idleanim_4.png", "/sprites/enemies/enemy_tank_idleanim_5.png", "/sprites/enemies/enemy_tank_idleanim_6.png", "/sprites/enemies/enemy_tank_idleanim_7.png"] },
   },
   ranged: {
     id: 'ranged',
@@ -176,7 +176,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'aoe', radius: 40 },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_ranged_idle.png", attack: "/sprites/enemies/enemy_ranged_attack.png", hit: "/sprites/enemies/enemy_ranged_hit.png", run: ["/sprites/enemies/enemy_ranged_run_0.png", "/sprites/enemies/enemy_ranged_run_1.png"], idleAnim: ["/sprites/enemies/enemy_ranged_idleanim_0.png", "/sprites/enemies/enemy_ranged_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_ranged_idle.png", attack: "/sprites/enemies/enemy_ranged_attack.png", hit: "/sprites/enemies/enemy_ranged_hit.png", run: ["/sprites/enemies/enemy_ranged_run_0.png", "/sprites/enemies/enemy_ranged_run_1.png", "/sprites/enemies/enemy_ranged_run_2.png", "/sprites/enemies/enemy_ranged_run_3.png", "/sprites/enemies/enemy_ranged_run_4.png", "/sprites/enemies/enemy_ranged_run_5.png", "/sprites/enemies/enemy_ranged_run_6.png", "/sprites/enemies/enemy_ranged_run_7.png"], idleAnim: ["/sprites/enemies/enemy_ranged_idleanim_0.png", "/sprites/enemies/enemy_ranged_idleanim_1.png", "/sprites/enemies/enemy_ranged_idleanim_2.png", "/sprites/enemies/enemy_ranged_idleanim_3.png", "/sprites/enemies/enemy_ranged_idleanim_4.png", "/sprites/enemies/enemy_ranged_idleanim_5.png", "/sprites/enemies/enemy_ranged_idleanim_6.png", "/sprites/enemies/enemy_ranged_idleanim_7.png"] },
   },
   aoe: {
     id: 'aoe',
@@ -204,7 +204,7 @@ export const ENEMY_CONFIG = {
     critChance: 0,
     attribute: 'red', // the guide's first colored/attribute enemy
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_aoe_idle.png", attack: "/sprites/enemies/enemy_aoe_attack.png", hit: "/sprites/enemies/enemy_aoe_hit.png", run: ["/sprites/enemies/enemy_aoe_run_0.png", "/sprites/enemies/enemy_aoe_run_1.png"], idleAnim: ["/sprites/enemies/enemy_aoe_idleanim_0.png", "/sprites/enemies/enemy_aoe_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_aoe_idle.png", attack: "/sprites/enemies/enemy_aoe_attack.png", hit: "/sprites/enemies/enemy_aoe_hit.png", run: ["/sprites/enemies/enemy_aoe_run_0.png", "/sprites/enemies/enemy_aoe_run_1.png", "/sprites/enemies/enemy_aoe_run_2.png", "/sprites/enemies/enemy_aoe_run_3.png", "/sprites/enemies/enemy_aoe_run_4.png", "/sprites/enemies/enemy_aoe_run_5.png", "/sprites/enemies/enemy_aoe_run_6.png", "/sprites/enemies/enemy_aoe_run_7.png"], idleAnim: ["/sprites/enemies/enemy_aoe_idleanim_0.png", "/sprites/enemies/enemy_aoe_idleanim_1.png", "/sprites/enemies/enemy_aoe_idleanim_2.png", "/sprites/enemies/enemy_aoe_idleanim_3.png", "/sprites/enemies/enemy_aoe_idleanim_4.png", "/sprites/enemies/enemy_aoe_idleanim_5.png", "/sprites/enemies/enemy_aoe_idleanim_6.png", "/sprites/enemies/enemy_aoe_idleanim_7.png"] },
   },
 
   swarm: {
@@ -232,7 +232,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_swarm_idle.png", attack: "/sprites/enemies/enemy_swarm_attack.png", hit: "/sprites/enemies/enemy_swarm_hit.png", run: ["/sprites/enemies/enemy_swarm_run_0.png", "/sprites/enemies/enemy_swarm_run_1.png"], idleAnim: ["/sprites/enemies/enemy_swarm_idleanim_0.png", "/sprites/enemies/enemy_swarm_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_swarm_idle.png", attack: "/sprites/enemies/enemy_swarm_attack.png", hit: "/sprites/enemies/enemy_swarm_hit.png", run: ["/sprites/enemies/enemy_swarm_run_0.png", "/sprites/enemies/enemy_swarm_run_1.png", "/sprites/enemies/enemy_swarm_run_2.png", "/sprites/enemies/enemy_swarm_run_3.png", "/sprites/enemies/enemy_swarm_run_4.png", "/sprites/enemies/enemy_swarm_run_5.png", "/sprites/enemies/enemy_swarm_run_6.png", "/sprites/enemies/enemy_swarm_run_7.png"], idleAnim: ["/sprites/enemies/enemy_swarm_idleanim_0.png", "/sprites/enemies/enemy_swarm_idleanim_1.png", "/sprites/enemies/enemy_swarm_idleanim_2.png", "/sprites/enemies/enemy_swarm_idleanim_3.png", "/sprites/enemies/enemy_swarm_idleanim_4.png", "/sprites/enemies/enemy_swarm_idleanim_5.png", "/sprites/enemies/enemy_swarm_idleanim_6.png", "/sprites/enemies/enemy_swarm_idleanim_7.png"] },
   },
   sniper: {
     id: 'sniper',
@@ -259,7 +259,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_sniper_idle.png", attack: "/sprites/enemies/enemy_sniper_attack.png", hit: "/sprites/enemies/enemy_sniper_hit.png", idleAnim: ["/sprites/enemies/enemy_sniper_idleanim_0.png", "/sprites/enemies/enemy_sniper_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_sniper_idle.png", attack: "/sprites/enemies/enemy_sniper_attack.png", hit: "/sprites/enemies/enemy_sniper_hit.png", idleAnim: ["/sprites/enemies/enemy_sniper_idleanim_0.png", "/sprites/enemies/enemy_sniper_idleanim_1.png", "/sprites/enemies/enemy_sniper_idleanim_2.png", "/sprites/enemies/enemy_sniper_idleanim_3.png", "/sprites/enemies/enemy_sniper_idleanim_4.png", "/sprites/enemies/enemy_sniper_idleanim_5.png", "/sprites/enemies/enemy_sniper_idleanim_6.png", "/sprites/enemies/enemy_sniper_idleanim_7.png"] },
   },
   guardian: {
     id: 'guardian',
@@ -286,7 +286,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'aoe', radius: 45 },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_guardian_idle.png", attack: "/sprites/enemies/enemy_guardian_attack.png", hit: "/sprites/enemies/enemy_guardian_hit.png", run: ["/sprites/enemies/enemy_guardian_run_0.png", "/sprites/enemies/enemy_guardian_run_1.png"], idleAnim: ["/sprites/enemies/enemy_guardian_idleanim_0.png", "/sprites/enemies/enemy_guardian_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_guardian_idle.png", attack: "/sprites/enemies/enemy_guardian_attack.png", hit: "/sprites/enemies/enemy_guardian_hit.png", run: ["/sprites/enemies/enemy_guardian_run_0.png", "/sprites/enemies/enemy_guardian_run_1.png", "/sprites/enemies/enemy_guardian_run_2.png", "/sprites/enemies/enemy_guardian_run_3.png", "/sprites/enemies/enemy_guardian_run_4.png", "/sprites/enemies/enemy_guardian_run_5.png", "/sprites/enemies/enemy_guardian_run_6.png", "/sprites/enemies/enemy_guardian_run_7.png"], idleAnim: ["/sprites/enemies/enemy_guardian_idleanim_0.png", "/sprites/enemies/enemy_guardian_idleanim_1.png", "/sprites/enemies/enemy_guardian_idleanim_2.png", "/sprites/enemies/enemy_guardian_idleanim_3.png", "/sprites/enemies/enemy_guardian_idleanim_4.png", "/sprites/enemies/enemy_guardian_idleanim_5.png", "/sprites/enemies/enemy_guardian_idleanim_6.png", "/sprites/enemies/enemy_guardian_idleanim_7.png"] },
   },
   support: {
     id: 'support',
@@ -314,7 +314,7 @@ export const ENEMY_CONFIG = {
     critChance: 0,
     attribute: 'red',
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_support_idle.png", attack: "/sprites/enemies/enemy_support_attack.png", hit: "/sprites/enemies/enemy_support_hit.png", run: ["/sprites/enemies/enemy_support_run_0.png", "/sprites/enemies/enemy_support_run_1.png"], idleAnim: ["/sprites/enemies/enemy_support_idleanim_0.png", "/sprites/enemies/enemy_support_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_support_idle.png", attack: "/sprites/enemies/enemy_support_attack.png", hit: "/sprites/enemies/enemy_support_hit.png", run: ["/sprites/enemies/enemy_support_run_0.png", "/sprites/enemies/enemy_support_run_1.png", "/sprites/enemies/enemy_support_run_2.png", "/sprites/enemies/enemy_support_run_3.png", "/sprites/enemies/enemy_support_run_4.png", "/sprites/enemies/enemy_support_run_5.png", "/sprites/enemies/enemy_support_run_6.png", "/sprites/enemies/enemy_support_run_7.png"], idleAnim: ["/sprites/enemies/enemy_support_idleanim_0.png", "/sprites/enemies/enemy_support_idleanim_1.png", "/sprites/enemies/enemy_support_idleanim_2.png", "/sprites/enemies/enemy_support_idleanim_3.png", "/sprites/enemies/enemy_support_idleanim_4.png", "/sprites/enemies/enemy_support_idleanim_5.png", "/sprites/enemies/enemy_support_idleanim_6.png", "/sprites/enemies/enemy_support_idleanim_7.png"] },
   },
   // Corrected against the user's updated guide (its real per-stage
   // Chapter 1 boss table): 悪の帝王ニャンダム (Emperor Nyandam) never
@@ -355,7 +355,7 @@ export const ENEMY_CONFIG = {
     critChance: 0,
     attribute: 'floating',
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_titan_idle.png", attack: "/sprites/enemies/enemy_titan_attack.png", hit: "/sprites/enemies/enemy_titan_hit.png", run: ["/sprites/enemies/enemy_titan_run_0.png", "/sprites/enemies/enemy_titan_run_1.png"], idleAnim: ["/sprites/enemies/enemy_titan_idleanim_0.png", "/sprites/enemies/enemy_titan_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_titan_idle.png", attack: "/sprites/enemies/enemy_titan_attack.png", hit: "/sprites/enemies/enemy_titan_hit.png", run: ["/sprites/enemies/enemy_titan_run_0.png", "/sprites/enemies/enemy_titan_run_1.png", "/sprites/enemies/enemy_titan_run_2.png", "/sprites/enemies/enemy_titan_run_3.png", "/sprites/enemies/enemy_titan_run_4.png", "/sprites/enemies/enemy_titan_run_5.png", "/sprites/enemies/enemy_titan_run_6.png", "/sprites/enemies/enemy_titan_run_7.png"], idleAnim: ["/sprites/enemies/enemy_titan_idleanim_0.png", "/sprites/enemies/enemy_titan_idleanim_1.png", "/sprites/enemies/enemy_titan_idleanim_2.png", "/sprites/enemies/enemy_titan_idleanim_3.png", "/sprites/enemies/enemy_titan_idleanim_4.png", "/sprites/enemies/enemy_titan_idleanim_5.png", "/sprites/enemies/enemy_titan_idleanim_6.png", "/sprites/enemies/enemy_titan_idleanim_7.png"] },
   },
   thatguy: {
     id: 'thatguy',
@@ -382,7 +382,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png", "/sprites/enemies/enemy_basic_run_2.png", "/sprites/enemies/enemy_basic_run_3.png", "/sprites/enemies/enemy_basic_run_4.png", "/sprites/enemies/enemy_basic_run_5.png", "/sprites/enemies/enemy_basic_run_6.png", "/sprites/enemies/enemy_basic_run_7.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png", "/sprites/enemies/enemy_basic_idleanim_2.png", "/sprites/enemies/enemy_basic_idleanim_3.png", "/sprites/enemies/enemy_basic_idleanim_4.png", "/sprites/enemies/enemy_basic_idleanim_5.png", "/sprites/enemies/enemy_basic_idleanim_6.png", "/sprites/enemies/enemy_basic_idleanim_7.png"] },
   },
   gory: {
     id: 'gory',
@@ -409,7 +409,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'aoe', radius: 35 },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_colossus_idle.png", attack: "/sprites/enemies/enemy_colossus_attack.png", hit: "/sprites/enemies/enemy_colossus_hit.png", run: ["/sprites/enemies/enemy_colossus_run_0.png", "/sprites/enemies/enemy_colossus_run_1.png"], idleAnim: ["/sprites/enemies/enemy_colossus_idleanim_0.png", "/sprites/enemies/enemy_colossus_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_colossus_idle.png", attack: "/sprites/enemies/enemy_colossus_attack.png", hit: "/sprites/enemies/enemy_colossus_hit.png", run: ["/sprites/enemies/enemy_colossus_run_0.png", "/sprites/enemies/enemy_colossus_run_1.png", "/sprites/enemies/enemy_colossus_run_2.png", "/sprites/enemies/enemy_colossus_run_3.png", "/sprites/enemies/enemy_colossus_run_4.png", "/sprites/enemies/enemy_colossus_run_5.png", "/sprites/enemies/enemy_colossus_run_6.png", "/sprites/enemies/enemy_colossus_run_7.png"], idleAnim: ["/sprites/enemies/enemy_colossus_idleanim_0.png", "/sprites/enemies/enemy_colossus_idleanim_1.png", "/sprites/enemies/enemy_colossus_idleanim_2.png", "/sprites/enemies/enemy_colossus_idleanim_3.png", "/sprites/enemies/enemy_colossus_idleanim_4.png", "/sprites/enemies/enemy_colossus_idleanim_5.png", "/sprites/enemies/enemy_colossus_idleanim_6.png", "/sprites/enemies/enemy_colossus_idleanim_7.png"] },
   },
   mehmeh: {
     id: 'mehmeh',
@@ -436,7 +436,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png", "/sprites/enemies/enemy_basic_run_2.png", "/sprites/enemies/enemy_basic_run_3.png", "/sprites/enemies/enemy_basic_run_4.png", "/sprites/enemies/enemy_basic_run_5.png", "/sprites/enemies/enemy_basic_run_6.png", "/sprites/enemies/enemy_basic_run_7.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png", "/sprites/enemies/enemy_basic_idleanim_2.png", "/sprites/enemies/enemy_basic_idleanim_3.png", "/sprites/enemies/enemy_basic_idleanim_4.png", "/sprites/enemies/enemy_basic_idleanim_5.png", "/sprites/enemies/enemy_basic_idleanim_6.png", "/sprites/enemies/enemy_basic_idleanim_7.png"] },
   },
   wanikun: {
     id: 'wanikun',
@@ -463,7 +463,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png", "/sprites/enemies/enemy_fast_run_2.png", "/sprites/enemies/enemy_fast_run_3.png", "/sprites/enemies/enemy_fast_run_4.png", "/sprites/enemies/enemy_fast_run_5.png", "/sprites/enemies/enemy_fast_run_6.png", "/sprites/enemies/enemy_fast_run_7.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png", "/sprites/enemies/enemy_fast_idleanim_2.png", "/sprites/enemies/enemy_fast_idleanim_3.png", "/sprites/enemies/enemy_fast_idleanim_4.png", "/sprites/enemies/enemy_fast_idleanim_5.png", "/sprites/enemies/enemy_fast_idleanim_6.png", "/sprites/enemies/enemy_fast_idleanim_7.png"] },
   },
   usagin: {
     id: 'usagin',
@@ -491,7 +491,7 @@ export const ENEMY_CONFIG = {
     critChance: 0,
     attribute: 'red',
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png", "/sprites/enemies/enemy_fast_run_2.png", "/sprites/enemies/enemy_fast_run_3.png", "/sprites/enemies/enemy_fast_run_4.png", "/sprites/enemies/enemy_fast_run_5.png", "/sprites/enemies/enemy_fast_run_6.png", "/sprites/enemies/enemy_fast_run_7.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png", "/sprites/enemies/enemy_fast_idleanim_2.png", "/sprites/enemies/enemy_fast_idleanim_3.png", "/sprites/enemies/enemy_fast_idleanim_4.png", "/sprites/enemies/enemy_fast_idleanim_5.png", "/sprites/enemies/enemy_fast_idleanim_6.png", "/sprites/enemies/enemy_fast_idleanim_7.png"] },
   },
   kangaroo: {
     id: 'kangaroo',
@@ -518,7 +518,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_fast_idle.png", attack: "/sprites/enemies/enemy_fast_attack.png", hit: "/sprites/enemies/enemy_fast_hit.png", run: ["/sprites/enemies/enemy_fast_run_0.png", "/sprites/enemies/enemy_fast_run_1.png", "/sprites/enemies/enemy_fast_run_2.png", "/sprites/enemies/enemy_fast_run_3.png", "/sprites/enemies/enemy_fast_run_4.png", "/sprites/enemies/enemy_fast_run_5.png", "/sprites/enemies/enemy_fast_run_6.png", "/sprites/enemies/enemy_fast_run_7.png"], idleAnim: ["/sprites/enemies/enemy_fast_idleanim_0.png", "/sprites/enemies/enemy_fast_idleanim_1.png", "/sprites/enemies/enemy_fast_idleanim_2.png", "/sprites/enemies/enemy_fast_idleanim_3.png", "/sprites/enemies/enemy_fast_idleanim_4.png", "/sprites/enemies/enemy_fast_idleanim_5.png", "/sprites/enemies/enemy_fast_idleanim_6.png", "/sprites/enemies/enemy_fast_idleanim_7.png"] },
   },
   ikkaku: {
     id: 'ikkaku',
@@ -546,7 +546,7 @@ export const ENEMY_CONFIG = {
     critChance: 0,
     attribute: 'red',
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_behemoth_idle.png", attack: "/sprites/enemies/enemy_behemoth_attack.png", hit: "/sprites/enemies/enemy_behemoth_hit.png", run: ["/sprites/enemies/enemy_behemoth_run_0.png", "/sprites/enemies/enemy_behemoth_run_1.png"], idleAnim: ["/sprites/enemies/enemy_behemoth_idleanim_0.png", "/sprites/enemies/enemy_behemoth_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_behemoth_idle.png", attack: "/sprites/enemies/enemy_behemoth_attack.png", hit: "/sprites/enemies/enemy_behemoth_hit.png", run: ["/sprites/enemies/enemy_behemoth_run_0.png", "/sprites/enemies/enemy_behemoth_run_1.png", "/sprites/enemies/enemy_behemoth_run_2.png", "/sprites/enemies/enemy_behemoth_run_3.png", "/sprites/enemies/enemy_behemoth_run_4.png", "/sprites/enemies/enemy_behemoth_run_5.png", "/sprites/enemies/enemy_behemoth_run_6.png", "/sprites/enemies/enemy_behemoth_run_7.png"], idleAnim: ["/sprites/enemies/enemy_behemoth_idleanim_0.png", "/sprites/enemies/enemy_behemoth_idleanim_1.png", "/sprites/enemies/enemy_behemoth_idleanim_2.png", "/sprites/enemies/enemy_behemoth_idleanim_3.png", "/sprites/enemies/enemy_behemoth_idleanim_4.png", "/sprites/enemies/enemy_behemoth_idleanim_5.png", "/sprites/enemies/enemy_behemoth_idleanim_6.png", "/sprites/enemies/enemy_behemoth_idleanim_7.png"] },
   },
   gagagaga: {
     id: 'gagagaga',
@@ -574,7 +574,7 @@ export const ENEMY_CONFIG = {
     critChance: 0,
     attribute: 'floating',
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_guardian_idle.png", attack: "/sprites/enemies/enemy_guardian_attack.png", hit: "/sprites/enemies/enemy_guardian_hit.png", run: ["/sprites/enemies/enemy_guardian_run_0.png", "/sprites/enemies/enemy_guardian_run_1.png"], idleAnim: ["/sprites/enemies/enemy_guardian_idleanim_0.png", "/sprites/enemies/enemy_guardian_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_guardian_idle.png", attack: "/sprites/enemies/enemy_guardian_attack.png", hit: "/sprites/enemies/enemy_guardian_hit.png", run: ["/sprites/enemies/enemy_guardian_run_0.png", "/sprites/enemies/enemy_guardian_run_1.png", "/sprites/enemies/enemy_guardian_run_2.png", "/sprites/enemies/enemy_guardian_run_3.png", "/sprites/enemies/enemy_guardian_run_4.png", "/sprites/enemies/enemy_guardian_run_5.png", "/sprites/enemies/enemy_guardian_run_6.png", "/sprites/enemies/enemy_guardian_run_7.png"], idleAnim: ["/sprites/enemies/enemy_guardian_idleanim_0.png", "/sprites/enemies/enemy_guardian_idleanim_1.png", "/sprites/enemies/enemy_guardian_idleanim_2.png", "/sprites/enemies/enemy_guardian_idleanim_3.png", "/sprites/enemies/enemy_guardian_idleanim_4.png", "/sprites/enemies/enemy_guardian_idleanim_5.png", "/sprites/enemies/enemy_guardian_idleanim_6.png", "/sprites/enemies/enemy_guardian_idleanim_7.png"] },
   },
   // カンバン娘 (Kanban Musume) — a real, deliberately near-harmless "billboard"
   // gimmick filler (atk 1, money 1): real KB is an absurd 10,000, which
@@ -608,7 +608,7 @@ export const ENEMY_CONFIG = {
     special: { type: 'none' },
     critChance: 0,
     statusOnHit: NO_STATUS,
-    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_basic_idle.png", attack: "/sprites/enemies/enemy_basic_attack.png", hit: "/sprites/enemies/enemy_basic_hit.png", run: ["/sprites/enemies/enemy_basic_run_0.png", "/sprites/enemies/enemy_basic_run_1.png", "/sprites/enemies/enemy_basic_run_2.png", "/sprites/enemies/enemy_basic_run_3.png", "/sprites/enemies/enemy_basic_run_4.png", "/sprites/enemies/enemy_basic_run_5.png", "/sprites/enemies/enemy_basic_run_6.png", "/sprites/enemies/enemy_basic_run_7.png"], idleAnim: ["/sprites/enemies/enemy_basic_idleanim_0.png", "/sprites/enemies/enemy_basic_idleanim_1.png", "/sprites/enemies/enemy_basic_idleanim_2.png", "/sprites/enemies/enemy_basic_idleanim_3.png", "/sprites/enemies/enemy_basic_idleanim_4.png", "/sprites/enemies/enemy_basic_idleanim_5.png", "/sprites/enemies/enemy_basic_idleanim_6.png", "/sprites/enemies/enemy_basic_idleanim_7.png"] },
   },
 
   // --- Dormant this pass (see file header) — no longer plugged into any
@@ -645,7 +645,7 @@ export const ENEMY_CONFIG = {
     statusOnHit: NO_STATUS,
     reviveCount: 2,
     reviveHpPercent: 0.5,
-    sprite: { idle: "/sprites/enemies/enemy_zombie_idle.png", attack: "/sprites/enemies/enemy_zombie_attack.png", hit: "/sprites/enemies/enemy_zombie_hit.png", run: ["/sprites/enemies/enemy_zombie_run_0.png", "/sprites/enemies/enemy_zombie_run_1.png"], idleAnim: ["/sprites/enemies/enemy_zombie_idleanim_0.png", "/sprites/enemies/enemy_zombie_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_zombie_idle.png", attack: "/sprites/enemies/enemy_zombie_attack.png", hit: "/sprites/enemies/enemy_zombie_hit.png", run: ["/sprites/enemies/enemy_zombie_run_0.png", "/sprites/enemies/enemy_zombie_run_1.png", "/sprites/enemies/enemy_zombie_run_2.png", "/sprites/enemies/enemy_zombie_run_3.png", "/sprites/enemies/enemy_zombie_run_4.png", "/sprites/enemies/enemy_zombie_run_5.png", "/sprites/enemies/enemy_zombie_run_6.png", "/sprites/enemies/enemy_zombie_run_7.png"], idleAnim: ["/sprites/enemies/enemy_zombie_idleanim_0.png", "/sprites/enemies/enemy_zombie_idleanim_1.png", "/sprites/enemies/enemy_zombie_idleanim_2.png", "/sprites/enemies/enemy_zombie_idleanim_3.png", "/sprites/enemies/enemy_zombie_idleanim_4.png", "/sprites/enemies/enemy_zombie_idleanim_5.png", "/sprites/enemies/enemy_zombie_idleanim_6.png", "/sprites/enemies/enemy_zombie_idleanim_7.png"] },
   },
   colossus: {
     id: 'colossus',
@@ -672,7 +672,7 @@ export const ENEMY_CONFIG = {
     critChance: 0.05,
     statusOnHit: NO_STATUS,
     superClass: 'colossus',
-    sprite: { idle: "/sprites/enemies/enemy_colossus_idle.png", attack: "/sprites/enemies/enemy_colossus_attack.png", hit: "/sprites/enemies/enemy_colossus_hit.png", run: ["/sprites/enemies/enemy_colossus_run_0.png", "/sprites/enemies/enemy_colossus_run_1.png"], idleAnim: ["/sprites/enemies/enemy_colossus_idleanim_0.png", "/sprites/enemies/enemy_colossus_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_colossus_idle.png", attack: "/sprites/enemies/enemy_colossus_attack.png", hit: "/sprites/enemies/enemy_colossus_hit.png", run: ["/sprites/enemies/enemy_colossus_run_0.png", "/sprites/enemies/enemy_colossus_run_1.png", "/sprites/enemies/enemy_colossus_run_2.png", "/sprites/enemies/enemy_colossus_run_3.png", "/sprites/enemies/enemy_colossus_run_4.png", "/sprites/enemies/enemy_colossus_run_5.png", "/sprites/enemies/enemy_colossus_run_6.png", "/sprites/enemies/enemy_colossus_run_7.png"], idleAnim: ["/sprites/enemies/enemy_colossus_idleanim_0.png", "/sprites/enemies/enemy_colossus_idleanim_1.png", "/sprites/enemies/enemy_colossus_idleanim_2.png", "/sprites/enemies/enemy_colossus_idleanim_3.png", "/sprites/enemies/enemy_colossus_idleanim_4.png", "/sprites/enemies/enemy_colossus_idleanim_5.png", "/sprites/enemies/enemy_colossus_idleanim_6.png", "/sprites/enemies/enemy_colossus_idleanim_7.png"] },
   },
   behemoth: {
     id: 'behemoth',
@@ -699,6 +699,6 @@ export const ENEMY_CONFIG = {
     critChance: 0.05,
     statusOnHit: NO_STATUS,
     superClass: 'behemoth',
-    sprite: { idle: "/sprites/enemies/enemy_behemoth_idle.png", attack: "/sprites/enemies/enemy_behemoth_attack.png", hit: "/sprites/enemies/enemy_behemoth_hit.png", run: ["/sprites/enemies/enemy_behemoth_run_0.png", "/sprites/enemies/enemy_behemoth_run_1.png"], idleAnim: ["/sprites/enemies/enemy_behemoth_idleanim_0.png", "/sprites/enemies/enemy_behemoth_idleanim_1.png"] },
+    sprite: { idle: "/sprites/enemies/enemy_behemoth_idle.png", attack: "/sprites/enemies/enemy_behemoth_attack.png", hit: "/sprites/enemies/enemy_behemoth_hit.png", run: ["/sprites/enemies/enemy_behemoth_run_0.png", "/sprites/enemies/enemy_behemoth_run_1.png", "/sprites/enemies/enemy_behemoth_run_2.png", "/sprites/enemies/enemy_behemoth_run_3.png", "/sprites/enemies/enemy_behemoth_run_4.png", "/sprites/enemies/enemy_behemoth_run_5.png", "/sprites/enemies/enemy_behemoth_run_6.png", "/sprites/enemies/enemy_behemoth_run_7.png"], idleAnim: ["/sprites/enemies/enemy_behemoth_idleanim_0.png", "/sprites/enemies/enemy_behemoth_idleanim_1.png", "/sprites/enemies/enemy_behemoth_idleanim_2.png", "/sprites/enemies/enemy_behemoth_idleanim_3.png", "/sprites/enemies/enemy_behemoth_idleanim_4.png", "/sprites/enemies/enemy_behemoth_idleanim_5.png", "/sprites/enemies/enemy_behemoth_idleanim_6.png", "/sprites/enemies/enemy_behemoth_idleanim_7.png"] },
   },
 };

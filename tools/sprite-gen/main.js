@@ -454,12 +454,17 @@ async function stripOpaqueBlackBackground(dataUrl, { threshold = 24, alphaMin = 
 }
 window.stripOpaqueBlackBackground = stripOpaqueBlackBackground;
 
-// Crops a data URL down to the bounding box of its non-transparent pixels
-// (plus a small even margin) — the 512x512 render canvas is much bigger
-// than any single pose actually needs, and a consistent tight crop across
-// every pose/unit keeps their in-game sizes/anchors comparable instead of
-// each one carrying a different amount of invisible padding.
-async function trimTransparentPadding(dataUrl, margin = 6) {
+// Bounding box (in source-canvas pixels) of a data URL's non-transparent
+// pixels — factored out of trimTransparentPadding (below) so a whole
+// ANIMATION SEQUENCE (see renderSequenceAndSave) can compute one shared box
+// across every one of its frames and crop them all to THAT, instead of each
+// frame being trimmed to its own independent box. A per-frame-independent
+// crop is exactly right for a single still pose, but wrong for a sequence:
+// the character moves within the frame as the animation plays, so each
+// frame's own tight box has a different size/position, and swapping between
+// differently-sized/offset textures mid-playback reads as the character
+// jittering/popping every frame instead of moving smoothly.
+async function computeAlphaBounds(dataUrl) {
   const img = new Image();
   img.src = dataUrl;
   await img.decode();
@@ -486,12 +491,28 @@ async function trimTransparentPadding(dataUrl, margin = 6) {
       }
     }
   }
-  if (maxX < minX || maxY < minY) return dataUrl; // fully transparent — nothing to trim
+  return { minX, minY, maxX, maxY, canvasWidth: canvas.width, canvasHeight: canvas.height, empty: maxX < minX || maxY < minY };
+}
+window.computeAlphaBounds = computeAlphaBounds;
 
-  minX = Math.max(0, minX - margin);
-  minY = Math.max(0, minY - margin);
-  maxX = Math.min(canvas.width - 1, maxX + margin);
-  maxY = Math.min(canvas.height - 1, maxY + margin);
+// Crops a data URL to `bounds` (as returned by computeAlphaBounds, or a
+// union of several) plus a small even margin, clamped to the source
+// canvas's own size.
+async function cropDataUrlToBounds(dataUrl, bounds, margin = 6) {
+  if (bounds.empty) return dataUrl; // fully transparent — nothing to crop to
+
+  const img = new Image();
+  img.src = dataUrl;
+  await img.decode();
+  const canvas = document.createElement('canvas');
+  canvas.width = img.width;
+  canvas.height = img.height;
+  canvas.getContext('2d').drawImage(img, 0, 0);
+
+  const minX = Math.max(0, bounds.minX - margin);
+  const minY = Math.max(0, bounds.minY - margin);
+  const maxX = Math.min(canvas.width - 1, bounds.maxX + margin);
+  const maxY = Math.min(canvas.height - 1, bounds.maxY + margin);
   const w = maxX - minX + 1;
   const h = maxY - minY + 1;
 
@@ -500,6 +521,33 @@ async function trimTransparentPadding(dataUrl, margin = 6) {
   outCanvas.height = h;
   outCanvas.getContext('2d').drawImage(canvas, minX, minY, w, h, 0, 0, w, h);
   return outCanvas.toDataURL('image/png');
+}
+window.cropDataUrlToBounds = cropDataUrlToBounds;
+
+// Union of several bounds (same shape as computeAlphaBounds' return value).
+function unionBounds(boundsList) {
+  const real = boundsList.filter((b) => !b.empty);
+  if (!real.length) return boundsList[0];
+  return {
+    minX: Math.min(...real.map((b) => b.minX)),
+    minY: Math.min(...real.map((b) => b.minY)),
+    maxX: Math.max(...real.map((b) => b.maxX)),
+    maxY: Math.max(...real.map((b) => b.maxY)),
+    canvasWidth: real[0].canvasWidth,
+    canvasHeight: real[0].canvasHeight,
+    empty: false,
+  };
+}
+
+// Crops a data URL down to the bounding box of its own non-transparent
+// pixels (plus a small even margin) — the 512x512 render canvas is much
+// bigger than any single pose actually needs. Kept as the single-frame path
+// (idle/attack/hit still each get their own independent crop, correct for a
+// standalone still pose) — see renderSequenceAndSave for the multi-frame,
+// shared-box version this was split out of.
+async function trimTransparentPadding(dataUrl, margin = 6) {
+  const bounds = await computeAlphaBounds(dataUrl);
+  return cropDataUrlToBounds(dataUrl, bounds, margin);
 }
 window.trimTransparentPadding = trimTransparentPadding;
 
@@ -741,6 +789,135 @@ window.renderChimeraAndSave = async function renderChimeraAndSave(filename, chim
   });
   const json = await res.json();
   return { ...json, blackFraction };
+};
+
+// --- Full-animation frame sequences (idleAnim/run) ---
+// The original idleAnim/run art was just 2 sampled frames per clip (a
+// crude "blink" between two extremes) — these render `frameCount` frames
+// evenly spaced across the REAL clip duration instead, for smooth in-game
+// playback (see SpriteIcon.js/GameScene.js's frame-cycling, both already
+// generic over array length). Frames are computed from one SHARED crop box
+// (the union of every frame's own alpha bounds), not each frame's own
+// independent box — see computeAlphaBounds' own comment for why an
+// independent per-frame crop would make the character jitter/pop between
+// frames instead of moving smoothly.
+//
+// `maxFraction` stops just short of 1.0: sampling the literal last instant
+// of a looping clip is often visually identical to (or a jarring snap back
+// toward) frame 0, and Spine clips in this kit loop seamlessly on their
+// own, so the LAST generated frame simply plays right before looping back
+// to frame 0 rather than needing to BE frame 0 again.
+async function saveFrameSequence(baseFilename, croppedFrames) {
+  const results = [];
+  for (let i = 0; i < croppedFrames.length; i++) {
+    const res = await fetch('/api/save-sprite', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ filename: `${baseFilename}_${i}.png`, dataUrl: croppedFrames[i] }),
+    }).then((r) => r.json());
+    results.push(res);
+  }
+  return results;
+}
+
+async function renderStarterFrameRaw(skeletonData, animationName, poseFraction) {
+  app.stage.removeChildren();
+  const spine = new Spine(skeletonData);
+  spine.position.set(256, 340);
+  spine.scale.set(0.4, 0.4); // same as renderStarter's own base-look scale
+  const anim = skeletonData.animations.find((a) => a.name === animationName);
+  const poseDelta = anim ? Math.max(0.016, anim.duration * poseFraction) : 0.016;
+  if (anim) spine.state.setAnimation(0, animationName, false);
+  app.stage.addChild(spine);
+  spine.update(poseDelta);
+  app.renderer.render(app.stage);
+  return app.renderer.extract.base64(app.stage);
+}
+
+window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSave(
+  baseFilename,
+  axieId,
+  animationName,
+  frameCount = 8,
+  maxFraction = 0.9,
+) {
+  document.getElementById('status').textContent = `rendering sequence ${baseFilename} (${frameCount} frames)...`;
+  const skeletonData = await loadStarterSkeletonData(axieId);
+
+  const rawFrames = [];
+  for (let i = 0; i < frameCount; i++) {
+    const t = frameCount === 1 ? 0 : (i / (frameCount - 1)) * maxFraction;
+    rawFrames.push(await renderStarterFrameRaw(skeletonData, animationName, t));
+  }
+
+  const bounds = unionBounds(await Promise.all(rawFrames.map((f) => computeAlphaBounds(f))));
+  const cropped = await Promise.all(rawFrames.map((f) => cropDataUrlToBounds(f, bounds, 6)));
+  const results = await saveFrameSequence(baseFilename, cropped);
+  document.getElementById('status').textContent = `done: sequence ${baseFilename}`;
+  return { frameCount: cropped.length, results };
+};
+
+// Evolved variants (see UNIT_CONFIG.js's `sprite.evolved`) turn out NOT to
+// need buildStarterCombo/renderStarterEvolvedPart's gene-mixing route at
+// all (that path needs a real Lv2 skin per part slot — verified live that
+// EVERY part slot on every roster Starter comes back null, i.e. none of
+// them actually have one) — the Origins Asset Kit instead ships each
+// Starter's awakened look as its own separate pre-baked skeleton folder,
+// literally named `${axieId}-1` (confirmed: public/starters/5-1/ renders
+// pixel-identical to the already-shipped unit_basic_evolved_idle.png).
+// So renderStarterSequenceAndSave below already covers evolved too — just
+// call it with `${axieId}-1` as the id, no separate function needed.
+
+// Chimera (enemy) counterpart — same shared-crop-box approach, plus the
+// black-background-stripping and corrupted-render retry every single-frame
+// chimera render already needs (see renderChimeraAndSave), applied per frame
+// since withFreshRenderer's WebGL-churn issue is per-render, not per-clip.
+async function renderChimeraFrameRawClean(skeletonData, animationName, poseFraction) {
+  const MAX_ATTEMPTS = 5;
+  const BLACK_FRACTION_THRESHOLD = 0.12;
+  let rawDataUrl;
+  let blackFraction = 1;
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    rawDataUrl = await withFreshRenderer(async (freshApp) => {
+      const spine = new Spine(skeletonData);
+      spine.position.set(256, 340);
+      spine.scale.set(0.4, 0.4);
+      const anim = skeletonData.animations.find((a) => a.name === animationName);
+      const poseDelta = anim ? Math.max(0.016, anim.duration * poseFraction) : 0.016;
+      if (anim) spine.state.setAnimation(0, animationName, false);
+      freshApp.stage.addChild(spine);
+      spine.update(poseDelta);
+      freshApp.renderer.render(freshApp.stage);
+      return freshApp.renderer.extract.base64(freshApp.stage);
+    });
+    blackFraction = await computeBlackFraction(rawDataUrl);
+    if (blackFraction < BLACK_FRACTION_THRESHOLD) break;
+    console.warn(`renderChimeraFrameRawClean: ${animationName}@${poseFraction} looked corrupted (blackFraction=${blackFraction.toFixed(3)}), retrying`);
+  }
+  return stripOpaqueBlackBackground(rawDataUrl);
+}
+
+window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSave(
+  baseFilename,
+  chimeraFolder,
+  animationName,
+  frameCount = 8,
+  maxFraction = 0.9,
+) {
+  document.getElementById('status').textContent = `rendering chimera sequence ${baseFilename} (${frameCount} frames)...`;
+  const skeletonData = await loadChimeraSkeletonData(chimeraFolder);
+
+  const rawFrames = [];
+  for (let i = 0; i < frameCount; i++) {
+    const t = frameCount === 1 ? 0 : (i / (frameCount - 1)) * maxFraction;
+    rawFrames.push(await renderChimeraFrameRawClean(skeletonData, animationName, t));
+  }
+
+  const bounds = unionBounds(await Promise.all(rawFrames.map((f) => computeAlphaBounds(f))));
+  const cropped = await Promise.all(rawFrames.map((f) => cropDataUrlToBounds(f, bounds, 6)));
+  const results = await saveFrameSequence(baseFilename, cropped);
+  document.getElementById('status').textContent = `done: chimera sequence ${baseFilename}`;
+  return { frameCount: cropped.length, results };
 };
 
 document.getElementById('status').textContent = 'ready — call window.renderAxie(className, partValue, animationName)';
