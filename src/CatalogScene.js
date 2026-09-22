@@ -7,6 +7,7 @@ import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, drawBcPanel } from './UITheme.js';
+import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // Battle Cats reference: にゃんこ図鑑 (Cat Guide) / 敵キャラ図鑑 (Enemy Character
 // Guide) — a browsable catalog of every unit/enemy: a grid of portraits,
@@ -52,7 +53,20 @@ export default class CatalogScene extends Phaser.Scene {
   }
 
   create(data) {
-    const { width, height } = this.scale;
+    // Every scene's camera is zoomed by RENDER_SCALE so the game's
+    // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
+    // renders onto the real, bigger HD canvas at full pixel density.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    // Without a camera bounds set (only GameScene has one — its own
+    // setBounds happens to clamp scroll to this same point), Phaser's
+    // scroll=0 default centers the viewport on world point
+    // (viewport-width/2, viewport-height/2) using RAW viewport pixels —
+    // i.e. (960, 540) on this 1920x1080 canvas — not on the logical
+    // 800x450 layout's own center. centerOn corrects that so world
+    // (0,0)-(800,450) actually maps onto the full canvas instead of a
+    // small corner of it.
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+    const { width, height } = LOGICAL_SIZE;
     this.rosterType = data?.rosterType === 'enemies' ? 'enemies' : 'units';
     this.roster = this.rosterType === 'enemies' ? ENEMY_CONFIG : UNIT_CONFIG;
     this.isPlayerSide = this.rosterType === 'units';
@@ -93,7 +107,7 @@ export default class CatalogScene extends Phaser.Scene {
 
   renderGrid() {
     this.contentContainer.removeAll(true);
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const totalPages = Math.ceil(this.keys.length / CARDS_PER_PAGE);
     const pageKeys = this.keys.slice(this.page * CARDS_PER_PAGE, this.page * CARDS_PER_PAGE + CARDS_PER_PAGE);
     this.pageText.setText(`Page ${this.page + 1}/${totalPages}`);
@@ -196,7 +210,7 @@ export default class CatalogScene extends Phaser.Scene {
     this.contentContainer.removeAll(true);
     this.pagerObjects.forEach((obj) => obj.setVisible(false));
     this.pageText.setText('');
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const key = this.keys[this.detailIndex];
     const config = this.roster[key];
     const unlocked = !this.isPlayerSide || isUnitUnlocked(key);

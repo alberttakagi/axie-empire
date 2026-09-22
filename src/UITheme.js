@@ -1,4 +1,5 @@
 import { playUiTapSfx } from './Audio.js';
+import { LOGICAL_SIZE } from './RenderConfig.js';
 
 // Shared Battle Cats visual language — colors, fonts, and reusable Phaser
 // widget factories — so every scene (Home, Saga/Stage select, Loadout,
@@ -125,7 +126,7 @@ export function createBcCircleButton(scene, x, y, radius, glyph, onClick, opts =
 // Standard "go back one screen" button — bottom-left corner, gold circle
 // with a "<" glyph, matching every hub/list screen in the reference.
 export function createBackButton(scene, onClick, x = 40, y = null) {
-  const targetY = y === null ? scene.scale.height - 34 : y;
+  const targetY = y === null ? LOGICAL_SIZE.height - 34 : y;
   return createBcCircleButton(scene, x, targetY, 26, '◀', onClick);
 }
 

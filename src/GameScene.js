@@ -60,6 +60,7 @@ import { getBattleItemCount, tryUseBattleItem, rollBattleItemDrop } from './Batt
 import { preloadAttackVfx, createAttackVfxAnims, fireAttackVfx } from './AttackVfx.js';
 import { showDamageNumber } from './CombatFeedback.js';
 import { addLifetimeStat } from './LifetimeStats.js';
+import { LOGICAL_SIZE, RENDER_SCALE, CANVAS_WIDTH, CANVAS_HEIGHT } from './RenderConfig.js';
 
 // Account-wide Base Upgrades (bible §A.7.1) — read once per battle at
 // create() time into flat numbers, since they only change between battles
@@ -213,8 +214,13 @@ const ATTACK_LUNGE_DISTANCE = 7;
 // (the bounded battlefield shrinks to less than the viewport, leaving a
 // bare border with nothing GameScene draws in it). MAX is close enough to
 // see a unit's own run-cycle/attack animation clearly.
-const WORLD_ZOOM_MIN = 1;
-const WORLD_ZOOM_MAX = 2.2;
+// Both bounds are expressed relative to RENDER_SCALE (the base zoom every
+// camera now starts at — see RenderConfig.js) rather than the old raw 1/2.2,
+// so the player's own zoom-in range still feels identical to before; only
+// the floor/ceiling shifted to sit on top of the new HD base zoom instead of
+// literal 1x.
+const WORLD_ZOOM_MIN = RENDER_SCALE;
+const WORLD_ZOOM_MAX = RENDER_SCALE * 2.2;
 const WORLD_ZOOM_WHEEL_SENSITIVITY = 0.001; // fraction of zoom changed per wheel-delta unit
 
 // A scripted boss (STAGE_CONFIG entries with isBoss: true) is otherwise
@@ -531,7 +537,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create(data) {
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
 
     // Sparring Grounds (bible §A.6.4's Catclaw Dojo) — a free, timed,
     // score-attack mode against an invincible base with endless waves,
@@ -937,12 +943,33 @@ export default class GameScene extends Phaser.Scene {
   // other's objects; see this.worldGameObjects' own comment for how the UI
   // side of that split is gathered.
   setupZoomControls() {
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
 
-    this.uiCamera = this.cameras.add(0, 0, width, height);
+    // cameras.add's own width/height args are the camera's VIEWPORT, in
+    // real canvas pixels (CANVAS_WIDTH/HEIGHT) — not world units — so this
+    // one call site deliberately does NOT use LOGICAL_SIZE like everywhere
+    // else in this file; it needs the whole physical canvas covered.
+    this.uiCamera = this.cameras.add(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     this.uiCamera.ignore(this.worldGameObjects);
     const uiObjectsSoFar = this.children.list.filter((obj) => !this.worldGameObjects.includes(obj));
     this.cameras.main.ignore(uiObjectsSoFar);
+
+    // Base HD render zoom (see RenderConfig.js) on both cameras — the HUD
+    // camera stays pinned here forever (no pan/zoom of its own), while the
+    // battlefield camera's own zoom/pan controls just below treat this as
+    // their floor (WORLD_ZOOM_MIN), not literal 1x.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    this.uiCamera.setZoom(RENDER_SCALE);
+
+    // uiCamera has no bounds (it never pans), so nothing else would ever
+    // correct its default scroll=0, which centers on world point
+    // (viewport-width/2, viewport-height/2) in RAW viewport pixels — i.e.
+    // (960, 540) on this 1920x1080 canvas — squashing the whole HUD into a
+    // small corner instead of over the real 800x450 layout. cameras.main
+    // gets the same fix implicitly, from setBounds just below (its bounds
+    // exactly equal its display size, so the clamp forces the equivalent
+    // scroll on its own).
+    this.uiCamera.centerOn(width / 2, height / 2);
 
     // Nothing to see past the battlefield's own edges (the backdrop/lane
     // exactly fill the canvas), so bounds just keep the zoomed-in view from
@@ -1117,7 +1144,7 @@ export default class GameScene extends Phaser.Scene {
   // UI object — see setupZoomControls — so it never itself pans/zooms with
   // the battlefield anyway).
   createBattleTooltip() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const y = 92;
     this.battleTooltipContainer = this.add.container(width / 2, y).setDepth(1000).setVisible(false);
     this.battleTooltipBg = this.add.rectangle(0, 0, 260, 40, 0x000000, 0.92).setStrokeStyle(2, 0xffdd33);
@@ -1172,7 +1199,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   createSpawnButtons() {
-    const { height } = this.scale;
+    const { height } = LOGICAL_SIZE;
     const keys = this.loadout;
 
     // The row's available width is bounded on the right by the Cannon
@@ -1312,7 +1339,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.settingsPopupObjects) return; // already showing
     this.setPaused(true);
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
     const panelY = height / 2 - 30;
 
@@ -1390,7 +1417,7 @@ export default class GameScene extends Phaser.Scene {
   // hardcoded coordinates, so a future layout tweak to any of those
   // elements can't silently leave the tutorial pointing at empty space.
   getTutorialSteps() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     return [
       {
         targets: [
@@ -1444,7 +1471,7 @@ export default class GameScene extends Phaser.Scene {
 
     const steps = this.getTutorialSteps();
     const step = steps[this.tutorialStepIndex];
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive());
@@ -1529,7 +1556,7 @@ export default class GameScene extends Phaser.Scene {
   // these are all beneficial, none of them risk anything the way Quit
   // does).
   createBattleItemButtons() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const ids = Object.keys(BATTLE_ITEMS_CONFIG);
     const itemWidth = 76;
     const gap = 6;
@@ -1585,7 +1612,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.quitConfirmObjects) return; // already showing
     this.setPaused(true);
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setInteractive());
@@ -1639,7 +1666,7 @@ export default class GameScene extends Phaser.Scene {
   // called out as the wrong position ("mirroring Worker Cat's bottom-left
   // placement") without anyone having actually moved it there.
   createWorkerCatButton() {
-    const { height } = this.scale;
+    const { height } = LOGICAL_SIZE;
     const radius = CANNON_BUTTON_RADIUS;
     const x = 16 + radius;
     // Shifted up an extra 16px versus the Cannon's own Y (which has no
@@ -1685,7 +1712,7 @@ export default class GameScene extends Phaser.Scene {
   // not a horizontal bar). Tapping it only does something once full; see
   // tryTriggerSpecialBurst.
   createCannonButton() {
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     this.cannonX = width - 16 - CANNON_BUTTON_RADIUS;
     this.cannonY = height - 16 - CANNON_BUTTON_RADIUS;
 
@@ -1723,7 +1750,7 @@ export default class GameScene extends Phaser.Scene {
   // wallet readout. See the speedMultiplier field comment in create() for
   // what toggling this actually scales.
   createSpeedUpButton() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const x = width - 50;
     // Below the wallet readout (right-aligned at y=16, 20px font) — was
     // y=45, which put this button's top edge above the wallet text's own
@@ -1869,7 +1896,7 @@ export default class GameScene extends Phaser.Scene {
   showRestrictionMessage(text) {
     if (this.restrictionMessageText) this.restrictionMessageText.destroy();
 
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     this.restrictionMessageText = this.add
       .text(width / 2, 115, text, {
         fontFamily: 'Rowdies, sans-serif', fontSize: '39px',
@@ -2116,7 +2143,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   showBossWarning() {
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const text = this.add
       .text(width / 2, height / 2 - 60, 'BOSS!', { fontFamily: 'Rowdies, sans-serif', fontSize: '40px', color: '#ff3333', fontStyle: 'bold' })
       .setOrigin(0.5)
@@ -2487,7 +2514,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   updatePlayerUnits(deltaMs) {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const enemyBaseReachDistance = BASE_WIDTH / 2;
 
     for (const unit of this.playerUnits) {
@@ -3201,7 +3228,7 @@ export default class GameScene extends Phaser.Scene {
   // knockbackMs > 0 check in updatePlayerUnits/updateEnemies) — no
   // attacking, no target-seeking, just the slide.
   tickKnockback(entity, deltaMs) {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const step = entity.knockbackVelocity * Math.min(deltaMs, entity.knockbackMs);
     entity.shape.x = Math.max(entity.config.radius, Math.min(width - entity.config.radius, entity.shape.x + step));
     if (entity.label) entity.label.x = entity.shape.x;
@@ -3320,7 +3347,7 @@ export default class GameScene extends Phaser.Scene {
       if (entity.label) entity.label.setVisible(false);
 
       if (entity.warpMs === 0) {
-        const { width } = this.scale;
+        const { width } = LOGICAL_SIZE;
         entity.shape.x = Math.max(
           entity.config.radius,
           Math.min(width - entity.config.radius, entity.shape.x + entity.warpOffset),
@@ -3673,7 +3700,7 @@ export default class GameScene extends Phaser.Scene {
   showContinueOffer(cost) {
     this.setPaused(true);
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
@@ -3853,7 +3880,7 @@ export default class GameScene extends Phaser.Scene {
     this.gameOverText.setText(lines.join('\n'));
     this.gameOverBackdrop.setVisible(true);
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
-    this.createEndScreenButtons(nextStage, this.scale.height / 2 + 90);
+    this.createEndScreenButtons(nextStage, LOGICAL_SIZE.height / 2 + 90);
   }
 
   // Restart/Next Stage/Menu row shared by the plain loss/Dojo end screen
@@ -3862,7 +3889,7 @@ export default class GameScene extends Phaser.Scene {
   // sequence finishes instead of dumping every button on screen at once
   // alongside a still-animating reward reveal.
   createEndScreenButtons(nextStage, buttonY, startAlpha = 1) {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const buttonWidth = 160;
     const buttonGap = 20;
 
@@ -3942,7 +3969,7 @@ export default class GameScene extends Phaser.Scene {
   playVictorySequence(result, nextStage) {
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const panelWidth = 380;
     const hasTreasure = result.treasureResult?.improved;
     const bonusLines = [];

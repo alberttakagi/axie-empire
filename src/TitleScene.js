@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBcButton, createBcCircleButton, drawBcPanel } from './UITheme.js';
+import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 import {
   getSfxVolumeLevel, cycleSfxVolumeLevel,
   getBgmVolumeLevel, cycleBgmVolumeLevel,
@@ -35,6 +36,19 @@ export default class TitleScene extends Phaser.Scene {
   }
 
   create() {
+    // Every scene's camera is zoomed by RENDER_SCALE so the game's
+    // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
+    // renders onto the real, bigger HD canvas at full pixel density.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    // Without a camera bounds set (only GameScene has one — its own
+    // setBounds happens to clamp scroll to this same point), Phaser's
+    // scroll=0 default centers the viewport on world point
+    // (viewport-width/2, viewport-height/2) using RAW viewport pixels —
+    // i.e. (960, 540) on this 1920x1080 canvas — not on the logical
+    // 800x450 layout's own center. centerOn corrects that so world
+    // (0,0)-(800,450) actually maps onto the full canvas instead of a
+    // small corner of it.
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
     // Phaser reuses this same scene instance across every scene.start
     // (registered as a class in main.js) — see StageSelectScene's
     // isLeavingScene/deployPopupObjects and GameScene's quitConfirmObjects
@@ -45,7 +59,7 @@ export default class TitleScene extends Phaser.Scene {
     // nothing and matches the convention everywhere else now.
     this.settingsPopupObjects = null;
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
 
     // Same backdrop HomeScene uses — Title and the hub it leads into read
     // as one continuous place, distinct from the opening lore's own
@@ -87,7 +101,7 @@ export default class TitleScene extends Phaser.Scene {
   showSettingsPopup() {
     if (this.settingsPopupObjects) return;
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
     const panelY = height / 2;
 

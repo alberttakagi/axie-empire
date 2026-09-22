@@ -8,6 +8,7 @@ import {
 } from './PlayerProgress.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // The account-wide half of the bible's §A.7.1 Upgrade Menu — Cannon Power/
 // Charge, Base Defense, Research, Accounting, Study, Stamina Cap. Reachable
@@ -33,7 +34,20 @@ export default class BaseUpgradeScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
+    // Every scene's camera is zoomed by RENDER_SCALE so the game's
+    // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
+    // renders onto the real, bigger HD canvas at full pixel density.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    // Without a camera bounds set (only GameScene has one — its own
+    // setBounds happens to clamp scroll to this same point), Phaser's
+    // scroll=0 default centers the viewport on world point
+    // (viewport-width/2, viewport-height/2) using RAW viewport pixels —
+    // i.e. (960, 540) on this 1920x1080 canvas — not on the logical
+    // 800x450 layout's own center. centerOn corrects that so world
+    // (0,0)-(800,450) actually maps onto the full canvas instead of a
+    // small corner of it.
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+    const { width, height } = LOGICAL_SIZE;
 
     // Matches its sibling UpgradeScene's own backdrop (reached from the
     // same "Power Up" flow) — this screen previously had none at all.
@@ -62,7 +76,7 @@ export default class BaseUpgradeScene extends Phaser.Scene {
   }
 
   renderRow(key, y, progress) {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const config = BASE_UPGRADE_CONFIG[key];
     const level = getBaseUpgradeLevel(key);
     const atCap = level >= config.maxLevel;

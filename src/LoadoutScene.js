@@ -21,6 +21,7 @@ import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
+import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
 // "manage my formation" screen reachable from the Home screen, rather than
@@ -48,7 +49,20 @@ export default class LoadoutScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
+    // Every scene's camera is zoomed by RENDER_SCALE so the game's
+    // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
+    // renders onto the real, bigger HD canvas at full pixel density.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    // Without a camera bounds set (only GameScene has one — its own
+    // setBounds happens to clamp scroll to this same point), Phaser's
+    // scroll=0 default centers the viewport on world point
+    // (viewport-width/2, viewport-height/2) using RAW viewport pixels —
+    // i.e. (960, 540) on this 1920x1080 canvas — not on the logical
+    // 800x450 layout's own center. centerOn corrects that so world
+    // (0,0)-(800,450) actually maps onto the full canvas instead of a
+    // small corner of it.
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+    const { width, height } = LOGICAL_SIZE;
 
     // Dimmed by drawWoodFrame's own semi-transparent interior tint, not a
     // separate scrim — see HomeScene.js's identical note.
@@ -141,7 +155,7 @@ export default class LoadoutScene extends Phaser.Scene {
     const tooltipY = isTopRow
       ? y + CARD_HEIGHT / 2 + this.tooltipBg.height / 2 + 8
       : y - CARD_HEIGHT / 2 - this.tooltipBg.height / 2 - 8;
-    const clampedX = Phaser.Math.Clamp(x, this.tooltipBg.width / 2 + 6, this.scale.width - this.tooltipBg.width / 2 - 6);
+    const clampedX = Phaser.Math.Clamp(x, this.tooltipBg.width / 2 + 6, LOGICAL_SIZE.width - this.tooltipBg.width / 2 - 6);
 
     this.tooltipContainer.setPosition(clampedX, tooltipY);
     this.tooltipContainer.setVisible(true);
@@ -157,7 +171,7 @@ export default class LoadoutScene extends Phaser.Scene {
   renderSlotTabs() {
     this.slotTabContainer.removeAll(true);
 
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const data = loadFormationsData();
     const tabWidth = 90;
     const autoEquipWidth = 110;
@@ -217,7 +231,7 @@ export default class LoadoutScene extends Phaser.Scene {
     // doesn't need to fit in one un-scrolled strip).
     const keys = Object.keys(UNIT_CONFIG);
     const rowWidth = Math.min(keys.length, CARDS_PER_ROW) * CARD_WIDTH + (Math.min(keys.length, CARDS_PER_ROW) - 1) * CARD_GAP;
-    const startX = (this.scale.width - rowWidth) / 2 + CARD_WIDTH / 2;
+    const startX = (LOGICAL_SIZE.width - rowWidth) / 2 + CARD_WIDTH / 2;
     const startY = 162;
 
     // Every card's fixed grid position — kept around so a drag-drop (see

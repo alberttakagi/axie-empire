@@ -8,6 +8,7 @@ import { preloadSagaBackgrounds, addSagaBackground } from './Backdrop.js';
 import { preloadSpriteRoster } from './SpriteIcon.js';
 import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 import { playUiTapSfx, playLockedTapSfx, playMapArrivalSfx } from './Audio.js';
+import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 const DIFFICULTY_COLOR = {
   Easy: 0x4caf50,
@@ -104,6 +105,19 @@ export default class StageSelectScene extends Phaser.Scene {
   }
 
   create(data) {
+    // Every scene's camera is zoomed by RENDER_SCALE so the game's
+    // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
+    // renders onto the real, bigger HD canvas at full pixel density.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    // Without a camera bounds set (only GameScene has one — its own
+    // setBounds happens to clamp scroll to this same point), Phaser's
+    // scroll=0 default centers the viewport on world point
+    // (viewport-width/2, viewport-height/2) using RAW viewport pixels —
+    // i.e. (960, 540) on this 1920x1080 canvas — not on the logical
+    // 800x450 layout's own center. centerOn corrects that so world
+    // (0,0)-(800,450) actually maps onto the full canvas instead of a
+    // small corner of it.
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
     // Phaser reuses this same scene INSTANCE across every scene.start —
     // it's registered as a class in main.js, so create() re-runs on the
     // same object rather than a fresh one each time. isLeavingScene (see
@@ -119,7 +133,7 @@ export default class StageSelectScene extends Phaser.Scene {
     // would otherwise silently no-op forever on every later visit.
     this.deployPopupObjects = null;
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const progress = loadStageProgress();
 
     // Saga expansion (bible §A.6.1): STAGE_CONFIG.js stays one flat array
@@ -167,7 +181,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // it's what actually gates whether a tap on a stage tile below will
   // succeed, so the player shouldn't have to go back to Home to check it.
   createEnergyDisplay() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const { current, cap } = getEnergyState();
     createResourceBadge(this, width - 24, 26, 'ENERGY', `${current}/${cap}`, { valueColor: '#8fffb0' });
   }
@@ -192,7 +206,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // into the header or footer, regardless of scroll position (see
   // setupMapScroll's own note on the bug this replaces).
   createStageMap(progress) {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     this.mapContainer = this.add.container(0, 0);
 
     const maskShape = this.make.graphics({ x: 0, y: 0 }, false);
@@ -417,7 +431,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // viewport's horizontal center — recomputed continuously (see
   // updateTrippTarget), not tied to stage progress at all.
   centerNodeLocalIndex() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const centerWorldX = -this.mapContainer.x + width / 2;
     let closestIndex = 0;
     let closestDist = Infinity;
@@ -501,7 +515,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // viewport, so a returning player sees their actual progress immediately
   // instead of the saga's very first stage every time.
   centerOnCurrentStage() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const { x } = this.nodePosition(this.currentLocalIndex);
     this.mapContainer.x = Phaser.Math.Clamp(width / 2 - x, this.mapScrollMin, this.mapScrollMax);
   }
@@ -523,7 +537,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // and the least is centering the LAST node (mapScrollMin, a large
   // negative offset), each pushed further out by the padding.
   setupMapScroll() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     this.mapScrollMax = width / 2 - this.mapContentLeft + MAP_EDGE_PADDING;
     this.mapScrollMin = width / 2 - this.mapContentRight - MAP_EDGE_PADDING;
     const clamp = (x) => Phaser.Math.Clamp(x, this.mapScrollMin, this.mapScrollMax);
@@ -538,18 +552,25 @@ export default class StageSelectScene extends Phaser.Scene {
       this.mapScrollVelocity = 0; // a wheel nudge shouldn't also keep coasting afterward
     });
 
+    // pointer.x/y are raw canvas-pixel coordinates, not world coordinates —
+    // the two only coincided by accident back when every camera sat at
+    // zoom 1. Now that this scene's camera is zoomed by RENDER_SCALE (see
+    // create()), they need converting via the camera before comparing
+    // against world-space values like MAP_VIEWPORT_TOP or mapContainer.x.
     let dragStartX = 0;
     let containerStartX = 0;
     this.input.on('pointerdown', (pointer) => {
-      if (pointer.y < MAP_VIEWPORT_TOP || pointer.y > MAP_VIEWPORT_BOTTOM) return;
+      const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      if (world.y < MAP_VIEWPORT_TOP || world.y > MAP_VIEWPORT_BOTTOM) return;
       this.isDraggingMap = true;
-      dragStartX = pointer.x;
+      dragStartX = world.x;
       containerStartX = this.mapContainer.x;
       this.mapScrollVelocity = 0;
     });
     this.input.on('pointermove', (pointer) => {
       if (!this.isDraggingMap || !pointer.isDown) return;
-      const next = this.applyRubberBand(containerStartX + (pointer.x - dragStartX));
+      const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
+      const next = this.applyRubberBand(containerStartX + (world.x - dragStartX));
       this.mapScrollVelocity = next - this.mapContainer.x; // px/frame, decayed by tickMapScroll after release
       this.mapContainer.x = next;
     });
@@ -597,7 +618,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // big triangular arrows flanking the map) — a discoverable alternative
   // to drag-scrolling, one "page" (a handful of stages) per tap.
   createMapArrows() {
-    const { width } = this.scale;
+    const { width } = LOGICAL_SIZE;
     const y = MAP_CENTER_Y;
     const pageStep = NODE_SPACING_X * 3;
 
@@ -668,7 +689,7 @@ export default class StageSelectScene extends Phaser.Scene {
   showDeployPopup(stage) {
     if (this.deployPopupObjects) return;
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
 
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive();
@@ -726,7 +747,7 @@ export default class StageSelectScene extends Phaser.Scene {
   showInsufficientEnergyMessage() {
     if (this.insufficientEnergyText) this.insufficientEnergyText.destroy();
 
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const text = this.add
       .text(width / 2, height - 20, 'Not enough Energy!', {
         fontFamily: FONT, fontSize: '14px',

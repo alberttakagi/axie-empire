@@ -1,3 +1,4 @@
+import { LOGICAL_SIZE } from './RenderConfig.js';
 // Shared saga-backdrop helpers — factored out of GameScene so any other
 // scene (Home, Stage Select, etc.) can show the same scenic art without
 // duplicating the texture-key convention or re-loading logic. See
@@ -24,7 +25,7 @@ export function preloadSagaBackgrounds(scene) {
 // lines that would make a slight stretch obvious. Call this before adding
 // anything else in the scene so it sits behind everything.
 export function addSagaBackground(scene, saga) {
-  const { width, height } = scene.scale;
+  const { width, height } = LOGICAL_SIZE;
   const key = SAGA_BACKGROUND_KEYS[saga] || SAGA_BACKGROUND_KEYS[DEFAULT_BACKGROUND_SAGA];
   return scene.add.image(width / 2, height / 2, key).setDisplaySize(width, height);
 }
@@ -66,7 +67,7 @@ export function preloadBackgrounds(scene) {
 // addSagaBackground. Call this before adding anything else in the scene so
 // it sits behind everything.
 export function addBackground(scene, backgroundId) {
-  const { width, height } = scene.scale;
+  const { width, height } = LOGICAL_SIZE;
   const key = BACKGROUND_KEYS[backgroundId] || BACKGROUND_KEYS.plant;
   return scene.add.image(width / 2, height / 2, key).setDisplaySize(width, height);
 }

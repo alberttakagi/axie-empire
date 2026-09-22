@@ -12,6 +12,7 @@ import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
 import { BC, FONT, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawWoodFrame, drawBcPanel } from './UITheme.js';
+import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // The bible's §A.10.1 Home/Base Screen — confirmed-from-screenshot layout:
 // a top status bar, a center-lower stack of three primary action buttons
@@ -47,7 +48,20 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   create() {
-    const { width, height } = this.scale;
+    // Every scene's camera is zoomed by RENDER_SCALE so the game's
+    // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
+    // renders onto the real, bigger HD canvas at full pixel density.
+    this.cameras.main.setZoom(RENDER_SCALE);
+    // Without a camera bounds set (only GameScene has one — its own
+    // setBounds happens to clamp scroll to this same point), Phaser's
+    // scroll=0 default centers the viewport on world point
+    // (viewport-width/2, viewport-height/2) using RAW viewport pixels —
+    // i.e. (960, 540) on this 1920x1080 canvas — not on the logical
+    // 800x450 layout's own center. centerOn corrects that so world
+    // (0,0)-(800,450) actually maps onto the full canvas instead of a
+    // small corner of it.
+    this.cameras.main.centerOn(LOGICAL_WIDTH / 2, LOGICAL_HEIGHT / 2);
+    const { width, height } = LOGICAL_SIZE;
 
     // Backdrop, dimmed by drawWoodFrame's own semi-transparent interior
     // tint rather than a separate scrim rectangle — that tint already does
@@ -86,7 +100,7 @@ export default class HomeScene extends Phaser.Scene {
   createStatusBar() {
     const playerProgress = loadPlayerProgress();
     const { current, cap } = getEnergyState();
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
 
     createResourceBadge(this, width - 24, 26, 'XP', Math.floor(playerProgress.xp), { valueColor: '#7fe0ff' });
 
@@ -112,7 +126,7 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   createPrimaryButtons() {
-    const { height } = this.scale;
+    const { height } = LOGICAL_SIZE;
     const centerX = 150;
     const startY = height / 2 - PRIMARY_BUTTON_HEIGHT - PRIMARY_BUTTON_GAP;
 
@@ -138,7 +152,7 @@ export default class HomeScene extends Phaser.Scene {
   // skipping StageSelectScene's energy gate entirely (matching the bible's
   // "free-play" framing).
   createDojoButton() {
-    const { height } = this.scale;
+    const { height } = LOGICAL_SIZE;
     const x = 150;
     // Sits in the gap between the primary-button stack's bottom edge and
     // the secondary-icon row's top edge — computed from the same layout
@@ -160,7 +174,7 @@ export default class HomeScene extends Phaser.Scene {
   // group) — rather than Gacha/Treasure floating as isolated buttons with
   // no visual relationship to anything else on the screen.
   createSecondaryIcons() {
-    const { height } = this.scale;
+    const { height } = LOGICAL_SIZE;
     const y = height - 62;
     // Menu/Excavation/Missions centered on x=150 (80px spacing either side)
     // to match createPrimaryButtons' own centerX — was 110/190/270, whose
@@ -201,7 +215,7 @@ export default class HomeScene extends Phaser.Scene {
   // has several buttons (Treasure List, Cat Medals, Cat Club, Help) this
   // build has no equivalent system for yet.
   showMenuPopup() {
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
 
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setInteractive();
@@ -260,7 +274,7 @@ export default class HomeScene extends Phaser.Scene {
   // playing" — isMuted overrides the volume levels below regardless of
   // what they're set to, so losing access to it meant losing all audio).
   showSettingsPopup() {
-    const { width, height } = this.scale;
+    const { width, height } = LOGICAL_SIZE;
     const objects = [];
     const panelY = height / 2;
 
