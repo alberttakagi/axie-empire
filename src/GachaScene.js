@@ -29,6 +29,14 @@ import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './Ren
 // text whose own color/glow scales continuously with the amount rather
 // than a flat style regardless of size.
 
+// Real user feedback: an evoShard/growthCharm reward card showed only an
+// icon and a bare "+N" — XP is self-labeled and a unit drop names itself,
+// but these two otherwise gave no way to tell what was actually won.
+const REWARD_TYPE_NAME = {
+  evoShard: 'Evo Shard',
+  growthCharm: 'Growth Charm',
+};
+
 const RARITY_COLOR = {
   common: 0xcfc6ae,
   rare: 0x4aa3ff,
@@ -306,14 +314,28 @@ export default class GachaScene extends Phaser.Scene {
 
     if (reward.type === 'evoShard' || reward.type === 'growthCharm') {
       const textureKey = reward.type === 'evoShard' ? 'gacha_evo_shard' : 'gacha_growth_charm';
-      const iconY = h > 100 ? -h * 0.12 : -h * 0.18;
+      // Real user feedback: an icon + a bare "+N" doesn't say what was
+      // actually won — unlike XP (self-labeled) or a unit drop (its own
+      // name card), these two only ever read as "some icon". Name goes on
+      // its own line below the amount rather than crammed onto one, so it
+      // stays legible even at the small 11x-roll grid cell size.
+      const name = REWARD_TYPE_NAME[reward.type];
+      const iconY = h > 100 ? -h * 0.22 : -h * 0.26;
       objects.push(this.add.image(0, iconY, textureKey).setDisplaySize(iconSize, iconSize));
       objects.push(
         this.add
-          .text(0, iconY + iconSize / 2 + Math.min(16, h * 0.14), `+${reward.amount}`, {
+          .text(0, iconY + iconSize / 2 + Math.min(14, h * 0.12), `+${reward.amount}`, {
             fontFamily: FONT, fontSize: `${Math.round(Math.min(w, h) * 0.2)}px`, color: BC.inkHex,
           })
           .setOrigin(0.5),
+      );
+      objects.push(
+        this.add
+          .text(0, iconY + iconSize / 2 + Math.min(14, h * 0.12) + Math.round(Math.min(w, h) * 0.2) * 0.8, name, {
+            fontFamily: FONT, fontSize: `${Math.round(Math.min(w, h) * 0.13)}px`, color: '#5a5a5a', align: 'center',
+            wordWrap: { width: w - 6 },
+          })
+          .setOrigin(0.5, 0),
       );
       return objects;
     }

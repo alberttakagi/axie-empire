@@ -193,19 +193,19 @@ const SPRITE_SIZE_SLOPE = 1.45; // px of extra diameter per point of radius abov
 // pop with no gameplay reason for it.
 const MAX_POSE_SCALE_GROWTH = 1.3;
 
-// Run-pose animation (see updateRunCycle) — how long one full gait cycle
-// (every frame, start back to start) takes to loop. Unchanged from the old
-// 2-frame version's own full-alternation period, so switching to the full
-// multi-frame sequence (tools/sprite-gen) keeps the same perceived running
-// tempo — just smoother, not faster or slower.
-const RUN_CYCLE_PERIOD_MS = 320;
-
-// Idle-pose breathing (see updateIdleCycle) — an entity standing still in
-// battle used to just sit on one frozen static frame forever; now it cycles
-// through idleAnim the same slow, calm way SpriteIcon.js's menu-screen
-// icons already do (same period, for a consistent feel between a unit's
-// Character Formation card and its actual in-battle look).
-const IDLE_CYCLE_PERIOD_MS = 1100;
+// Run/idle-pose animation (see updateRunCycle/updateIdleCycle) — real bug,
+// found live: an earlier pass fit however many frames a sequence had into
+// a FIXED total cycle length (e.g. always 320ms for run, however many
+// frames), which plays every sequence at a different, made-up speed
+// instead of its own real one — a clip with more frames than another
+// played faster, not smoother, which read as "fast-forwarded." Real
+// smoothness means each frame holds for the same real amount of time the
+// source Spine clip was authored at — tools/sprite-gen samples every
+// sequence at ANIMATION_FPS now (see its own header comment), so stepping
+// one frame every 1000/ANIMATION_FPS ms here reproduces that same real
+// timing regardless of how many frames any particular clip ended up with.
+const ANIMATION_FPS = 24;
+const ANIMATION_FRAME_DELAY_MS = 1000 / ANIMATION_FPS;
 
 // Attack lunge (see updateAttackLunge) — a texture swap to the attack pose
 // alone (just the axie's face changing) barely reads as "attacking" at a
@@ -1000,14 +1000,21 @@ export default class GameScene extends Phaser.Scene {
       );
       if (newZoom === cam.zoom) return;
 
-      // Zoom toward the cursor (the same feel as Figma/Google Maps) rather
-      // than always toward the battlefield's center, so scrolling near
-      // either base zooms in on THAT base instead of the lane's midpoint.
-      const worldPointBefore = cam.getWorldPoint(pointer.x, pointer.y);
+      // Zoom toward the cursor HORIZONTALLY only (the same feel as Figma/
+      // Google Maps — scrolling near either base zooms in on THAT base) —
+      // but real bug, found live: doing the same toward-cursor adjustment
+      // VERTICALLY let a zoom-in centered near the top or bottom of the
+      // screen end up looking at empty ground/sky instead of the lane,
+      // since the battlefield is only ever one horizontal strip, not an
+      // open 2D area worth free vertical framing. scrollY is fixed to
+      // keep the lane centered at every zoom level instead — see
+      // centerOnY's own single-line implementation, this is exactly what
+      // it already does.
+      const worldPointBeforeX = cam.getWorldPoint(pointer.x, pointer.y).x;
       cam.setZoom(newZoom);
-      const worldPointAfter = cam.getWorldPoint(pointer.x, pointer.y);
-      cam.scrollX += worldPointBefore.x - worldPointAfter.x;
-      cam.scrollY += worldPointBefore.y - worldPointAfter.y;
+      const worldPointAfterX = cam.getWorldPoint(pointer.x, pointer.y).x;
+      cam.scrollX += worldPointBeforeX - worldPointAfterX;
+      cam.centerOnY(this.laneY);
     });
 
     // Drag-to-pan — once zoomed in, scrolling alone can leave either base
@@ -1020,26 +1027,29 @@ export default class GameScene extends Phaser.Scene {
     // button tap underneath is unaffected), and it's skipped entirely
     // while a popup has the game paused, matching every other
     // battle-affecting input in this scene.
+    //
+    // Horizontal only — same reasoning as the wheel handler's own
+    // centerOnY: this is a single-lane battlefield, so the only place left
+    // to explore by dragging is further down the lane, never up/down into
+    // open ground. scrollY is never touched here at all — the wheel
+    // handler's centerOnY call is the only thing that ever moves it after
+    // setup, so it stays locked on the lane through any amount of
+    // horizontal dragging.
     let isDraggingWorld = false;
     let dragStartX = 0;
-    let dragStartY = 0;
     let dragStartScrollX = 0;
-    let dragStartScrollY = 0;
 
     this.input.on('pointerdown', (pointer) => {
       if (this.isPaused) return;
       isDraggingWorld = true;
       dragStartX = pointer.x;
-      dragStartY = pointer.y;
       dragStartScrollX = this.cameras.main.scrollX;
-      dragStartScrollY = this.cameras.main.scrollY;
     });
 
     this.input.on('pointermove', (pointer) => {
       if (!isDraggingWorld || !pointer.isDown) return;
       const cam = this.cameras.main;
       cam.scrollX = dragStartScrollX - (pointer.x - dragStartX) / cam.zoom;
-      cam.scrollY = dragStartScrollY - (pointer.y - dragStartY) / cam.zoom;
     });
 
     this.input.on('pointerup', () => {
@@ -2297,13 +2307,16 @@ export default class GameScene extends Phaser.Scene {
       runCycleMs: 0,
       runFrame: 0,
       // Idle-pose breathing state — see updateIdleCycle. idleCycleMs starts
-      // at a random offset (not 0) so a field full of units spawned at
-      // different moments doesn't all breathe in visible lockstep; idleFrame
-      // starts at -1 (not a real frame index) so updateIdleCycle's own
+      // at a random offset (not 0, and not clamped to any one entry's own
+      // real cycle length, which varies quite a bit per character/enemy —
+      // updateIdleCycle's own modulo wraps whatever this is down to a
+      // valid frame on its very first tick regardless) so a field full of
+      // units spawned at different moments doesn't all breathe in visible
+      // lockstep; idleFrame starts at -1 (not a real frame index) so that
       // first tick always counts as "changed" and actually sets a texture,
       // rather than possibly matching frame 0's default and silently
       // no-op'ing until the cycle comes back around.
-      idleCycleMs: Math.random() * IDLE_CYCLE_PERIOD_MS,
+      idleCycleMs: Math.random() * 5000,
       idleFrame: -1,
       // Attack lunge (see updateAttackLunge) — the px of forward offset
       // CURRENTLY applied to shape.x, so that method can compute this
@@ -2605,7 +2618,7 @@ export default class GameScene extends Phaser.Scene {
       const inEnemyBaseReach = clearsMinRange && enemyBaseDistance <= enemyBaseReachDistance + this.getMaxRange(unit.config);
 
       if (unit.target === 'enemyBase' && !inEnemyBaseReach) {
-        unit.target = null;
+        this.clearTarget(unit);
       }
 
       if (unit.target === 'enemyBase') {
@@ -2619,7 +2632,7 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (unit.target && (unit.target.hp <= 0 || unit.target.warpMs > 0 || unit.target.knockbackMs > 0 || !this.inRange(unit, unit.target))) {
-        unit.target = null;
+        this.clearTarget(unit);
       }
 
       if (!unit.target) {
@@ -2720,7 +2733,7 @@ export default class GameScene extends Phaser.Scene {
       const inBaseReach = clearsMinRange && baseDistance <= baseReachDistance + this.getMaxRange(enemy.config);
 
       if (enemy.target === 'base' && !inBaseReach) {
-        enemy.target = null;
+        this.clearTarget(enemy);
       }
 
       if (enemy.target === 'base') {
@@ -2733,10 +2746,10 @@ export default class GameScene extends Phaser.Scene {
       }
 
       if (enemy.target && (enemy.target.hp <= 0 || enemy.target.warpMs > 0 || enemy.target.knockbackMs > 0)) {
-        enemy.target = null;
+        this.clearTarget(enemy);
       }
       if (enemy.target && !this.inRange(enemy, enemy.target)) {
-        enemy.target = null;
+        this.clearTarget(enemy);
       }
 
       if (!enemy.target) {
@@ -2953,20 +2966,21 @@ export default class GameScene extends Phaser.Scene {
   // these round, mostly-legless Axies/Chimeras (see SpriteIcon.js's own
   // comment), so while an entity is on the run pose this cycles through
   // its full run sequence (tools/sprite-gen now extracts every frame of
-  // the real gait-cycle clip, not just 2 sampled extremes — see
-  // RUN_CYCLE_PERIOD_MS's own comment) — generic over however many frames
-  // this entity's roster entry actually has rather than hardcoded to 2,
-  // same one fixed scale as every other pose (see setEntityPose's own
-  // comment) applies here too, unchanged.
+  // the real gait-cycle clip, not just 2 sampled extremes) at its own
+  // real speed — see ANIMATION_FRAME_DELAY_MS's own comment — generic
+  // over however many frames this entity's roster entry actually has
+  // rather than hardcoded to 2, same one fixed scale as every other pose
+  // (see setEntityPose's own comment) applies here too, unchanged.
   updateRunCycle(entity, deltaMs) {
     if (!entity.spriteImage || entity.currentPose !== 'run') return;
 
     const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
     const spriteSet = evolvedTag ? entity.config.sprite.evolved : entity.config.sprite;
     const frameCount = spriteSet.run.length;
+    const cycleMs = frameCount * ANIMATION_FRAME_DELAY_MS;
 
-    entity.runCycleMs = (entity.runCycleMs + deltaMs) % RUN_CYCLE_PERIOD_MS;
-    const frame = Math.min(frameCount - 1, Math.floor((entity.runCycleMs / RUN_CYCLE_PERIOD_MS) * frameCount));
+    entity.runCycleMs = (entity.runCycleMs + deltaMs) % cycleMs;
+    const frame = Math.min(frameCount - 1, Math.floor(entity.runCycleMs / ANIMATION_FRAME_DELAY_MS));
     if (frame !== entity.runFrame) {
       entity.runFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
@@ -2975,7 +2989,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // Idle-pose counterpart to updateRunCycle just above — same generic
-  // frame-count/cycle-period shape, driven purely off entity.currentPose
+  // frame-count/real-speed shape, driven purely off entity.currentPose
   // (not off setEntityPose's own transition edge), so it keeps breathing
   // the whole time an entity sits idle rather than only animating once per
   // pose change. idleCycleMs is seeded with a random offset per entity at
@@ -2989,9 +3003,10 @@ export default class GameScene extends Phaser.Scene {
     const spriteSet = evolvedTag ? entity.config.sprite.evolved : entity.config.sprite;
     if (!spriteSet.idleAnim) return;
     const frameCount = spriteSet.idleAnim.length;
+    const cycleMs = frameCount * ANIMATION_FRAME_DELAY_MS;
 
-    entity.idleCycleMs = (entity.idleCycleMs + deltaMs) % IDLE_CYCLE_PERIOD_MS;
-    const frame = Math.min(frameCount - 1, Math.floor((entity.idleCycleMs / IDLE_CYCLE_PERIOD_MS) * frameCount));
+    entity.idleCycleMs = (entity.idleCycleMs + deltaMs) % cycleMs;
+    const frame = Math.min(frameCount - 1, Math.floor(entity.idleCycleMs / ANIMATION_FRAME_DELAY_MS));
     if (frame !== entity.idleFrame) {
       entity.idleFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
@@ -3026,6 +3041,27 @@ export default class GameScene extends Phaser.Scene {
     entity.attackLungeOffset = desiredOffset;
     entity.shape.x += delta * (entity.isPlayerSide ? 1 : -1); // toward the enemy side
     if (entity.label) entity.label.x = entity.shape.x;
+  }
+
+  // Real bug, found live: clearing `entity.target` alone (every site that
+  // invalidates a target — dead/warped/out-of-range/base-out-of-reach —
+  // used to just do `entity.target = null` directly) left attackPhase
+  // exactly where tickCombatPhase's own cycle happened to be, most often
+  // 'windup' (see getDesiredPose — the ONLY thing that ever moves
+  // attackPhase off 'windup' again is tickCombatPhase itself completing
+  // another full cycle, which never happens once there's no target to
+  // call it with). A unit whose target died or walked out of range mid-
+  // windup would fall through to normal movement — isMoving true, walking
+  // toward whatever it finds next — while its POSE stayed frozen on
+  // 'attack' forever, since nothing was left to ever tick attackPhase
+  // again: a unit visibly sliding across the lane in its static attack
+  // pose. Bundles the same attackPhase/phaseMs reset triggerBossShockwave
+  // and startKnockbackSlide already do for their own interruption cases,
+  // so every target-invalidation site gets it too instead of just some.
+  clearTarget(entity) {
+    entity.target = null;
+    entity.attackPhase = null;
+    entity.phaseMs = 0;
   }
 
   // Advances one attacker's foreswing/backswing attack cycle (bible §A.3.4,

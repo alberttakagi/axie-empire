@@ -793,20 +793,37 @@ window.renderChimeraAndSave = async function renderChimeraAndSave(filename, chim
 
 // --- Full-animation frame sequences (idleAnim/run) ---
 // The original idleAnim/run art was just 2 sampled frames per clip (a
-// crude "blink" between two extremes) — these render `frameCount` frames
-// evenly spaced across the REAL clip duration instead, for smooth in-game
-// playback (see SpriteIcon.js/GameScene.js's frame-cycling, both already
-// generic over array length). Frames are computed from one SHARED crop box
-// (the union of every frame's own alpha bounds), not each frame's own
-// independent box — see computeAlphaBounds' own comment for why an
-// independent per-frame crop would make the character jitter/pop between
-// frames instead of moving smoothly.
+// crude "blink" between two extremes); a first pass at fixing that used a
+// fixed 8 frames stretched to fill each pose's own old fixed cycle length
+// — smoother, but the wrong SPEED, since 8 frames forced into a length
+// that used to hold only 2 plays faster than the real clip (real user
+// feedback: "feels like a fast-forward version"). This instead samples at
+// a fixed real-world rate (ANIMATION_FPS) across the clip's own actual
+// duration, so frame COUNT varies per clip (a longer idle breath gets more
+// frames than a quick run cycle) but PLAYBACK SPEED always matches the
+// source animation exactly — see GameScene.js/SpriteIcon.js's own
+// ANIMATION_FRAME_DELAY_MS, which steps one of these frames every real
+// 1000/ANIMATION_FPS ms rather than dividing some fixed cycle length by
+// however many frames happen to exist.
 //
-// `maxFraction` stops just short of 1.0: sampling the literal last instant
-// of a looping clip is often visually identical to (or a jarring snap back
-// toward) frame 0, and Spine clips in this kit loop seamlessly on their
-// own, so the LAST generated frame simply plays right before looping back
-// to frame 0 rather than needing to BE frame 0 again.
+// Frames are computed from one SHARED crop box (the union of every
+// frame's own alpha bounds), not each frame's own independent box — see
+// computeAlphaBounds' own comment for why an independent per-frame crop
+// would make the character jitter/pop between frames instead of moving
+// smoothly.
+//
+// Sampling stops one frame-interval short of the clip's full duration
+// (fractions go up to (frameCount-1)/frameCount, never reaching 1.0):
+// Spine clips in this kit loop seamlessly on their own, so the LAST
+// generated frame simply plays right before looping back to frame 0
+// rather than needing to BE frame 0 again (which would either duplicate
+// it or cause a visible double-hold).
+const ANIMATION_FPS = 24;
+function frameSampleFractions(durationSec) {
+  const frameCount = Math.max(2, Math.round(durationSec * ANIMATION_FPS));
+  return Array.from({ length: frameCount }, (_, i) => i / frameCount);
+}
+
 async function saveFrameSequence(baseFilename, croppedFrames) {
   const results = [];
   for (let i = 0; i < croppedFrames.length; i++) {
@@ -834,19 +851,16 @@ async function renderStarterFrameRaw(skeletonData, animationName, poseFraction) 
   return app.renderer.extract.base64(app.stage);
 }
 
-window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSave(
-  baseFilename,
-  axieId,
-  animationName,
-  frameCount = 8,
-  maxFraction = 0.9,
-) {
-  document.getElementById('status').textContent = `rendering sequence ${baseFilename} (${frameCount} frames)...`;
+window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSave(baseFilename, axieId, animationName) {
   const skeletonData = await loadStarterSkeletonData(axieId);
+  const anim = skeletonData.animations.find((a) => a.name === animationName);
+  const durationSec = anim ? anim.duration : 1 / ANIMATION_FPS;
+  const fractions = frameSampleFractions(durationSec);
+
+  document.getElementById('status').textContent = `rendering sequence ${baseFilename} (${fractions.length} frames @ ${ANIMATION_FPS}fps)...`;
 
   const rawFrames = [];
-  for (let i = 0; i < frameCount; i++) {
-    const t = frameCount === 1 ? 0 : (i / (frameCount - 1)) * maxFraction;
+  for (const t of fractions) {
     rawFrames.push(await renderStarterFrameRaw(skeletonData, animationName, t));
   }
 
@@ -854,7 +868,7 @@ window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSav
   const cropped = await Promise.all(rawFrames.map((f) => cropDataUrlToBounds(f, bounds, 6)));
   const results = await saveFrameSequence(baseFilename, cropped);
   document.getElementById('status').textContent = `done: sequence ${baseFilename}`;
-  return { frameCount: cropped.length, results };
+  return { frameCount: cropped.length, durationMs: durationSec * 1000, results };
 };
 
 // Evolved variants (see UNIT_CONFIG.js's `sprite.evolved`) turn out NOT to
@@ -897,19 +911,16 @@ async function renderChimeraFrameRawClean(skeletonData, animationName, poseFract
   return stripOpaqueBlackBackground(rawDataUrl);
 }
 
-window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSave(
-  baseFilename,
-  chimeraFolder,
-  animationName,
-  frameCount = 8,
-  maxFraction = 0.9,
-) {
-  document.getElementById('status').textContent = `rendering chimera sequence ${baseFilename} (${frameCount} frames)...`;
+window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSave(baseFilename, chimeraFolder, animationName) {
   const skeletonData = await loadChimeraSkeletonData(chimeraFolder);
+  const anim = skeletonData.animations.find((a) => a.name === animationName);
+  const durationSec = anim ? anim.duration : 1 / ANIMATION_FPS;
+  const fractions = frameSampleFractions(durationSec);
+
+  document.getElementById('status').textContent = `rendering chimera sequence ${baseFilename} (${fractions.length} frames @ ${ANIMATION_FPS}fps)...`;
 
   const rawFrames = [];
-  for (let i = 0; i < frameCount; i++) {
-    const t = frameCount === 1 ? 0 : (i / (frameCount - 1)) * maxFraction;
+  for (const t of fractions) {
     rawFrames.push(await renderChimeraFrameRawClean(skeletonData, animationName, t));
   }
 
@@ -917,7 +928,7 @@ window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSav
   const cropped = await Promise.all(rawFrames.map((f) => cropDataUrlToBounds(f, bounds, 6)));
   const results = await saveFrameSequence(baseFilename, cropped);
   document.getElementById('status').textContent = `done: chimera sequence ${baseFilename}`;
-  return { frameCount: cropped.length, results };
+  return { frameCount: cropped.length, durationMs: durationSec * 1000, results };
 };
 
 document.getElementById('status').textContent = 'ready — call window.renderAxie(className, partValue, animationName)';

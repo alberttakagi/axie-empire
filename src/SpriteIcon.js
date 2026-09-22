@@ -68,16 +68,21 @@ export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
 // idleAnimated's cycle (see addUnitIcon) steps the icon's texture through
 // every frame of idleAnim — the real "action/idle/normal" Spine clip
 // GameScene's own idle pose already uses, sampled across its full duration
-// (see tools/sprite-gen) rather than just 2 extremes: a slow, subtle
-// breathing-style loop, calmer/slower than GameScene's own run-cycle hop
-// (a different context entirely — that one's brisk, meant to sell
-// "walking"). IDLE_ANIM_CYCLE_MS is the full loop's total duration —
-// unchanged from the old 2-frame version's own full alternation (550ms
-// × 2), so this reads at the same calm pace, just smoother across however
-// many frames idleAnim actually has instead of a hard blink between 2.
+// (see tools/sprite-gen) rather than just 2 extremes.
+//
+// Real bug, found live: an earlier pass fit however many frames existed
+// into one FIXED total cycle length, which made every character play back
+// at a different, made-up speed (more frames = faster, not smoother —
+// read as "fast-forwarded"). ANIMATION_FRAME_DELAY_MS instead holds each
+// frame for the same real amount of time the source Spine clip was
+// authored at (1000/ANIMATION_FPS — matches GameScene's own in-battle
+// idle/run cycling, and tools/sprite-gen's own sampling rate), so a
+// longer idleAnim sequence just plays longer, at the correct speed,
+// rather than looping in the same fixed window every shorter one does.
 // Frame swaps are staggered per icon via a randomized initial delay so a
 // whole grid of them doesn't visibly breathe in lockstep.
-const IDLE_ANIM_CYCLE_MS = 1100;
+const ANIMATION_FPS = 24;
+const ANIMATION_FRAME_DELAY_MS = 1000 / ANIMATION_FPS;
 
 // Universal "zoomed to face" crop, as fractions of the source PNG's own
 // width/height — used by the spawn-button portraits (real Battle Cats deploy
@@ -178,10 +183,9 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
     // across its one single (bigger) per-frame delay.
     let frame = Math.floor(Math.random() * frames.length);
     icon.setTexture(frames[frame], '__BASE');
-    const frameDelay = IDLE_ANIM_CYCLE_MS / frames.length;
     const timer = scene.time.addEvent({
-      delay: frameDelay,
-      startAt: Math.random() * frameDelay,
+      delay: ANIMATION_FRAME_DELAY_MS,
+      startAt: Math.random() * ANIMATION_FRAME_DELAY_MS,
       loop: true,
       callback: () => {
         frame = (frame + 1) % frames.length;
