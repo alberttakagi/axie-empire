@@ -18,6 +18,23 @@ const TIER_NAMES = ['None', 'Bronze', 'Silver', 'Gold'];
 const TIER_KEYS = [null, 'bronze', 'silver', 'gold'];
 const SETS_PER_PAGE = 2;
 
+// What each bonus.type actually does, for both the per-set row (below) and
+// the "(max +N at 100%)" suffix — see TREASURE_CONFIG.js's own header for
+// what each one hooks into. `unit` is what to print after the number;
+// every type here is a percent EXCEPT staminaCapFlat, a flat add (matching
+// the real game's own equivalent, see that file's note on why).
+const BONUS_LABEL = {
+  moneyIncomePercent: { text: 'Worker Cat income rate', unit: '%' },
+  unitHpPercent: { text: 'unit HP', unit: '%' },
+  unitAttackPercent: { text: 'unit DMG', unit: '%' },
+  baseHpPercent: { text: 'Base max HP', unit: '%' },
+  killMoneyPercent: { text: 'money from defeated enemies', unit: '%' },
+  xpPercent: { text: 'XP from stage clears', unit: '%' },
+  walletCapPercent: { text: 'battle wallet cap', unit: '%' },
+  redeployPercent: { text: 'unit redeploy speed', unit: '%' },
+  staminaCapFlat: { text: 'max Energy', unit: '' },
+};
+
 // User feedback: the 4 stage-tier icons per set only filled a card's left
 // ~2/3 (4 columns spaced 145px apart, ending around x=495, inside a
 // ~768px-wide card) — a large blank strip on the right of every row, with
@@ -143,13 +160,11 @@ export default class TreasureScene extends Phaser.Scene {
       rowObjects.push(this.add.text(width - 40, y + 18, 'ACTIVE!', { fontFamily: FONT, fontSize: '12px', color: '#c98a00' }).setOrigin(1, 0.5));
     }
 
-    const bonusLabel =
-      set.bonus.type === 'moneyIncomePercent'
-        ? `+${bonusPercent.toFixed(1)}% Worker Cat income rate`
-        : `+${bonusPercent.toFixed(1)}% unit HP`;
+    const { text: bonusText, unit } = BONUS_LABEL[set.bonus.type];
+    const bonusLabel = `+${bonusPercent.toFixed(1)}${unit} ${bonusText}`;
     rowObjects.push(
       this.add
-        .text(30, y + 40, `Bonus: ${bonusLabel}  (max +${set.bonus.valueAtMax}% at 100%)`, {
+        .text(30, y + 40, `Bonus: ${bonusLabel}  (max +${set.bonus.valueAtMax}${unit} at 100%)`, {
           fontFamily: FONT, fontSize: '12px',
           color: '#b8860b',
         })

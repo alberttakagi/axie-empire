@@ -16,6 +16,7 @@
 
 import { getBaseUpgradeLevel } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
+import { getBonusPercent } from './Treasure.js';
 
 const STORAGE_KEY = 'axieSkirmishEnergy';
 const BASE_MAX_ENERGY = 100;
@@ -23,7 +24,10 @@ const REGEN_INTERVAL_MS = 60 * 1000; // 1 point per real minute — bible's own 
 
 export function getMaxEnergy() {
   const level = getBaseUpgradeLevel('staminaCap');
-  return BASE_MAX_ENERGY + level * BASE_UPGRADE_CONFIG.staminaCap.perLevelEffect;
+  // Treasure's own staminaCapFlat (real BC: 南国の風 et al.) stacks as a
+  // further flat add, same as the Base Upgrade above — see
+  // TREASURE_CONFIG.js's header for why this one is flat, not a percent.
+  return Math.round(BASE_MAX_ENERGY + level * BASE_UPGRADE_CONFIG.staminaCap.perLevelEffect + getBonusPercent('staminaCapFlat'));
 }
 
 function loadRaw() {
@@ -99,4 +103,18 @@ export function trySpendEnergy(amount) {
   state.current -= amount;
   save(state);
   return true;
+}
+
+// Real Battle Cats' own answer to "I'm brand new and always out of
+// Energy": rank does NOT raise the cap (that's the staminaCap Base
+// Upgrade above, exclusively) and does NOT auto-refill on its own — what
+// actually happens is User Rank rewards periodically contain a
+// "Leadership" item, a full refill you receive and use. UserRank.js calls
+// this on crossing a rank milestone as a simplified stand-in for that
+// same reward, without building out a whole reward-tier table.
+export function refillEnergy() {
+  const state = applyRegen();
+  state.current = getMaxEnergy();
+  state.lastUpdateMs = Date.now();
+  save(state);
 }

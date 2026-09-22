@@ -235,7 +235,13 @@ export default class CatalogScene extends Phaser.Scene {
       .text(width / 2, 282, unlocked ? `(${config.abilityLabel || config.displayName})` : 'Locked', { fontFamily: FONT, fontSize: '12px', color: unlocked ? '#7a5c1e' : BC.red })
       .setOrigin(0.5);
 
-    const descLines = unlocked ? describeUnit(config).map((line) => `• ${line}`) : [this.describeLockedUnit(key)];
+    // HP/DMG always lead when unlocked (see LoadoutScene's own tooltip,
+    // GameScene's in-battle one) — describeUnit() alone can return an empty
+    // array for a unit with no special trait, which otherwise left this
+    // panel with a name/role but a blank body.
+    const descLines = unlocked
+      ? [`HP: ${config.hp}   DMG: ${config.damage}`, ...describeUnit(config).map((line) => `• ${line}`)]
+      : [this.describeLockedUnit(key)];
     const descText = this.add
       .text(width / 2, 302, descLines.join('\n'), {
         fontFamily: FONT, fontSize: '12px',

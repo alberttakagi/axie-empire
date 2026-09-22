@@ -145,8 +145,15 @@ export default class LoadoutScene extends Phaser.Scene {
   // top/bottom edge; horizontal position is separately clamped to stay
   // inside the canvas' left/right edges too.
   showTooltip(type, x, y, isTopRow) {
-    const lines = describeUnit(UNIT_CONFIG[type]);
-    this.tooltipText.setText(lines.map((line) => `• ${line}`).join('\n'));
+    const config = UNIT_CONFIG[type];
+    // HP/DMG always lead (GameScene's own in-battle tooltip does the same),
+    // so a unit with no special trait at all — most of the Basic tier, see
+    // UNIT_CONFIG.js's own header note — still shows real content instead
+    // of describeUnit() alone, which can return an empty array and leave
+    // this box reading as a blank black square.
+    const abilityLines = describeUnit(config).map((line) => `• ${line}`);
+    const lines = [`HP: ${config.hp}   DMG: ${config.damage}`, ...abilityLines];
+    this.tooltipText.setText(lines.join('\n'));
 
     const padding = 10;
     const bounds = this.tooltipText.getBounds();

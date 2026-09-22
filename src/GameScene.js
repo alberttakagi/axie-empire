@@ -53,6 +53,8 @@ import {
   cycleSfxVolumeLevel,
   getBgmVolumeLevel,
   cycleBgmVolumeLevel,
+  isMuted,
+  setMuted,
 } from './Audio.js';
 import { addUserRank } from './UserRank.js';
 import { BATTLE_ITEMS_CONFIG } from './BATTLE_ITEMS_CONFIG.js';
@@ -622,7 +624,10 @@ export default class GameScene extends Phaser.Scene {
 
     this.laneY = height * LANE_Y_RATIO;
     this.baseX = BASE_WIDTH / 2;
-    this.baseMaxHp = this.stage.baseHp + this.baseDefenseBonus;
+    // Base Defense (Base Upgrade, flat) then Treasure's baseHpPercent (a %
+    // on top of that total) — same layering as every other stat here:
+    // upgrades first, Treasure as the final global multiplier.
+    this.baseMaxHp = Math.round((this.stage.baseHp + this.baseDefenseBonus) * (1 + getBonusPercent('baseHpPercent') / 100));
     this.baseHp = this.baseMaxHp;
     this.enemyBaseX = width - BASE_WIDTH / 2;
     this.enemyBaseMaxHp = this.stage.enemyBaseHp;
@@ -1344,18 +1349,41 @@ export default class GameScene extends Phaser.Scene {
     const panelY = height / 2 - 30;
 
     objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
-    objects.push(drawBcPanel(this, width / 2, panelY, 340, 230));
+    // Grown 40px taller (extending only downward — see the +20 on the
+    // panel's own y below, half the added height, which keeps the top edge
+    // where it was) to fit the new Mute All row without cramming everything
+    // else together.
+    objects.push(drawBcPanel(this, width / 2, panelY + 20, 340, 270));
     objects.push(this.add.text(width / 2, panelY - 80, 'Options', { fontFamily: FONT, fontSize: '20px', color: BC.inkHex }).setOrigin(0.5));
 
     objects.push(createBcCircleButton(this, width / 2 + 155, panelY - 85, 14, '✕', () => this.hideSettingsPopup()));
 
+    // Same master Mute toggle as HomeScene's own Options popup — this one
+    // was missing in-battle entirely, the only place a player could get to
+    // SFX/BGM levels mid-run but not the one override that supersedes both.
     objects.push(
       this.add
-        .text(width / 2 - 130, panelY - 35, 'SFX Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
+        .text(width / 2 - 130, panelY - 35, 'Mute All', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
+        .setOrigin(0, 0.5),
+    );
+    const muteButton = createBcButton(
+      this, width / 2 + 100, panelY - 35, 100, 32, isMuted() ? 'On' : 'Off',
+      () => {
+        const muted = !isMuted();
+        setMuted(muted);
+        muteButton.bcText.setText(muted ? 'On' : 'Off');
+      },
+      { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
+    );
+    objects.push(muteButton);
+
+    objects.push(
+      this.add
+        .text(width / 2 - 130, panelY + 5, 'SFX Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
         .setOrigin(0, 0.5),
     );
     const sfxButton = createBcButton(
-      this, width / 2 + 100, panelY - 35, 100, 32, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()],
+      this, width / 2 + 100, panelY + 5, 100, 32, VOLUME_LEVEL_LABELS[getSfxVolumeLevel()],
       () => sfxButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleSfxVolumeLevel()]),
       { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
     );
@@ -1363,11 +1391,11 @@ export default class GameScene extends Phaser.Scene {
 
     objects.push(
       this.add
-        .text(width / 2 - 130, panelY + 5, 'BGM Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
+        .text(width / 2 - 130, panelY + 45, 'BGM Volume', { fontFamily: FONT, fontSize: '14px', color: BC.inkHex })
         .setOrigin(0, 0.5),
     );
     const bgmButton = createBcButton(
-      this, width / 2 + 100, panelY + 5, 100, 32, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()],
+      this, width / 2 + 100, panelY + 45, 100, 32, VOLUME_LEVEL_LABELS[getBgmVolumeLevel()],
       () => bgmButton.bcText.setText(VOLUME_LEVEL_LABELS[cycleBgmVolumeLevel()]),
       { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 },
     );
@@ -1377,7 +1405,7 @@ export default class GameScene extends Phaser.Scene {
     // ever shows it once unprompted, so this is the one way back to it for
     // a player who skipped it, or just wants the refresher.
     objects.push(
-      createBcButton(this, width / 2, panelY + 42, 220, 32, 'How to Play', () => {
+      createBcButton(this, width / 2, panelY + 82, 220, 32, 'How to Play', () => {
         this.hideSettingsPopup({ keepPaused: true });
         this.showBattleTutorial();
       }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 14 }),
@@ -1387,7 +1415,7 @@ export default class GameScene extends Phaser.Scene {
     // immediately — same "don't throw away a live run on one accidental
     // tap" reasoning as before, just reached from inside Options now.
     objects.push(
-      createBcButton(this, width / 2, panelY + 84, 220, 40, 'Retreat', () => {
+      createBcButton(this, width / 2, panelY + 124, 220, 40, 'Retreat', () => {
         this.hideSettingsPopup({ keepPaused: true });
         this.showQuitConfirm();
       }, { fill: BC.red, highlight: BC.redHighlight, textColor: '#ffffff', fontSize: 16 }),
@@ -1803,7 +1831,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   getWalletCap() {
-    return this.stage.startingMoney + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.walletCapPerLevel;
+    const base = this.stage.startingMoney + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.walletCapPerLevel;
+    // Treasure's walletCapPercent, on top of Worker Cat's own per-level cap.
+    return Math.round(base * (1 + getBonusPercent('walletCapPercent') / 100));
   }
 
   // Unit cost scales per stage/chapter, never per unit level (bible §A.3.7,
@@ -1863,10 +1893,20 @@ export default class GameScene extends Phaser.Scene {
     // per-unit formula, since they're GLOBAL modifiers rather than
     // anything specific to this one unit's own progression.
     const hpBonusMultiplier = 1 + getBonusPercent('unitHpPercent') / 100;
-    const attackBonusMultiplier = 1 + this.comboUnitAttackPercent / 100;
+    // Treasure's own unitAttackPercent stacks independently alongside
+    // Cat-Combo's attack bonus (real Battle Cats: "お宝効果とにゃんコンボ効果
+    // は独立して掛け算される" — each is its own separate multiplier, not
+    // summed into one shared percentage).
+    const attackBonusMultiplier = (1 + this.comboUnitAttackPercent / 100) * (1 + getBonusPercent('unitAttackPercent') / 100);
     // Research Base Upgrade (bible §A.7.1) shaves flat time off every
-    // unit's recharge, floored so it can never reach an unbeatable 0ms spam rate.
-    const recharge = Math.max(MIN_RECHARGE_MS, effectiveConfig.rechargeMs - this.rechargeReductionMs);
+    // unit's recharge, floored so it can never reach an unbeatable 0ms spam
+    // rate; Treasure's redeployPercent then shaves a further % off that —
+    // capped low in TREASURE_CONFIG.js specifically so it can't push
+    // everything down to the floor on its own.
+    const recharge = Math.max(
+      MIN_RECHARGE_MS,
+      (effectiveConfig.rechargeMs - this.rechargeReductionMs) * (1 - getBonusPercent('redeployPercent') / 100),
+    );
 
     const finalConfig = {
       ...effectiveConfig,
@@ -2794,7 +2834,10 @@ export default class GameScene extends Phaser.Scene {
     // formula. Accounting Base Upgrade (bible §A.7.1) still applies % more
     // on top either way.
     const baseReward = enemy.config.money ?? enemy.config.threat * MONEY_CONFIG.killBonusMultiplier;
-    const bonus = baseReward * (1 + this.accountingBonusPercent / 100);
+    // Accounting Base Upgrade, then Treasure's killMoneyPercent as its own
+    // independent multiplier on top (same "each stacks separately" rule as
+    // attackBonusMultiplier above).
+    const bonus = baseReward * (1 + this.accountingBonusPercent / 100) * (1 + getBonusPercent('killMoneyPercent') / 100);
     this.money = Math.min(this.getWalletCap(), this.money + bonus);
   }
 
@@ -3868,10 +3911,13 @@ export default class GameScene extends Phaser.Scene {
   getXpReward() {
     const previousClears = getClearCount(this.stage.id);
     const decay = Math.max(XP_DECAY_FLOOR, 1 - XP_DECAY_PER_CLEAR * previousClears);
-    // Study Base Upgrade (bible §A.7.1) — % more XP per clear. XP Boost
-    // (bible §A.8, this.xpBoostMultiplier) is a separate, independent
-    // multiplier on top, defaulting to 1 (a no-op) when unused.
-    return Math.round(this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100) * this.xpBoostMultiplier);
+    // Study Base Upgrade (bible §A.7.1) — % more XP per clear. Treasure's
+    // xpPercent stacks as its own further independent multiplier. XP Boost
+    // (bible §A.8, this.xpBoostMultiplier) is likewise separate, defaulting
+    // to 1 (a no-op) when unused.
+    return Math.round(
+      this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100) * (1 + getBonusPercent('xpPercent') / 100) * this.xpBoostMultiplier,
+    );
   }
 
   // `nextStage` (winStage only) adds a third "Next Stage" button (bible

@@ -81,6 +81,13 @@ const TRIPP_DISPLAY_SIZE = 64; // user feedback: too small to see — was 40
 // used by createTrippMarker/runTrippTo instead of each hand-rolling this.
 const TRIPP_NODE_GAP = 40;
 const TRIPP_CURRENT_NODE_EXTRA_CLEARANCE = 48;
+// A NON-current node's own name label alternates above/below (see the
+// node-rendering loop's labelUp) — found live: every even-localIndex node
+// puts its label above, and TRIPP_NODE_GAP alone isn't enough clearance to
+// stay above THAT too, so Tripp sat directly on top of the label on every
+// other stage whenever it rested there (centerNodeLocalIndex tracks
+// whatever's closest to the viewport center, not just the current stage).
+const TRIPP_NON_CURRENT_LABEL_EXTRA_CLEARANCE = 32;
 const TRIPP_IDLE_BOB_PX = 3;
 const TRIPP_IDLE_BOB_MS = 900;
 const TRIPP_RUN_SPEED_PX_PER_SEC = 320;
@@ -339,7 +346,7 @@ export default class StageSelectScene extends Phaser.Scene {
       // consecutive close-together labels don't collide, same idea a real
       // hand-drawn map's own place-names use. Offsets grown alongside the
       // bigger radius/font above so labels keep clear of the node itself.
-      const labelUp = localIndex % 2 === 0;
+      const labelUp = this.isLabelAboveNode(localIndex);
       const labelY = isCurrent ? y - radius - 46 : y + (labelUp ? -radius - 16 : radius + 16);
       nodeObjects.push(
         this.add
@@ -402,12 +409,26 @@ export default class StageSelectScene extends Phaser.Scene {
     return isBoss ? Math.round(baseRadius * BOSS_NODE_SCALE) : baseRadius;
   }
 
+  // Same labelUp alternation the node-rendering loop uses for its own name
+  // label — factored out here too so getTrippClearance can stay in sync
+  // with it, the same reasoning as getNodeRadius above. The current node
+  // always shows its label above regardless of parity (see that loop).
+  isLabelAboveNode(localIndex) {
+    return localIndex === this.currentLocalIndex || localIndex % 2 === 0;
+  }
+
   // How far above a node's CENTER Tripp should rest — see TRIPP_NODE_GAP's
-  // own comment for why this has to account for both the node's actual
-  // radius (a boss node is much bigger) and whether it's the current node
-  // (which stacks extra text above it).
+  // own comment for why this has to account for the node's actual radius (a
+  // boss node is much bigger), whether it's the current node (which stacks
+  // extra text above it), and otherwise whether THIS node's own name label
+  // lands above it too.
   getTrippClearance(localIndex) {
-    const extra = localIndex === this.currentLocalIndex ? TRIPP_CURRENT_NODE_EXTRA_CLEARANCE : 0;
+    const isCurrent = localIndex === this.currentLocalIndex;
+    const extra = isCurrent
+      ? TRIPP_CURRENT_NODE_EXTRA_CLEARANCE
+      : this.isLabelAboveNode(localIndex)
+        ? TRIPP_NON_CURRENT_LABEL_EXTRA_CLEARANCE
+        : 0;
     return this.getNodeRadius(localIndex) + TRIPP_NODE_GAP + extra;
   }
 

@@ -52,8 +52,12 @@ const GRID_COLS = 4;
 const GRID_CELL_W = 145;
 const GRID_CELL_H = 68;
 const GRID_GAP = 10;
-const GRID_TOP = 205;
-const GRID_AREA_H = 240;
+const GRID_TOP = 200;
+// Was 240 — tall enough that both the results panel below and an 11x
+// roll's own bottom row reached past the back button (bottom-left, see
+// createBackButton's own default y). Shrunk together with the panel's own
+// height (see create()'s drawBcPanel call) so nothing ever overlaps it.
+const GRID_AREA_H = 165;
 
 function colorIntToHex(int) {
   return `#${int.toString(16).padStart(6, '0')}`;
@@ -74,7 +78,7 @@ function xpShineColor(amount) {
 // be much bigger than 11 of them squeezed onto one screen.
 function getSlotLayout(width, count) {
   if (count === 1) {
-    return [{ x: width / 2, y: 300, w: 220, h: 190 }];
+    return [{ x: width / 2, y: GRID_TOP + GRID_AREA_H / 2, w: 220, h: 150 }];
   }
   const rows = Math.ceil(count / GRID_COLS);
   const totalW = GRID_COLS * GRID_CELL_W + (GRID_COLS - 1) * GRID_GAP;
@@ -147,7 +151,10 @@ export default class GachaScene extends Phaser.Scene {
       { fill: BC.gold, textColor: BC.goldInk },
     );
 
-    drawBcPanel(this, width / 2, 310, width - 64, 250);
+    // Was 250 tall centered at 310 (bottom edge 435) — reached well past
+    // the back button (bottom-left, y≈390-442 by default). 190 tall
+    // centered at 280 keeps a clear gap above it.
+    drawBcPanel(this, width / 2, 280, width - 64, 190);
     this.messageText = this.add
       .text(width / 2, 190, 'Tap a roll button to begin!', {
         fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
