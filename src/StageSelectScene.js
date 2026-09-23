@@ -103,9 +103,11 @@ const TRIPP_NON_CURRENT_LABEL_EXTRA_CLEARANCE = 32;
 const TRIPP_TOP_SAFETY_PADDING = 6;
 const TRIPP_IDLE_BOB_PX = 3;
 const TRIPP_IDLE_BOB_MS = 900;
-const TRIPP_RUN_SPEED_PX_PER_SEC = 320;
-const TRIPP_RUN_DURATION_MIN_MS = 220;
-const TRIPP_RUN_FRAME_MS = 160; // run_0/run_1 alternation while moving — same cadence GameScene's own updateRunCycle uses (its RUN_FRAME_PERIOD_MS / 2)
+// User feedback: Tripp took too long to actually arrive at the newly
+// centered node — was 320px/s with a 220ms floor, over 2x slower than this.
+const TRIPP_RUN_SPEED_PX_PER_SEC = 700;
+const TRIPP_RUN_DURATION_MIN_MS = 120;
+const TRIPP_RUN_FRAME_MS = 90; // run_0/run_1 alternation while moving — scaled down alongside the faster run speed so his legs don't look like they're sliding
 
 export default class StageSelectScene extends Phaser.Scene {
   constructor() {

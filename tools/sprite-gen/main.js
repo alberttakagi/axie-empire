@@ -403,13 +403,15 @@ window.renderStarter = async function renderStarter(axieId, animationName = 'act
 // vignettes too), grouping the canvas into connected components (each
 // component confined to just one of the two colors — a black blob and a
 // white blob never merge into one component even if they touch), and
-// clears only the components at or above `minBlobSize` — a vignette
-// (whole-canvas-ish or a large floating rectangle) is tens of thousands of
-// pixels; a character's own black outline/white highlight is thin
-// curves/strokes that never connect into a component anywhere near that
-// size. Verified this doesn't regress already-clean renders (slime,
-// werewolf) — same visual output as the old corner-flood-fill for those —
-// while actually fixing dryad-mage's black vignette and daddy-bear's/
+// clears only the components at or above `minBlobSize` (and not shaped
+// like the character's own ground shadow — see the shape/position check
+// below) — a vignette (whole-canvas-ish or a large floating rectangle) is
+// tens of thousands of pixels; a character's own black outline/white
+// highlight is thin curves/strokes that never connect into a component
+// anywhere near that size. Verified this doesn't regress already-clean
+// renders (slime, werewolf) — same visual output as the old
+// corner-flood-fill for those — while actually fixing dryad-mage's black
+// vignette and daddy-bear's/
 // alpha-wolf's white one.
 async function stripOpaqueBackdrop(dataUrl, { threshold = 24, alphaMin = 100, minBlobSize = 3000 } = {}) {
   const img = new Image();
@@ -440,6 +442,10 @@ async function stripOpaqueBackdrop(dataUrl, { threshold = 24, alphaMin = 100, mi
 
       const stack = [startIdx];
       const members = [startIdx];
+      let minX = startIdx % width;
+      let maxX = minX;
+      let minY = (startIdx / width) | 0;
+      let maxY = minY;
       visited[startIdx] = 1;
       while (stack.length) {
         const idx = stack.pop();
@@ -453,11 +459,33 @@ async function stripOpaqueBackdrop(dataUrl, { threshold = 24, alphaMin = 100, mi
             visited[nIdx] = 1;
             stack.push(nIdx);
             members.push(nIdx);
+            if (nx < minX) minX = nx;
+            if (nx > maxX) maxX = nx;
+            if (ny < minY) minY = ny;
+            if (ny > maxY) maxY = ny;
           }
         }
       }
 
-      if (members.length >= minBlobSize) {
+      // Real bug, found live: a character's own ground-contact shadow is a
+      // near-black blob too, and on wider/bigger creatures (Swarm/Dryad
+      // Mage confirmed live) it legitimately exceeds minBlobSize — the old
+      // version stripped its solid center and left only its soft
+      // antialiased EDGE (whose alpha falls below `alphaMin`, so it never
+      // joined the flood-filled blob), rendering as a hollow ring instead
+      // of a shadow. A real vignette bug (dryad-mage's spellcast rectangle,
+      // daddy-bear's white full-skeleton blob) is either roughly as tall as
+      // it is wide or floats away from the canvas bottom; a ground shadow
+      // is always a flat wide ellipse hugging the character's own feet — so
+      // blobs shaped and positioned like a shadow are exempted from
+      // stripping regardless of size, instead of guessing a bigger
+      // minBlobSize that would just move the false-positive line rather
+      // than fix it.
+      const blobW = maxX - minX + 1;
+      const blobH = maxY - minY + 1;
+      const looksLikeGroundShadow = blobH <= blobW * 0.6 && maxY >= height * 0.7;
+
+      if (members.length >= minBlobSize && !looksLikeGroundShadow) {
         for (const m of members) data[m * 4 + 3] = 0; // clear alpha — this blob is background, not character
       }
     }

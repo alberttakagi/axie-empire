@@ -3810,7 +3810,12 @@ export default class GameScene extends Phaser.Scene {
 
     this.baseHp = Math.max(0, this.baseHp - amount);
     showDamageNumber(this, this.baseX, this.laneY - 40, amount);
-    this.cameras.main.shake(120, 0.005);
+    // User feedback: this fires on every single hit the base takes, which
+    // with several enemies attacking at once reads as near-constant
+    // shaking — was 120ms/0.005 (the same intensity the much rarer cannon
+    // shot uses at 200ms/0.008), toned down since a per-hit shake needs to
+    // stay subtle to not compound into something jarring.
+    this.cameras.main.shake(80, 0.0025);
     if (this.baseHp <= 0) {
       this.handleBaseDestroyed();
     }

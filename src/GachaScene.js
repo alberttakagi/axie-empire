@@ -63,7 +63,17 @@ const RARITY_FLOURISH = {
 };
 
 const CHARGE_MS = 1500; // suspense beat before the first reveal — "a few seconds", not instant
-const REVEAL_STAGGER_MS = 380; // gap between each successive slot in a multi-roll
+const REVEAL_GAP_MS = 160; // gap after one slot's reveal finishes before the next slot's own drum roll starts
+
+// Per-slot drum roll (guide Chapter 10's own レア度ごとの色・長さ table): the
+// color/length hints the rarity BEFORE the card flips, same "you can tell
+// it's a good pull before you even see it" beat the reference describes —
+// longer and more saturated for a rarer pull. Real BC also plays a sound
+// cue per color; skipped here deliberately (an 11x roll would mean 11 extra
+// sounds stacking on top of an already-loud reveal chime each, right after
+// a pass that specifically asked for LESS overall sfx noise) — the color
+// pulse alone carries the same information.
+const DRUM_ROLL_MS = { common: 180, rare: 300, epic: 460, legendary: 680 };
 
 // Shared vertical layout — one source of truth for create()'s own banner/
 // button/panel Y's and getSlotLayout's grid, so the two can't silently
@@ -179,12 +189,12 @@ export default class GachaScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     this.singleButton = this.createRollButton(width / 2 - 130, `Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`, () =>
-      this.performRoll(rollSingle, 1),
+      this.showRollConfirmPopup(rollSingle, 1, GACHA_SINGLE_ROLL_COST, 'Single Roll'),
     );
     this.multiButton = this.createRollButton(
       width / 2 + 130,
       `${GACHA_MULTI_ROLL_COUNT}x Roll\n${GACHA_MULTI_ROLL_COST} Gems`,
-      () => this.performRoll(rollMulti, GACHA_MULTI_ROLL_COUNT),
+      () => this.showRollConfirmPopup(rollMulti, GACHA_MULTI_ROLL_COUNT, GACHA_MULTI_ROLL_COST, `${GACHA_MULTI_ROLL_COUNT}x Roll`),
       { fill: BC.gold, textColor: BC.goldInk },
     );
 
@@ -229,6 +239,64 @@ export default class GachaScene extends Phaser.Scene {
     this.startRevealSequence(result.rewards);
   }
 
+  // Purchase confirm step (guide Chapter 10's own ② 購入確認ポップアップ) — a
+  // deliberate extra tap between "pick a roll" and "actually spend Gems,"
+  // so a misclick on the wrong button can't burn a roll by accident. Gems
+  // are checked (not yet spent — rollFn does that) up front so a player who
+  // can't afford it sees the real reason immediately instead of a popup
+  // they'd just have to cancel out of.
+  showRollConfirmPopup(rollFn, count, cost, label) {
+    if (this.confirmPopupObjects) return;
+
+    const progress = loadPlayerProgress();
+    if (progress.gems < cost) {
+      this.messageText.setText('Not enough Gems!');
+      return;
+    }
+
+    const { width, height } = LOGICAL_SIZE;
+    const objects = [];
+
+    const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setDepth(3000).setInteractive();
+    objects.push(overlay);
+
+    const panelW = 300;
+    const panelH = 160;
+    const panel = drawBcPanel(this, width / 2, height / 2, panelW, panelH);
+    panel.setDepth(3001);
+    objects.push(panel);
+
+    const title = this.add
+      .text(width / 2, height / 2 - panelH / 2 + 30, label, { fontFamily: FONT, fontSize: '16px', color: BC.inkHex })
+      .setOrigin(0.5)
+      .setDepth(3001);
+    const costText = this.add
+      .text(width / 2, height / 2 - 6, `Spend ${cost} Gems?`, { fontFamily: FONT, fontSize: '14px', color: '#7a5c1e' })
+      .setOrigin(0.5)
+      .setDepth(3001);
+    objects.push(title, costText);
+
+    const buttonY = height / 2 + panelH / 2 - 38;
+    const cancelButton = createBcButton(this, width / 2 - 74, buttonY, 120, 44, 'Cancel', () => this.hideRollConfirmPopup(), {
+      fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13,
+    });
+    const confirmButton = createBcButton(this, width / 2 + 74, buttonY, 120, 44, 'Roll!', () => {
+      this.hideRollConfirmPopup();
+      this.performRoll(rollFn, count);
+    }, { fontSize: 13 });
+    cancelButton.setDepth(3001);
+    confirmButton.setDepth(3001);
+    objects.push(cancelButton, confirmButton);
+
+    this.confirmPopupObjects = objects;
+  }
+
+  hideRollConfirmPopup() {
+    if (!this.confirmPopupObjects) return;
+    this.confirmPopupObjects.forEach((obj) => obj.destroy());
+    this.confirmPopupObjects = null;
+  }
+
   startRevealSequence(rewards) {
     const { width } = LOGICAL_SIZE;
 
@@ -269,10 +337,46 @@ export default class GachaScene extends Phaser.Scene {
       return;
     }
 
-    placeholders[index].destroy();
-    this.revealSlot(layout[index], rewards[index]);
+    const reward = rewards[index];
+    this.playDrumRoll(placeholders[index], reward, () => {
+      placeholders[index].destroy();
+      this.revealSlot(layout[index], reward);
+      this.time.delayedCall(REVEAL_GAP_MS, () => this.revealNext(rewards, layout, placeholders, index + 1));
+    });
+  }
 
-    this.time.delayedCall(REVEAL_STAGGER_MS, () => this.revealNext(rewards, layout, placeholders, index + 1));
+  // Guide Chapter 10's own レア度ごとの色・長さ beat: the placeholder's "?"
+  // box flashes/pulses in the REWARD'S OWN rarity color for a duration that
+  // scales with that rarity, so a rarer pull reads as building suspense
+  // before the card even flips — exactly the "you can tell by the color
+  // before you see the result" effect the reference describes. Purely
+  // visual (see DRUM_ROLL_MS's own comment on why no per-card sound here).
+  playDrumRoll(placeholder, reward, onComplete) {
+    const color = RARITY_COLOR[reward.rarity] || RARITY_COLOR.common;
+    const duration = DRUM_ROLL_MS[reward.rarity] || DRUM_ROLL_MS.common;
+    const [bg, mark] = placeholder.list;
+    bg.setStrokeStyle(2, color, 1);
+    mark.setColor(colorIntToHex(color));
+
+    this.tweens.add({
+      targets: placeholder,
+      scaleX: 1.06,
+      scaleY: 1.06,
+      duration: Math.max(80, duration / 3),
+      yoyo: true,
+      repeat: 1,
+      ease: 'Sine.easeInOut',
+    });
+    this.tweens.add({
+      targets: bg,
+      fillAlpha: 0.85,
+      duration: Math.max(80, duration / 3),
+      yoyo: true,
+      repeat: 1,
+      ease: 'Sine.easeInOut',
+    });
+
+    this.time.delayedCall(duration, onComplete);
   }
 
   revealSlot(slot, reward) {

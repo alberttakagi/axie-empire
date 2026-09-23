@@ -24,9 +24,21 @@ const BGM_VOLUME_KEY = 'axieSkirmishBgmVolumeLevel';
 const MUTED_KEY = 'axieSkirmishMuted';
 
 // Index = level (0 Off / 1 Low / 2 Medium / 3 High); value = gain multiplier.
+// Shared by both SFX and BGM's own level cycles (see get/setSfxVolumeLevel
+// vs get/setBgmVolumeLevel below) — SFX_MASTER_GAIN further below is the
+// SFX-only attenuation, so changing THIS array would also quiet music.
 export const VOLUME_LEVELS = [0, 0.15, 0.5, 1];
 export const VOLUME_LEVEL_LABELS = ['Off', 'Low', 'Medium', 'High'];
 const DEFAULT_VOLUME_LEVEL = 3; // High
+
+// User feedback: sfx as a whole read too loud/busy, especially with several
+// units attacking in the same frame. A flat extra attenuation applied only
+// to sfx (every playTone/playSfxFile call below) rather than lowering
+// VOLUME_LEVELS itself, which BGM's own volume also reads — this keeps
+// every player's chosen Off/Low/Medium/High SFX level meaning the same
+// relative thing to each other, just quieter overall, and leaves music
+// untouched.
+const SFX_MASTER_GAIN = 0.55;
 
 let audioCtx = null;
 
@@ -151,7 +163,7 @@ function playTone({ freq, startOffset = 0, duration = 0.15, type = 'sine', peakG
   osc.type = type;
   osc.frequency.setValueAtTime(freq, start);
   gain.gain.setValueAtTime(0.0001, start);
-  gain.gain.linearRampToValueAtTime(peakGain * volume, start + 0.01);
+  gain.gain.linearRampToValueAtTime(peakGain * volume * SFX_MASTER_GAIN, start + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
   osc.connect(gain).connect(ctx.destination);
   osc.start(start);
@@ -289,7 +301,7 @@ export function playSfxFile(url, { gain = 0.8 } = {}) {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       const gainNode = ctx.createGain();
-      gainNode.gain.value = gain * volume;
+      gainNode.gain.value = gain * volume * SFX_MASTER_GAIN;
       source.connect(gainNode).connect(ctx.destination);
       source.start();
     })
