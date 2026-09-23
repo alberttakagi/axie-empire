@@ -13,6 +13,19 @@ import BaseUpgradeScene from './BaseUpgradeScene.js';
 import GachaScene from './GachaScene.js';
 import CatalogScene from './CatalogScene.js';
 import MissionsScene from './MissionsScene.js';
+import { applyDevUnlock } from './DevMode.js';
+
+// Visit this game's URL with `?devunlock` once (either locally or on the
+// live site) to seed a fully-unlocked save — every stage, every unit
+// maxed, plenty of gems/XP/materials/Energy — see DevMode.js. Runs once,
+// then strips the param via replaceState so an ordinary reload/bookmark of
+// the resulting plain URL doesn't keep re-stomping later real progress.
+if (new URLSearchParams(window.location.search).has('devunlock')) {
+  applyDevUnlock();
+  const url = new URL(window.location.href);
+  url.searchParams.delete('devunlock');
+  window.history.replaceState(null, '', url);
+}
 
 // Text Game Objects rasterize themselves to their own internal canvas at a
 // fixed pixel size (their `style.resolution`, default 1) and that texture

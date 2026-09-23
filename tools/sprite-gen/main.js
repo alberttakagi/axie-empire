@@ -848,7 +848,20 @@ async function renderStarterFrameRaw(skeletonData, animationName, poseFraction) 
   app.stage.addChild(spine);
   spine.update(poseDelta);
   app.renderer.render(app.stage);
-  return app.renderer.extract.base64(app.stage);
+  // Real bug, found live: extract.base64(app.stage) auto-fits the output
+  // canvas to app.stage's OWN CURRENT BOUNDS, which shift with the pose
+  // (confirmed live: 4 frames of the same idle clip came back at 379x321,
+  // 397x318, 378x321, 397x320 — a real ~5% swing, not rounding noise).
+  // Each raw frame's own (0,0) then corresponds to a DIFFERENT point in
+  // true stage space, so computeAlphaBounds/cropDataUrlToBounds's later
+  // "union across frames, crop them all to it" only works if every frame
+  // already shares one fixed coordinate system — unioning frames that
+  // don't share one just crops each to the wrong region, and in-game that
+  // read as the character inflating/deflating every frame swap (real user
+  // feedback, live). Passing no target extracts the renderer's own fixed
+  // screen (512x512, unchanged regardless of pose) instead, matching
+  // spine.position.set's own fixed anchor.
+  return app.renderer.extract.base64();
 }
 
 window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSave(baseFilename, axieId, animationName) {
@@ -902,7 +915,10 @@ async function renderChimeraFrameRawClean(skeletonData, animationName, poseFract
       freshApp.stage.addChild(spine);
       spine.update(poseDelta);
       freshApp.renderer.render(freshApp.stage);
-      return freshApp.renderer.extract.base64(freshApp.stage);
+      // No target — see renderStarterFrameRaw's own comment on why an
+      // auto-fit-to-content extract (passing freshApp.stage) breaks
+      // frame-to-frame alignment for a sequence; same fix here.
+      return freshApp.renderer.extract.base64();
     });
     blackFraction = await computeBlackFraction(rawDataUrl);
     if (blackFraction < BLACK_FRACTION_THRESHOLD) break;
