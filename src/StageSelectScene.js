@@ -88,6 +88,19 @@ const TRIPP_CURRENT_NODE_EXTRA_CLEARANCE = 48;
 // other stage whenever it rested there (centerNodeLocalIndex tracks
 // whatever's closest to the viewport center, not just the current stage).
 const TRIPP_NON_CURRENT_LABEL_EXTRA_CLEARANCE = 32;
+// Real bug, found live: getTrippClearance can legitimately compute a
+// resting height taller than the actual gap between a node near the wave's
+// peak and MAP_VIEWPORT_TOP (worst case: the final BOSS node, which is also
+// always "current" — both stack their own extra clearance on top of each
+// other). mapContainer's own geometry mask then clips Tripp's sprite clean
+// off above MAP_VIEWPORT_TOP — not "too close to the label," genuinely
+// missing the top half of his own art. clampTrippY (used by both
+// createTrippMarker and runTrippTo below) keeps him fully inside the
+// mask's visible area no matter what the label-clearance math above wants,
+// even if that occasionally means resting a little closer to the node's
+// own name label than getTrippClearance intended — half-overlapping text
+// reads far better than a sprite missing its own head.
+const TRIPP_TOP_SAFETY_PADDING = 6;
 const TRIPP_IDLE_BOB_PX = 3;
 const TRIPP_IDLE_BOB_MS = 900;
 const TRIPP_RUN_SPEED_PX_PER_SEC = 320;
@@ -444,8 +457,16 @@ export default class StageSelectScene extends Phaser.Scene {
 
     this.trippTargetIndex = this.centerNodeLocalIndex();
     const { x, y } = this.nodePositions[this.trippTargetIndex];
-    tripp.setPosition(x, y - this.getTrippClearance(this.trippTargetIndex));
+    tripp.setPosition(x, this.clampTrippY(y - this.getTrippClearance(this.trippTargetIndex)));
     this.startTrippIdleBob();
+  }
+
+  // See TRIPP_TOP_SAFETY_PADDING's own comment — keeps Tripp's sprite
+  // fully below the map mask's top edge regardless of what
+  // getTrippClearance would otherwise want.
+  clampTrippY(desiredY) {
+    const minY = MAP_VIEWPORT_TOP + this.tripp.displayHeight / 2 + TRIPP_TOP_SAFETY_PADDING;
+    return Math.max(desiredY, minY);
   }
 
   // The local index of whichever node currently sits closest to the
@@ -495,7 +516,7 @@ export default class StageSelectScene extends Phaser.Scene {
   runTrippTo(toLocalIndex) {
     const to = this.nodePositions[toLocalIndex];
     const targetX = to.x;
-    const targetY = to.y - this.getTrippClearance(toLocalIndex);
+    const targetY = this.clampTrippY(to.y - this.getTrippClearance(toLocalIndex));
 
     this.tweens.killTweensOf(this.tripp);
     this.tripp.setFlipX(targetX > this.tripp.x);

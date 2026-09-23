@@ -35,6 +35,15 @@ import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './Ren
 const REWARD_TYPE_NAME = {
   evoShard: 'Evo Shard',
   growthCharm: 'Growth Charm',
+  energy: 'Energy',
+};
+
+// Icon per reward type, shared by both the single-icon branch (evoShard/
+// growthCharm/energy) and the jackpot's own multi-icon row.
+const REWARD_ICON_KEY = {
+  evoShard: 'gacha_evo_shard',
+  growthCharm: 'gacha_growth_charm',
+  energy: 'gacha_energy',
 };
 
 const RARITY_COLOR = {
@@ -56,16 +65,28 @@ const RARITY_FLOURISH = {
 const CHARGE_MS = 1500; // suspense beat before the first reveal — "a few seconds", not instant
 const REVEAL_STAGGER_MS = 380; // gap between each successive slot in a multi-roll
 
+// Shared vertical layout — one source of truth for create()'s own banner/
+// button/panel Y's and getSlotLayout's grid, so the two can't silently
+// drift apart again the way the old fixed GRID_CELL_H did (see below).
+const BANNER_Y = 52;
+const BANNER_H = 54;
+const ROLL_BUTTON_Y = 112;
+const RESULTS_PANEL_Y = 263;
+const RESULTS_PANEL_H = 230;
+
 const GRID_COLS = 4;
 const GRID_CELL_W = 145;
-const GRID_CELL_H = 68;
+const GRID_CELL_H_MAX = 68; // never grows past this even when a row easily has room to spare
 const GRID_GAP = 10;
-const GRID_TOP = 200;
-// Was 240 — tall enough that both the results panel below and an 11x
-// roll's own bottom row reached past the back button (bottom-left, see
-// createBackButton's own default y). Shrunk together with the panel's own
-// height (see create()'s drawBcPanel call) so nothing ever overlaps it.
-const GRID_AREA_H = 165;
+const GRID_TOP = RESULTS_PANEL_Y - RESULTS_PANEL_H / 2 + 15;
+// Real bug, found live: at the old fixed GRID_CELL_H, an 11x roll's 3 rows
+// (3*68 + 2*10 = 224px) didn't fit the old GRID_AREA_H (165px) at all — the
+// whole 3rd row rendered outside the results panel entirely. Reworked
+// alongside moving the title banner/roll buttons up (see create()) to free
+// real vertical room, AND made cell height responsive (see getSlotLayout)
+// so a 3-row roll can never overflow again regardless of exact pixel
+// tuning.
+const GRID_AREA_H = RESULTS_PANEL_Y + RESULTS_PANEL_H / 2 - 15 - GRID_TOP;
 
 function colorIntToHex(int) {
   return `#${int.toString(16).padStart(6, '0')}`;
@@ -89,19 +110,23 @@ function getSlotLayout(width, count) {
     return [{ x: width / 2, y: GRID_TOP + GRID_AREA_H / 2, w: 220, h: 150 }];
   }
   const rows = Math.ceil(count / GRID_COLS);
+  // Cell height shrinks (never grows past GRID_CELL_H_MAX) so however many
+  // rows a roll needs always fits GRID_AREA_H exactly — see that constant's
+  // own comment on the overflow bug this replaces.
+  const cellH = Math.min(GRID_CELL_H_MAX, (GRID_AREA_H - (rows - 1) * GRID_GAP) / rows);
   const totalW = GRID_COLS * GRID_CELL_W + (GRID_COLS - 1) * GRID_GAP;
-  const totalH = rows * GRID_CELL_H + (rows - 1) * GRID_GAP;
+  const totalH = rows * cellH + (rows - 1) * GRID_GAP;
   const startX = width / 2 - totalW / 2 + GRID_CELL_W / 2;
-  const startY = GRID_TOP + Math.max(0, (GRID_AREA_H - totalH) / 2) + GRID_CELL_H / 2;
+  const startY = GRID_TOP + Math.max(0, (GRID_AREA_H - totalH) / 2) + cellH / 2;
   const layout = [];
   for (let i = 0; i < count; i += 1) {
     const col = i % GRID_COLS;
     const row = Math.floor(i / GRID_COLS);
     layout.push({
       x: startX + col * (GRID_CELL_W + GRID_GAP),
-      y: startY + row * (GRID_CELL_H + GRID_GAP),
+      y: startY + row * (cellH + GRID_GAP),
       w: GRID_CELL_W,
-      h: GRID_CELL_H,
+      h: cellH,
     });
   }
   return layout;
@@ -116,6 +141,7 @@ export default class GachaScene extends Phaser.Scene {
     preloadBackgrounds(this);
     this.load.image('gacha_evo_shard', 'gacha/evo_shard.png');
     this.load.image('gacha_growth_charm', 'gacha/growth_charm.png');
+    this.load.image('gacha_energy', 'gacha/energy_refill.png');
   }
 
   create() {
@@ -137,16 +163,19 @@ export default class GachaScene extends Phaser.Scene {
     addBackground(this, 'metamorph');
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.5);
 
-    createTitlePill(this, 24, 26, 'Gacha');
+    createTitlePill(this, 24, 22, 'Gacha');
     createBackButton(this, () => this.scene.start('HomeScene'));
 
     // Banner panel — a real gacha screen's whole top half is a giant
     // rotating art banner; without banner art this build shows a plain
     // cream panel as its stand-in, which at least reads as "a screen
-    // region," not empty space.
-    drawBcPanel(this, width / 2, 96, width - 64, 100, { fill: 0x2a1f3d });
+    // region," not empty space. Shrunk (was 100 tall at y=96) and the roll
+    // buttons pulled up to match (was y=165) — real user feedback: this
+    // banner+button block was eating space the results box below badly
+    // needed (see GRID_AREA_H's own comment on the overflow that caused).
+    drawBcPanel(this, width / 2, BANNER_Y, width - 64, BANNER_H, { fill: 0x2a1f3d });
     this.add
-      .text(width / 2, 96, 'Axie Gacha', { fontFamily: FONT, fontSize: '20px', color: '#ffd27f' })
+      .text(width / 2, BANNER_Y, 'Axie Gacha', { fontFamily: FONT, fontSize: '17px', color: '#ffd27f' })
       .setOrigin(0.5);
 
     this.singleButton = this.createRollButton(width / 2 - 130, `Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`, () =>
@@ -159,12 +188,14 @@ export default class GachaScene extends Phaser.Scene {
       { fill: BC.gold, textColor: BC.goldInk },
     );
 
-    // Was 250 tall centered at 310 (bottom edge 435) — reached well past
-    // the back button (bottom-left, y≈390-442 by default). 190 tall
-    // centered at 280 keeps a clear gap above it.
-    drawBcPanel(this, width / 2, 280, width - 64, 190);
+    // Bigger box (was 190 tall centered at 280) now that the banner/buttons
+    // above take less room — still keeps a clear gap above the back button
+    // (bottom-left, y≈390-442 by default). Centered on RESULTS_PANEL_Y/H
+    // (see those constants) so this and getSlotLayout's own GRID_TOP/
+    // GRID_AREA_H can't silently drift out of sync with each other.
+    drawBcPanel(this, width / 2, RESULTS_PANEL_Y, width - 64, RESULTS_PANEL_H);
     this.messageText = this.add
-      .text(width / 2, 190, 'Tap a roll button to begin!', {
+      .text(width / 2, RESULTS_PANEL_Y, 'Tap a roll button to begin!', {
         fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
       })
       .setOrigin(0.5);
@@ -175,8 +206,7 @@ export default class GachaScene extends Phaser.Scene {
   }
 
   createRollButton(x, label, onRoll, opts = {}) {
-    const y = 165;
-    return createBcButton(this, x, y, 220, 60, label, onRoll, {
+    return createBcButton(this, x, ROLL_BUTTON_Y, 220, 60, label, onRoll, {
       fill: 0xb98cff, highlight: 0xd9c3ff, textColor: '#2a1a3a', fontSize: 14, ...opts,
     });
   }
@@ -299,26 +329,37 @@ export default class GachaScene extends Phaser.Scene {
           })
           .setOrigin(0.5),
       );
-      const subIconSize = Phaser.Math.Clamp(Math.min(w, h) * 0.32, 14, 34);
+      const subIconSize = Phaser.Math.Clamp(Math.min(w, h) * 0.3, 12, 30);
       const rowY = h / 2 - subIconSize / 2 - Math.min(10, h * 0.12);
       const xp = reward.bundle.find((b) => b.type === 'xp');
       const { hex } = xpShineColor(xp.amount);
-      const gap = subIconSize + Math.max(6, w * 0.05);
+      // XP's own "+amount" text plus one icon per material in the bundle
+      // (now includes energy — see Gacha.js's own bundle) laid out in a
+      // single evenly-spaced row.
+      const materials = reward.bundle.filter((b) => b.type !== 'xp');
+      const slotCount = 1 + materials.length;
+      const gap = subIconSize + Math.max(6, w * 0.045);
+      const rowStartX = -((slotCount - 1) * gap) / 2;
       objects.push(
-        this.add.text(-gap, rowY, `+${xp.amount}`, { fontFamily: FONT, fontSize: `${Math.round(subIconSize * 0.42)}px`, color: hex }).setOrigin(0.5),
-        this.add.image(0, rowY, 'gacha_evo_shard').setDisplaySize(subIconSize, subIconSize),
-        this.add.image(gap, rowY, 'gacha_growth_charm').setDisplaySize(subIconSize, subIconSize),
+        this.add
+          .text(rowStartX, rowY, `+${xp.amount}`, { fontFamily: FONT, fontSize: `${Math.round(subIconSize * 0.4)}px`, color: hex })
+          .setOrigin(0.5),
       );
+      materials.forEach((material, i) => {
+        objects.push(
+          this.add.image(rowStartX + (i + 1) * gap, rowY, REWARD_ICON_KEY[material.type]).setDisplaySize(subIconSize, subIconSize),
+        );
+      });
       return objects;
     }
 
-    if (reward.type === 'evoShard' || reward.type === 'growthCharm') {
-      const textureKey = reward.type === 'evoShard' ? 'gacha_evo_shard' : 'gacha_growth_charm';
+    if (REWARD_ICON_KEY[reward.type]) {
+      const textureKey = REWARD_ICON_KEY[reward.type];
       // Real user feedback: an icon + a bare "+N" doesn't say what was
       // actually won — unlike XP (self-labeled) or a unit drop (its own
-      // name card), these two only ever read as "some icon". Name goes on
-      // its own line below the amount rather than crammed onto one, so it
-      // stays legible even at the small 11x-roll grid cell size.
+      // name card), these otherwise only ever read as "some icon". Name
+      // goes on its own line below the amount rather than crammed onto
+      // one, so it stays legible even at the small 11x-roll grid cell size.
       const name = REWARD_TYPE_NAME[reward.type];
       const iconY = h > 100 ? -h * 0.22 : -h * 0.26;
       objects.push(this.add.image(0, iconY, textureKey).setDisplaySize(iconSize, iconSize));

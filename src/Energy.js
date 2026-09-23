@@ -118,3 +118,13 @@ export function refillEnergy() {
   state.lastUpdateMs = Date.now();
   save(state);
 }
+
+// Partial refill (the Gacha energy-drink reward — bible's real "Leadership"
+// item is a full refill, this build's gacha pool grants a smaller, more
+// frequent bump instead so it's worth pulling without trivializing the
+// resource entirely). Clamps to the cap like every other path here.
+export function addEnergy(amount) {
+  const state = applyRegen();
+  state.current = Math.min(getMaxEnergy(), state.current + amount);
+  save(state);
+}

@@ -14,6 +14,7 @@
 // unit rolls without touching the rest of the system.
 
 import { addXp, addEvoShards, addGrowthCharms, trySpendGems } from './PlayerProgress.js';
+import { addEnergy } from './Energy.js';
 
 export const GACHA_SINGLE_ROLL_COST = 50;
 export const GACHA_MULTI_ROLL_COUNT = 11;
@@ -30,8 +31,14 @@ export const XP_REWARD_MAX = 10000;
 // reveal flourish (text/color/sound/particles) — ordered the same as the
 // weights (rarer reward = louder reveal), not a separate balance concept.
 const REWARD_POOL = [
-  { weight: 45, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
+  { weight: 35, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
   { weight: 25, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' },
+  // Energy (bible's real "Leadership" item is a full refill — see
+  // Energy.js's addEnergy comment for why this grants a smaller partial
+  // bump instead): user request, roughly one mid-tier stage's worth of
+  // Energy (see STAGE_CONFIG.js's own energyCost range) so a pull is
+  // worth taking without trivializing the resource.
+  { weight: 10, type: 'energy', amount: 30, label: '30 Energy', rarity: 'rare' },
   { weight: 15, type: 'evoShard', amount: 1, label: '1 Evo Shard', rarity: 'epic' },
   { weight: 10, type: 'growthCharm', amount: 1, label: '1 Growth Charm', rarity: 'epic' },
   {
@@ -41,6 +48,7 @@ const REWARD_POOL = [
     rarity: 'legendary',
     bundle: [
       { type: 'xp', amount: 10000 },
+      { type: 'energy', amount: 100 },
       { type: 'evoShard', amount: 1 },
       { type: 'growthCharm', amount: 1 },
     ],
@@ -68,6 +76,9 @@ function grantOne(type, amount) {
       break;
     case 'growthCharm':
       addGrowthCharms(amount);
+      break;
+    case 'energy':
+      addEnergy(amount);
       break;
   }
 }

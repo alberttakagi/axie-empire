@@ -385,7 +385,12 @@ window.renderStarter = async function renderStarter(axieId, animationName = 'act
 // sometimes for the whole skeleton — instead of blending transparently
 // against our stage (almost certainly authored to be composited with a
 // non-'normal' blend mode against the real game's own darker battle
-// backdrop, which our bare stage doesn't provide).
+// backdrop, which our bare stage doesn't provide). Real bug, found live:
+// this same compositing mismatch also shows up as a solid OPAQUE WHITE
+// blob for some skeletons/clips (e.g. daddy-bear's/alpha-wolf's/werewolf's
+// own 'action/idle/normal') — same root cause, just the other likely
+// blend-mode result (screen/add against nothing vs. multiply against
+// nothing), so this strips both colors the same way rather than only black.
 //
 // An earlier version of this function only flood-filled from the 4 canvas
 // corners and only matched FULLY opaque (alpha >= 250) near-black pixels —
@@ -393,16 +398,20 @@ window.renderStarter = async function renderStarter(axieId, animationName = 'act
 // SEMI-transparent (~90% opaque) black rectangle that floats in the middle
 // of the canvas without ever touching an edge, so a corner seed never
 // reaches it and the strict opacity check doesn't match it even if it did.
-// This version instead flood-fills from EVERY near-black-ish pixel anywhere
-// in the image (looser alpha floor to catch semi-transparent vignettes
-// too), grouping the canvas into connected components, and clears only the
-// components at or above `minBlobSize` — a vignette (whole-canvas-ish or a
-// large floating rectangle) is tens of thousands of pixels; a character's
-// own black outline/shading is thin curves/strokes that never connect into
-// a component anywhere near that size. Verified this doesn't regress
-// already-clean renders (slime, werewolf) — same visual output as the old
-// corner-flood-fill for those — while actually fixing dryad-mage's.
-async function stripOpaqueBlackBackground(dataUrl, { threshold = 24, alphaMin = 100, minBlobSize = 3000 } = {}) {
+// This version instead flood-fills from EVERY near-black-or-near-white
+// pixel anywhere in the image (looser alpha floor to catch semi-transparent
+// vignettes too), grouping the canvas into connected components (each
+// component confined to just one of the two colors — a black blob and a
+// white blob never merge into one component even if they touch), and
+// clears only the components at or above `minBlobSize` — a vignette
+// (whole-canvas-ish or a large floating rectangle) is tens of thousands of
+// pixels; a character's own black outline/white highlight is thin
+// curves/strokes that never connect into a component anywhere near that
+// size. Verified this doesn't regress already-clean renders (slime,
+// werewolf) — same visual output as the old corner-flood-fill for those —
+// while actually fixing dryad-mage's black vignette and daddy-bear's/
+// alpha-wolf's white one.
+async function stripOpaqueBackdrop(dataUrl, { threshold = 24, alphaMin = 100, minBlobSize = 3000 } = {}) {
   const img = new Image();
   img.src = dataUrl;
   await img.decode();
@@ -417,12 +426,17 @@ async function stripOpaqueBlackBackground(dataUrl, { threshold = 24, alphaMin = 
 
   const isBlackish = (i) =>
     data[i] <= threshold && data[i + 1] <= threshold && data[i + 2] <= threshold && data[i + 3] >= alphaMin;
+  const isWhitish = (i) =>
+    data[i] >= 255 - threshold && data[i + 1] >= 255 - threshold && data[i + 2] >= 255 - threshold && data[i + 3] >= alphaMin;
 
   const visited = new Uint8Array(width * height);
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const startIdx = y * width + x;
-      if (visited[startIdx] || !isBlackish(startIdx * 4)) continue;
+      if (visited[startIdx]) continue;
+      const startI = startIdx * 4;
+      const matches = isBlackish(startI) ? isBlackish : isWhitish(startI) ? isWhitish : null;
+      if (!matches) continue;
 
       const stack = [startIdx];
       const members = [startIdx];
@@ -435,7 +449,7 @@ async function stripOpaqueBlackBackground(dataUrl, { threshold = 24, alphaMin = 
           if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
           const nIdx = ny * width + nx;
           if (visited[nIdx]) continue;
-          if (isBlackish(nIdx * 4)) {
+          if (matches(nIdx * 4)) {
             visited[nIdx] = 1;
             stack.push(nIdx);
             members.push(nIdx);
@@ -452,7 +466,7 @@ async function stripOpaqueBlackBackground(dataUrl, { threshold = 24, alphaMin = 
   ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL('image/png');
 }
-window.stripOpaqueBlackBackground = stripOpaqueBlackBackground;
+window.stripOpaqueBackdrop = stripOpaqueBackdrop;
 
 // Bounding box (in source-canvas pixels) of a data URL's non-transparent
 // pixels — factored out of trimTransparentPadding (below) so a whole
@@ -732,11 +746,20 @@ window.renderChimeraFixedExtract = async function renderChimeraFixedExtract(chim
   return app.renderer.extract.base64(); // no target = the renderer's own fixed screen/view
 };
 
-// Fraction of a render's OPAQUE pixels that are near-black — every clean
-// chimera render tested tops out around 0.03-0.07 (normal outline/shading
-// ink), while a corrupted one (see renderChimeraAndSave's retry loop
-// comment) lands around 0.20-0.25.
-async function computeBlackFraction(dataUrl) {
+// Fraction of a render's OPAQUE pixels that are near-black OR near-white —
+// every clean chimera render tested tops out around 0.03-0.07 for EACH
+// (normal outline ink / normal highlight-white bits), while a corrupted one
+// (see renderChimeraAndSave's retry loop comment) lands around 0.20-0.25 for
+// whichever color its stray backdrop blob happens to be. Originally only
+// checked black (the only corruption color seen at the time); real bug,
+// found live: enemy_titan_idleanim_0.png/enemy_behemoth_idleanim_0.png etc
+// came back with their heads missing entirely — not actually clipped by the
+// canvas (there was plenty of headroom), but painted OVER by a solid
+// OPAQUE WHITE stray blob this black-only check never flagged, so the
+// retry loop kept accepting the first (corrupted) render instead of trying
+// again. Checking both colors is the same generalization
+// stripOpaqueBackdrop below needed for the same reason.
+async function isCorruptedRender(dataUrl) {
   const img = new Image();
   img.src = dataUrl;
   await img.decode();
@@ -747,40 +770,41 @@ async function computeBlackFraction(dataUrl) {
   ctx.drawImage(img, 0, 0);
   const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
   let black = 0;
+  let white = 0;
   let opaque = 0;
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] > 250) {
       opaque++;
       if (data[i] < 15 && data[i + 1] < 15 && data[i + 2] < 15) black++;
+      else if (data[i] > 240 && data[i + 1] > 240 && data[i + 2] > 240) white++;
     }
   }
-  return opaque ? black / opaque : 0;
+  const threshold = 0.12;
+  return opaque > 0 && (black / opaque > threshold || white / opaque > threshold);
 }
-window.computeBlackFraction = computeBlackFraction;
+window.isCorruptedRender = isCorruptedRender;
 
 window.renderChimeraAndSave = async function renderChimeraAndSave(filename, chimeraFolder, animationName = 'idle', poseFraction = 0.016) {
   // Some renders — cause unconfirmed; likely WebGL context-churn/texture-
   // upload timing rather than anything about the skeleton data itself,
   // since it's nondeterministic across identical calls (see
-  // withFreshRenderer's comment) — come back with a large stray opaque-
-  // black region instead of a clean silhouette. computeBlackFraction gives
-  // a cheap, reliable tell (~0.03-0.07 clean vs ~0.20-0.25 corrupted), so
-  // retry a few times whenever it's suspiciously high rather than saving a
-  // bad frame.
+  // withFreshRenderer's comment) — come back with a large stray opaque
+  // black-or-white region instead of a clean silhouette. isCorruptedRender
+  // gives a cheap, reliable tell, so retry a few times whenever it flags one
+  // rather than saving a bad frame.
   const MAX_ATTEMPTS = 5;
-  const BLACK_FRACTION_THRESHOLD = 0.12;
   let rawDataUrl;
-  let blackFraction = 1;
+  let corrupted = true;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     rawDataUrl = await window.renderChimera(chimeraFolder, animationName, poseFraction);
-    blackFraction = await computeBlackFraction(rawDataUrl);
-    if (blackFraction < BLACK_FRACTION_THRESHOLD) break;
+    corrupted = await isCorruptedRender(rawDataUrl);
+    if (!corrupted) break;
     console.warn(
-      `renderChimeraAndSave: ${chimeraFolder}/${animationName} looked corrupted (blackFraction=${blackFraction.toFixed(3)}), retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})`,
+      `renderChimeraAndSave: ${chimeraFolder}/${animationName} looked corrupted, retrying (attempt ${attempt + 1}/${MAX_ATTEMPTS})`,
     );
   }
 
-  const cleanedDataUrl = await stripOpaqueBlackBackground(rawDataUrl);
+  const cleanedDataUrl = await stripOpaqueBackdrop(rawDataUrl);
   const dataUrl = await trimTransparentPadding(cleanedDataUrl);
   const res = await fetch('/api/save-sprite', {
     method: 'POST',
@@ -788,7 +812,7 @@ window.renderChimeraAndSave = async function renderChimeraAndSave(filename, chim
     body: JSON.stringify({ filename, dataUrl }),
   });
   const json = await res.json();
-  return { ...json, blackFraction };
+  return { ...json, corrupted };
 };
 
 // --- Full-animation frame sequences (idleAnim/run) ---
@@ -899,16 +923,22 @@ window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSav
 // black-background-stripping and corrupted-render retry every single-frame
 // chimera render already needs (see renderChimeraAndSave), applied per frame
 // since withFreshRenderer's WebGL-churn issue is per-render, not per-clip.
-async function renderChimeraFrameRawClean(skeletonData, animationName, poseFraction) {
+//
+// `framing` (default {x:256,y:340,scale:0.4} — the value every call site
+// used before this param existed) is overridable so
+// renderChimeraSequenceAndSave can re-render at a corrected framing (see
+// measureNaturalFraming) without duplicating this whole pipeline.
+const DEFAULT_CHIMERA_FRAMING = { x: 256, y: 340, scale: 0.4 };
+
+async function renderChimeraFrameRawClean(skeletonData, animationName, poseFraction, framing = DEFAULT_CHIMERA_FRAMING) {
   const MAX_ATTEMPTS = 5;
-  const BLACK_FRACTION_THRESHOLD = 0.12;
   let rawDataUrl;
-  let blackFraction = 1;
+  let corrupted = true;
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     rawDataUrl = await withFreshRenderer(async (freshApp) => {
       const spine = new Spine(skeletonData);
-      spine.position.set(256, 340);
-      spine.scale.set(0.4, 0.4);
+      spine.position.set(framing.x, framing.y);
+      spine.scale.set(framing.scale, framing.scale);
       const anim = skeletonData.animations.find((a) => a.name === animationName);
       const poseDelta = anim ? Math.max(0.016, anim.duration * poseFraction) : 0.016;
       if (anim) spine.state.setAnimation(0, animationName, false);
@@ -920,11 +950,81 @@ async function renderChimeraFrameRawClean(skeletonData, animationName, poseFract
       // frame-to-frame alignment for a sequence; same fix here.
       return freshApp.renderer.extract.base64();
     });
-    blackFraction = await computeBlackFraction(rawDataUrl);
-    if (blackFraction < BLACK_FRACTION_THRESHOLD) break;
-    console.warn(`renderChimeraFrameRawClean: ${animationName}@${poseFraction} looked corrupted (blackFraction=${blackFraction.toFixed(3)}), retrying`);
+    corrupted = await isCorruptedRender(rawDataUrl);
+    if (!corrupted) break;
+    console.warn(`renderChimeraFrameRawClean: ${animationName}@${poseFraction} looked corrupted, retrying`);
   }
-  return stripOpaqueBlackBackground(rawDataUrl);
+  return stripOpaqueBackdrop(rawDataUrl);
+}
+
+const RAW_CANVAS_SIZE = 512;
+const CLIP_EDGE_THRESHOLD = 3; // px from the raw canvas edge that counts as "actually clipped"
+
+function touchesCanvasEdge(bounds) {
+  return (
+    bounds.minX <= CLIP_EDGE_THRESHOLD ||
+    bounds.minY <= CLIP_EDGE_THRESHOLD ||
+    bounds.maxX >= RAW_CANVAS_SIZE - CLIP_EDGE_THRESHOLD ||
+    bounds.maxY >= RAW_CANVAS_SIZE - CLIP_EDGE_THRESHOLD
+  );
+}
+
+// Real bug, found live: DEFAULT_CHIMERA_FRAMING is one fixed position/scale
+// tuned by eye against most chimera skeletons, but a handful (daddy-bear/
+// Titan, alpha-wolf/Colossus, werewolf/Behemoth, dryad-mage/AoE) turn out
+// to be authored at a much bigger internal unit scale than the rest of the
+// roster — at DEFAULT_CHIMERA_FRAMING they don't just clip a little, they
+// fill the ENTIRE 512x512 canvas edge-to-edge with an extreme close-up of
+// torso/leg texture, head nowhere in frame (confirmed live: sampling pixels
+// across the whole canvas for daddy-bear found real fur-texture colors
+// everywhere, not a corrupted flat blob — this genuinely is just how big
+// the character renders at the "normal" scale).
+//
+// Because the render is ALREADY saturated edge-to-edge at the default
+// scale, measuring its own bounds can't tell us how much BIGGER than the
+// canvas the content actually is — 511 could mean "just barely over" or
+// "10x over," and a shrink computed from that measurement undershoots
+// badly (confirmed live: an earlier version of this fix computed a ~7%
+// scale reduction from exactly this kind of saturated measurement, which
+// was nowhere near enough). This instead renders one throwaway probe frame
+// at a deliberately tiny PROBE_SCALE — small enough that even an
+// oversized skeleton's full extent comfortably fits inside the canvas
+// unclipped — measures its true bounds, and divides out the probe's own
+// scale/position to recover the skeleton's real, canvas-independent
+// natural size. From that clean measurement, choosing a scale that lands
+// the bigger dimension at TARGET_CONTENT_SIZE and centering on it is exact,
+// not a guess.
+const PROBE_SCALE = 0.04;
+const TARGET_CONTENT_SIZE = 380; // px, comfortably inside 512 with margin
+
+async function measureNaturalFraming(skeletonData, animationName, fractions) {
+  const probeFraming = { x: RAW_CANVAS_SIZE / 2, y: RAW_CANVAS_SIZE / 2, scale: PROBE_SCALE };
+  const naturalBoundsList = [];
+  for (const t of fractions) {
+    const raw = await renderChimeraFrameRawClean(skeletonData, animationName, t, probeFraming);
+    const b = await computeAlphaBounds(raw);
+    if (b.empty) continue;
+    // Divide out the probe's own position/scale to recover bounds in the
+    // skeleton's own natural (unscaled) coordinate space.
+    naturalBoundsList.push({
+      minX: (b.minX - probeFraming.x) / PROBE_SCALE,
+      maxX: (b.maxX - probeFraming.x) / PROBE_SCALE,
+      minY: (b.minY - probeFraming.y) / PROBE_SCALE,
+      maxY: (b.maxY - probeFraming.y) / PROBE_SCALE,
+      empty: false,
+    });
+  }
+  const natural = unionBounds(naturalBoundsList);
+  const naturalW = natural.maxX - natural.minX;
+  const naturalH = natural.maxY - natural.minY;
+  const scale = TARGET_CONTENT_SIZE / Math.max(naturalW, naturalH);
+  const centerX = (natural.minX + natural.maxX) / 2;
+  const centerY = (natural.minY + natural.maxY) / 2;
+  return {
+    x: RAW_CANVAS_SIZE / 2 - centerX * scale,
+    y: RAW_CANVAS_SIZE / 2 - centerY * scale,
+    scale,
+  };
 }
 
 window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSave(baseFilename, chimeraFolder, animationName) {
@@ -935,12 +1035,29 @@ window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSav
 
   document.getElementById('status').textContent = `rendering chimera sequence ${baseFilename} (${fractions.length} frames @ ${ANIMATION_FPS}fps)...`;
 
-  const rawFrames = [];
+  let framing = DEFAULT_CHIMERA_FRAMING;
+  let rawFrames = [];
   for (const t of fractions) {
-    rawFrames.push(await renderChimeraFrameRawClean(skeletonData, animationName, t));
+    rawFrames.push(await renderChimeraFrameRawClean(skeletonData, animationName, t, framing));
   }
 
-  const bounds = unionBounds(await Promise.all(rawFrames.map((f) => computeAlphaBounds(f))));
+  let bounds = unionBounds(await Promise.all(rawFrames.map((f) => computeAlphaBounds(f))));
+  if (touchesCanvasEdge(bounds)) {
+    console.warn(`renderChimeraSequenceAndSave: ${baseFilename} overflows the default framing, measuring a corrected one`);
+    // A coarse subset of fractions is enough to find the true extent (the
+    // whole point is just "how big is this skeleton," not per-frame
+    // precision) — every fraction would just multiply an already-slow
+    // render (2 renders per frame: probe + real) for no real gain.
+    const probeFractions = fractions.filter((_, i) => i % 4 === 0);
+    framing = await measureNaturalFraming(skeletonData, animationName, probeFractions.length ? probeFractions : fractions);
+    console.warn(`renderChimeraSequenceAndSave: ${baseFilename} corrected framing=${JSON.stringify(framing)}`);
+    rawFrames = [];
+    for (const t of fractions) {
+      rawFrames.push(await renderChimeraFrameRawClean(skeletonData, animationName, t, framing));
+    }
+    bounds = unionBounds(await Promise.all(rawFrames.map((f) => computeAlphaBounds(f))));
+  }
+
   const cropped = await Promise.all(rawFrames.map((f) => cropDataUrlToBounds(f, bounds, 6)));
   const results = await saveFrameSequence(baseFilename, cropped);
   document.getElementById('status').textContent = `done: chimera sequence ${baseFilename}`;
