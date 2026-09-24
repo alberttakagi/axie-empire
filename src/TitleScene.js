@@ -24,6 +24,7 @@ import {
 // straight into OpeningScene, not this one.
 const LOGO_BOB_PX = 6;
 const LOGO_BOB_MS = 1400;
+const LOGO_DISPLAY_WIDTH = 520; // logical px — leaves clear margin on the 800-wide canvas either side
 const VERSION_TEXT = 'v1.0';
 
 export default class TitleScene extends Phaser.Scene {
@@ -33,6 +34,7 @@ export default class TitleScene extends Phaser.Scene {
 
   preload() {
     preloadBackgrounds(this);
+    this.load.image('title_logo', 'logo.png');
   }
 
   create() {
@@ -67,15 +69,11 @@ export default class TitleScene extends Phaser.Scene {
     addBackground(this, 'gauntletArena');
     this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.35);
 
-    // Renamed from "Axie Skirmish" per the user's own call ("skirmish
-    // doesn't sound right"). The old "Empire of Axies" subtitle line
-    // beneath it is gone entirely, not just reworded.
-    const logo = this.add
-      .text(width / 2, height * 0.32, 'AXIE EMPIRE', {
-        fontFamily: FONT, fontSize: '46px', color: '#ffe58a',
-        stroke: '#1d1a16', strokeThickness: 8,
-      })
-      .setOrigin(0.5);
+    // Real logo art (public/logo.png) in place of the old plain text
+    // treatment — same floating bob tween carried over unchanged, just
+    // applied to the image instead of a Text object.
+    const logo = this.add.image(width / 2, height * 0.32, 'title_logo');
+    logo.setDisplaySize(LOGO_DISPLAY_WIDTH, LOGO_DISPLAY_WIDTH * (logo.height / logo.width));
     this.tweens.add({
       targets: logo, y: logo.y - LOGO_BOB_PX,
       duration: LOGO_BOB_MS, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
