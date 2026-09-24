@@ -14,6 +14,7 @@ import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 const STAGE_PROGRESS_KEY = 'axieSkirmishStageProgress';
 const PLAYER_PROGRESS_KEY = 'axieSkirmishPlayerProgress';
 const ENERGY_KEY = 'axieSkirmishEnergy';
+const TREASURE_KEY = 'axieSkirmishTreasure';
 
 const DEV_GEMS = 999999;
 const DEV_XP = 999999;
@@ -72,6 +73,17 @@ export function applyDevUnlock() {
       baseUpgrades,
     }),
   );
+
+  // Every stage's treasure ratcheted straight to gold (tier 3, Treasure.js's
+  // own TOP_TIER) — same storage shape rollTreasureForStage/guaranteeTopTier
+  // write ({ [stageId]: tier }), so every set (see TREASURE_CONFIG.js) reads
+  // as 100% complete and every stat bonus getBonusPercent grants is already
+  // maxed, with zero risk of the "no stat below" ratchet ever undoing it.
+  const treasureProgress = {};
+  for (const stage of STAGE_CONFIG) {
+    treasureProgress[stage.id] = 3;
+  }
+  localStorage.setItem(TREASURE_KEY, JSON.stringify(treasureProgress));
 
   // Energy.js's own getMaxEnergy() is capped by the Stamina Cap Base
   // Upgrade level above (now maxed) — real bug, found live: writing a
