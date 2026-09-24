@@ -986,10 +986,23 @@ export default class GameScene extends Phaser.Scene {
     // scroll on its own).
     this.uiCamera.centerOn(width / 2, height / 2);
 
-    // Nothing to see past the battlefield's own edges (the backdrop/lane
-    // exactly fill the canvas), so bounds just keep the zoomed-in view from
-    // ever panning off into empty space.
-    this.cameras.main.setBounds(0, 0, width, height);
+    // Real bug, found live: bounds exactly matching the canvas meant
+    // Phaser's own bounds-clamp pinned scrollY's top/bottom edge flush
+    // against world y=0/height at high zoom — anything a sprite rendered
+    // PAST that edge (a knockback/jump arc lifting it above its own logical
+    // y, or just a tall enemy near the top/bottom of its own bounding box)
+    // was past what the camera's clamped scroll could ever show, so it
+    // simply never rendered: a hard, consistent "invisible crop line" right
+    // at the lane's own top/bottom edge. Vertical scroll is ALWAYS
+    // programmatically forced to centerOnY(laneY) below (never freely
+    // scrolled — see the wheel/drag handlers' own comments), so padding the
+    // vertical bounds costs nothing: the framing is identical at every zoom
+    // level, this only stops the clamp from ever kicking in and eating part
+    // of a sprite. Horizontal bounds stay exact — that axis IS freely
+    // pannable, and there's genuinely nothing to see past the battlefield's
+    // own left/right edges.
+    const VERTICAL_BOUNDS_PADDING = 150;
+    this.cameras.main.setBounds(0, -VERTICAL_BOUNDS_PADDING, width, height + VERTICAL_BOUNDS_PADDING * 2);
 
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
       const cam = this.cameras.main;

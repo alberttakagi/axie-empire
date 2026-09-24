@@ -1280,6 +1280,11 @@ export const STAGE_CONFIG = [
       { enemyId: 'tank', statMultiplier: 1, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },
       { enemyId: 'sniper', statMultiplier: 1, firstMs: 0, repeatMs: [10000, 20000], maxCount: null },
       { enemyId: 'gory', statMultiplier: 1, firstMs: 46667, repeatMs: [13333, 30000], maxCount: null },
+      // Werewolf (user request): a guaranteed one-time elite appearance
+      // between gory's own ramp-up and kangaroo's, same single-appearance
+      // treatment as the stage's own boss below rather than a repeating
+      // filler spawn.
+      { enemyId: 'behemoth', statMultiplier: 1, firstMs: 80000, repeatMs: null, maxCount: 1 },
       { enemyId: 'kangaroo', statMultiplier: 1, firstMs: 120000, repeatMs: [30000, 50000], maxCount: null },
       { enemyId: 'titan', statMultiplier: 1, firstMs: 0, repeatMs: null, maxCount: 1, isBoss: true },
       { enemyId: 'kanban', statMultiplier: 1, firstMs: 900000, repeatMs: [900000, 900000], maxCount: null },
@@ -2443,6 +2448,8 @@ export const STAGE_CONFIG = [
       { enemyId: 'tank', statMultiplier: 1.5, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },
       { enemyId: 'sniper', statMultiplier: 1.5, firstMs: 0, repeatMs: [10000, 20000], maxCount: null },
       { enemyId: 'gory', statMultiplier: 1.5, firstMs: 46667, repeatMs: [13333, 30000], maxCount: null },
+      // Werewolf (user request) — see stage48's own comment.
+      { enemyId: 'behemoth', statMultiplier: 1.5, firstMs: 80000, repeatMs: null, maxCount: 1 },
       { enemyId: 'kangaroo', statMultiplier: 1.5, firstMs: 120000, repeatMs: [30000, 50000], maxCount: null },
       { enemyId: 'titan', statMultiplier: 1.5, firstMs: 0, repeatMs: null, maxCount: 1, isBoss: true },
       { enemyId: 'kanban', statMultiplier: 1.5, firstMs: 900000, repeatMs: [900000, 900000], maxCount: null },
@@ -3606,6 +3613,8 @@ export const STAGE_CONFIG = [
       { enemyId: 'tank', statMultiplier: 4, firstMs: 0, repeatMs: [6667, 13333], maxCount: null },
       { enemyId: 'sniper', statMultiplier: 4, firstMs: 0, repeatMs: [10000, 20000], maxCount: null },
       { enemyId: 'gory', statMultiplier: 4, firstMs: 46667, repeatMs: [13333, 30000], maxCount: null },
+      // Werewolf (user request) — see stage48's own comment.
+      { enemyId: 'behemoth', statMultiplier: 4, firstMs: 80000, repeatMs: null, maxCount: 1 },
       { enemyId: 'kangaroo', statMultiplier: 4, firstMs: 120000, repeatMs: [30000, 50000], maxCount: null },
       { enemyId: 'titan', statMultiplier: 4, firstMs: 0, repeatMs: null, maxCount: 1, isBoss: true },
       { enemyId: 'kanban', statMultiplier: 4, firstMs: 900000, repeatMs: [900000, 900000], maxCount: null },

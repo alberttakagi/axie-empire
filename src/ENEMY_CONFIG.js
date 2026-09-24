@@ -84,8 +84,13 @@ export const ENEMY_CONFIG = {
     foreswingMs: 548,
     backswingMs: 1019,
     moveSpeed: 30,
-    radius: 16,
-    range: 16,
+    // User request: visual size rebalance across the roster (Slime smaller,
+    // Gray Wolf/Dryad Mage/Dryad Ranger/Daddy Bear bigger — see each role's
+    // own comment). Slime is the baseline "smallest enemy" now — range
+    // shrunk right alongside radius to keep it a pure melee contact hit,
+    // same character as before, just a smaller body.
+    radius: 12,
+    range: 12,
     rechargeMs: 0, // unused on the enemy side, see file header
     knockbackCount: 3,
     knockbackDistance: 12,
@@ -111,7 +116,10 @@ export const ENEMY_CONFIG = {
     foreswingMs: 431,
     backswingMs: 802,
     moveSpeed: 40,
-    radius: 12,
+    // User request: bigger than Slime (see basic's own comment on this
+    // rebalance) — range left untouched, now equal to it for a snug melee
+    // fit instead of radius trailing behind its own reach.
+    radius: 16,
     range: 16,
     rechargeMs: 0,
     knockbackCount: 3,
@@ -192,7 +200,10 @@ export const ENEMY_CONFIG = {
     foreswingMs: 852,
     backswingMs: 1585,
     moveSpeed: 30,
-    radius: 16,
+    // User request: much bigger, clearly bigger than Slime/Gray Wolf — same
+    // target size as Dryad Ranger and Daddy Bear (see each role's own
+    // comment). Range left untouched at its own real reach.
+    radius: 30,
     range: 22,
     rechargeMs: 0,
     knockbackCount: 2,
@@ -255,7 +266,9 @@ export const ENEMY_CONFIG = {
     foreswingMs: 280,
     backswingMs: 520,
     moveSpeed: 51,
-    radius: 13,
+    // User request: much bigger, same target size as Dryad Mage and Daddy
+    // Bear — see aoe's own comment.
+    radius: 30,
     range: 22,
     rechargeMs: 0,
     knockbackCount: 3,
@@ -350,7 +363,9 @@ export const ENEMY_CONFIG = {
     foreswingMs: 3185,
     backswingMs: 5915,
     moveSpeed: 17,
-    radius: 32,
+    // User request: same target size as Dryad Mage/Dryad Ranger (was 32) —
+    // see aoe's own comment. Range left untouched at its own real reach.
+    radius: 30,
     range: 49,
     rechargeMs: 0,
     knockbackCount: 2,
