@@ -1004,6 +1004,16 @@ export default class GameScene extends Phaser.Scene {
     const VERTICAL_BOUNDS_PADDING = 150;
     this.cameras.main.setBounds(0, -VERTICAL_BOUNDS_PADDING, width, height + VERTICAL_BOUNDS_PADDING * 2);
 
+    // Real bug, found live (still cropping after the padding above): the
+    // old exact-fit bounds used to force-clamp scrollY to the one value
+    // that centered the lane, as a free side effect — padding the bounds
+    // removed that accidental centering without anything replacing it, so
+    // the battle's very first frame (before the player ever touches the
+    // zoom wheel below) sat wherever Phaser's default scroll happened to
+    // land, not on the lane. Every wheel-zoom afterward calls centerOnY
+    // itself and looks correct — this is the one frame that never did.
+    this.cameras.main.centerOnY(this.laneY);
+
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
       const cam = this.cameras.main;
       const newZoom = Phaser.Math.Clamp(
