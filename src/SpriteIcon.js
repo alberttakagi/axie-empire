@@ -31,37 +31,46 @@
 const CORE_POSES = ['idle', 'attack', 'hit'];
 const FRAME_FIELDS = ['run', 'idleAnim'];
 
-function frameKeys(prefix, id, evolvedTag, fieldName, frameCount) {
-  const keys = [];
-  for (let i = 0; i < frameCount; i++) keys.push(`${prefix}_${id}${evolvedTag}_${fieldName.toLowerCase()}_${i}`);
-  return keys;
-}
-
-function loadFrames(scene, prefix, id, evolvedTag, sprite) {
+// Every {key, path} pair one sprite set (a roster entry's base art, or its
+// `_evolved` variant) contributes — CORE_POSES always, FRAME_FIELDS only
+// for whichever fields that particular sprite object actually has. The one
+// place the '<prefix>_<id><evolvedTag>_<field>[_<i>]' key convention is
+// spelled out — every other function here builds on this instead of
+// re-deriving it, so they can never drift apart from one another.
+function spriteSetEntries(prefix, id, evolvedTag, sprite) {
+  const entries = CORE_POSES.map((pose) => [`${prefix}_${id}${evolvedTag}_${pose}`, sprite[pose]]);
   for (const field of FRAME_FIELDS) {
     if (!sprite[field]) continue;
-    const keys = frameKeys(prefix, id, evolvedTag, field, sprite[field].length);
-    sprite[field].forEach((path, i) => {
-      if (!scene.textures.exists(keys[i])) scene.load.image(keys[i], path);
-    });
+    sprite[field].forEach((path, i) => entries.push([`${prefix}_${id}${evolvedTag}_${field.toLowerCase()}_${i}`, path]));
   }
+  return entries;
+}
+
+// Every {key, path} pair preloadSpriteRoster(scene, roster, isPlayerSide)
+// would ever queue for this roster.
+function spriteRosterEntries(roster, isPlayerSide = true) {
+  const prefix = isPlayerSide ? 'unit' : 'enemy';
+  const entries = [];
+  for (const config of Object.values(roster)) {
+    if (!config.sprite) continue;
+    entries.push(...spriteSetEntries(prefix, config.id, '', config.sprite));
+    if (config.sprite.evolved) entries.push(...spriteSetEntries(prefix, config.id, '_evolved', config.sprite.evolved));
+  }
+  return entries;
+}
+
+// Just the KEYS spriteRosterEntries would produce, with no path lookup —
+// used by GameScene's own preload (see its own comment) to know exactly
+// which currently-cached textures a new battle's roster still needs, so
+// everything else matching the shared 'unit_'/'enemy_' prefix convention
+// (see this file's own header) is safe to evict.
+export function spriteKeysForRoster(roster, isPlayerSide = true) {
+  return spriteRosterEntries(roster, isPlayerSide).map(([key]) => key);
 }
 
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
-  const prefix = isPlayerSide ? 'unit' : 'enemy';
-  for (const config of Object.values(roster)) {
-    if (!config.sprite) continue;
-    for (const pose of CORE_POSES) {
-      const key = `${prefix}_${config.id}_${pose}`;
-      if (!scene.textures.exists(key)) scene.load.image(key, config.sprite[pose]);
-    }
-    loadFrames(scene, prefix, config.id, '', config.sprite);
-    if (!config.sprite.evolved) continue;
-    for (const pose of CORE_POSES) {
-      const key = `${prefix}_${config.id}_evolved_${pose}`;
-      if (!scene.textures.exists(key)) scene.load.image(key, config.sprite.evolved[pose]);
-    }
-    loadFrames(scene, prefix, config.id, '_evolved', config.sprite.evolved);
+  for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
+    if (!scene.textures.exists(key)) scene.load.image(key, path);
   }
 }
 

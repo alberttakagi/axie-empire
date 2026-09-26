@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
-import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
+import { preloadSpriteRoster, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
 import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -546,22 +546,52 @@ export default class GameScene extends Phaser.Scene {
   // the full enemy roster, since its escalating tiers (DOJO_CONFIG's own
   // roleUnlockTier) can introduce any role over a run with no fixed script
   // to read ahead from.
+  //
+  // Real bug, found live (still crashing after the trim above): trimming
+  // what THIS battle loads doesn't stop the texture cache from growing —
+  // it's shared and cumulative across the whole Game (see SpriteIcon.js's
+  // own header), so nothing ever evicted the PREVIOUS battle's roster
+  // first. Chaining stages via "Next Stage" (self-restarts this exact
+  // scene — see createEndScreenButtons) or a long Dojo run (which already
+  // preloads every enemy role) kept ADDING each new battle's sprite set on
+  // top of every earlier one for the rest of the session, eventually
+  // hitting the same memory ceiling this was meant to fix, just later —
+  // "still happens mid-game / on Next Stage" instead of on the very first
+  // Deploy. Every OTHER scene always fully stops (see the grep-able
+  // absence of scene.sleep/pause/launch anywhere in this codebase) before
+  // this one's preload runs again, so nothing else can still be holding a
+  // live reference to a unit_*/enemy_* texture at this point — safe to
+  // evict anything this battle doesn't need before loading what it does,
+  // keeping the cache bounded to "at most one battle's roster" for the
+  // rest of the session instead of every roster ever seen.
   preload() {
     const loadoutRoster = {};
     for (const key of loadLoadout()) {
       if (key && UNIT_CONFIG[key]) loadoutRoster[key] = UNIT_CONFIG[key];
     }
-    preloadSpriteRoster(this, loadoutRoster, true);
 
+    let enemyRoster;
     if (this.pendingMode === 'dojo') {
-      preloadSpriteRoster(this, ENEMY_CONFIG, false);
+      enemyRoster = ENEMY_CONFIG;
     } else {
-      const stageEnemyRoster = {};
+      enemyRoster = {};
       for (const entry of this.pendingStage?.spawnScript ?? []) {
-        if (ENEMY_CONFIG[entry.enemyId]) stageEnemyRoster[entry.enemyId] = ENEMY_CONFIG[entry.enemyId];
+        if (ENEMY_CONFIG[entry.enemyId]) enemyRoster[entry.enemyId] = ENEMY_CONFIG[entry.enemyId];
       }
-      preloadSpriteRoster(this, stageEnemyRoster, false);
     }
+
+    const neededKeys = new Set([
+      ...spriteKeysForRoster(loadoutRoster, true),
+      ...spriteKeysForRoster(enemyRoster, false),
+    ]);
+    for (const key of this.textures.getTextureKeys()) {
+      if ((key.startsWith('unit_') || key.startsWith('enemy_')) && !neededKeys.has(key)) {
+        this.textures.remove(key);
+      }
+    }
+
+    preloadSpriteRoster(this, loadoutRoster, true);
+    preloadSpriteRoster(this, enemyRoster, false);
     preloadBackgrounds(this);
     preloadAttackVfx(this);
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
