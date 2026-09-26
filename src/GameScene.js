@@ -510,9 +510,12 @@ export default class GameScene extends Phaser.Scene {
   // Phaser calls init(data) before preload() (create(data) gets the same
   // object again later) — preload() itself is always called with no
   // arguments, so this is the only way to know which stage (and therefore
-  // which Treasure set) is being loaded in time to queue its icons below.
+  // which Treasure set, and which units/enemies actually need loading) is
+  // being loaded in time to queue icons below.
   init(data) {
     this.pendingTreasureSet = data.mode === 'dojo' ? null : findSetForStage(data.stageId);
+    this.pendingMode = data.mode === 'dojo' ? 'dojo' : 'stage';
+    this.pendingStage = this.pendingMode === 'dojo' ? null : STAGE_CONFIG.find((s) => s.id === data.stageId);
   }
 
   // Real sprite art — Starter Axies for UNIT_CONFIG, PvE Chimeras for
@@ -522,9 +525,43 @@ export default class GameScene extends Phaser.Scene {
   // and Phaser would otherwise re-fetch (and warn about) already-cached
   // textures each time; also shared with any other scene (e.g.
   // LoadoutScene) that preloads the same roster for its own portraits.
+  //
+  // Real bug, found live: this used to unconditionally preload EVERY
+  // UNIT_CONFIG and ENEMY_CONFIG entry's full idle/run/attack/hit(+evolved)
+  // frame set on every single battle start — ~2,800 individual image
+  // requests regardless of what this specific battle could ever actually
+  // use, since a stage's spawnScript only ever references a handful of
+  // enemy roles and a Formation caps at 10 units. Harmless on a desktop
+  // browser's much larger memory budget, but on mobile Safari/WebKit
+  // (notably a link opened from X's in-app browser — see index.html's own
+  // note) that mass of decoded textures could exceed the tab's memory
+  // ceiling; WebKit's response to that is to silently kill and reload the
+  // page, which looks exactly like "screen goes dark for a few seconds,
+  // then dumps you back at the lore intro" — the very first scene main.js
+  // boots into — since nothing about that is a graceful in-app error. Only
+  // the roster this exact battle can actually spawn is loaded now: the
+  // active Formation's units (not the other unlocked-but-benched ones),
+  // and — for a real stage, whose spawnScript is fully known up front —
+  // only the enemy roles that script actually references. Dojo mode keeps
+  // the full enemy roster, since its escalating tiers (DOJO_CONFIG's own
+  // roleUnlockTier) can introduce any role over a run with no fixed script
+  // to read ahead from.
   preload() {
-    preloadSpriteRoster(this, UNIT_CONFIG, true);
-    preloadSpriteRoster(this, ENEMY_CONFIG, false);
+    const loadoutRoster = {};
+    for (const key of loadLoadout()) {
+      if (key && UNIT_CONFIG[key]) loadoutRoster[key] = UNIT_CONFIG[key];
+    }
+    preloadSpriteRoster(this, loadoutRoster, true);
+
+    if (this.pendingMode === 'dojo') {
+      preloadSpriteRoster(this, ENEMY_CONFIG, false);
+    } else {
+      const stageEnemyRoster = {};
+      for (const entry of this.pendingStage?.spawnScript ?? []) {
+        if (ENEMY_CONFIG[entry.enemyId]) stageEnemyRoster[entry.enemyId] = ENEMY_CONFIG[entry.enemyId];
+      }
+      preloadSpriteRoster(this, stageEnemyRoster, false);
+    }
     preloadBackgrounds(this);
     preloadAttackVfx(this);
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
