@@ -36,56 +36,27 @@
         max-height: 100vh;
       }
 
-      #rotate-prompt {
-        display: none;
-      }
-
       /* This is a landscape-only game (800x450) with no per-screen mobile
-         layout of its own — FIT scale mode still renders it in portrait,
-         just letterboxed down to a thin strip, unplayably small. Shown
-         only on an actual touch-primary device in portrait (hover: none +
-         pointer: coarse), not a desktop window a user has simply resized
-         narrow-and-tall, which they can just resize back. */
-      @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
-        #app {
-          display: none;
-        }
-        #rotate-prompt {
-          display: flex;
-          position: fixed;
-          inset: 0;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 16px;
-          background: #111;
-          color: #fff;
-          font-family: Rowdies, sans-serif;
-          text-align: center;
-          padding: 24px;
-          box-sizing: border-box;
-        }
-        #rotate-prompt svg {
-          width: 64px;
-          height: 64px;
-          animation: rotate-hint 1.6s ease-in-out infinite;
-        }
-        @keyframes rotate-hint {
-          0%, 100% { transform: rotate(0deg); }
-          50% { transform: rotate(-90deg); }
-        }
-      }
+         layout of its own — a real "please rotate" prompt used to block
+         portrait phones here, but that's a dead end for anyone who can't
+         actually rotate (e.g. a link opened inside X's in-app browser,
+         which the user found stays portrait-locked regardless of the
+         physical device orientation — the game was simply unreachable from
+         an X share link). A CSS pre-rotate-the-page trick was tried next,
+         but that only pays off once the player ALSO physically turns the
+         phone (it cancels the pre-rotation back out) — no help in a webview
+         that never reports landscape at all, and sideways/unreadable until
+         they do. Simplest correct fix: no gate at all. Phaser's own
+         Scale.FIT (see main.js) already letterboxes gracefully at ANY
+         aspect ratio with zero extra code — small in portrait, full-size
+         once actually landscape — so removing the block just lets that
+         existing behavior show through instead of being hidden behind a
+         prompt. Touch input is scaled/mapped correctly by Phaser regardless
+         of display size, so this is smaller, not broken. */
     </style>
   </head>
   <body>
     <div id="app"></div>
-    <div id="rotate-prompt">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="5" y="2" width="14" height="20" rx="2" />
-        <path d="M12 18h.01" />
-      </svg>
-      <div>Rotate your device to landscape to play Axie Empire.</div>
-    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
