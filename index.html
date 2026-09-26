@@ -37,22 +37,56 @@
       }
 
       /* This is a landscape-only game (800x450) with no per-screen mobile
-         layout of its own — a real "please rotate" prompt used to block
-         portrait phones here, but that's a dead end for anyone who can't
-         actually rotate (e.g. a link opened inside X's in-app browser,
-         which the user found stays portrait-locked regardless of the
-         physical device orientation — the game was simply unreachable from
-         an X share link). A CSS pre-rotate-the-page trick was tried next,
-         but that only pays off once the player ALSO physically turns the
-         phone (it cancels the pre-rotation back out) — no help in a webview
-         that never reports landscape at all, and sideways/unreadable until
-         they do. Simplest correct fix: no gate at all. Phaser's own
-         Scale.FIT (see main.js) already letterboxes gracefully at ANY
-         aspect ratio with zero extra code — small in portrait, full-size
-         once actually landscape — so removing the block just lets that
-         existing behavior show through instead of being hidden behind a
-         prompt. Touch input is scaled/mapped correctly by Phaser regardless
-         of display size, so this is smaller, not broken. */
+         layout of its own. A real "please rotate" prompt used to block
+         portrait phones outright — a dead end for anyone who can't
+         physically rotate (e.g. a link opened inside X's in-app browser,
+         which stays portrait-locked regardless of the physical device
+         orientation, so the game was simply unreachable from an X share
+         link). Dropping that gate entirely fixed the dead end, but left
+         portrait phones — the common case for a share-link tap — stuck
+         with Phaser's own Scale.FIT rendering a small, width-constrained
+         canvas (per the game's real 800x450 aspect vs. a much taller
+         phone screen), not the big view the user wants.
+         So: rotate #app itself 90° to fake landscape, filling the portrait
+         screen at full size — the player doesn't need to touch anything,
+         and once they DO physically turn the phone (a natural reaction to
+         sideways content — this is a common, recognized mobile-web-game
+         pattern), the `orientation: portrait` media query below stops
+         matching on any browser that reports rotation correctly, so this
+         rule turns itself off and the game reverts to plain, upright,
+         full-size FIT — no double-rotation, no JS needed either way.
+         Real bug, found live and worth keeping in mind if this ever needs
+         touching again: Phaser's own Scale.FIT sizing measures its parent
+         with getBoundingClientRect() (confirmed in Phaser's own
+         ScaleManager source), which — unlike clientWidth/clientHeight —
+         always reports the POST-transform box, so it sees #app's rotated
+         (portrait-shaped) rect no matter how the PRE-rotation width/height
+         are set, and fits its 800x450 canvas inside THAT — a thumbnail
+         floating in a corner, not filling the rotated frame. There's no
+         DOM-nesting trick around this (an ancestor's transform always
+         reaches every descendant's measured rect), so this doesn't rely on
+         Phaser's own measurement here: canvas width/height is forced to
+         fill #app's local (pre-rotation, already-landscape) box outright,
+         with object-fit preserving the game's real aspect ratio inside it
+         exactly like FIT would have. */
+      @media (orientation: portrait) and (hover: none) and (pointer: coarse) {
+        #app {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vh;
+          height: 100vw;
+          transform-origin: top left;
+          transform: rotate(90deg) translateY(-100%);
+        }
+        canvas {
+          width: 100% !important;
+          height: 100% !important;
+          max-width: none !important;
+          max-height: none !important;
+          object-fit: contain;
+        }
+      }
     </style>
   </head>
   <body>
