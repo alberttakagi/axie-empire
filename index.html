@@ -30,10 +30,24 @@
         align-items: center;
         width: 100vw;
         height: 100vh;
+        /* dvh/dvw (dynamic viewport units — well-supported since 2022,
+           long since safe to rely on alone) track the REAL, current
+           visual viewport, unlike plain vh/vw, which mobile browsers
+           define off the LARGEST the chrome (address bar, and here also
+           an in-app browser's own toolbar — see this file's own note on
+           X's in-app browser) ever collapses to, not its current size.
+           Sized this way, the game only fills part of the screen, with a
+           dead strip left over, whenever that chrome is actually showing
+           — which for a fresh link tap (this game's own real entry point)
+           is the common case, not an edge one. Kept as a fallback above
+           for the small minority of browsers new enough to run this game
+           well but old enough to lack dvh/dvw. */
+        height: 100dvh;
       }
       canvas {
         max-width: 100vw;
         max-height: 100vh;
+        max-height: 100dvh;
       }
 
       /* This is a landscape-only game (800x450) with no per-screen mobile
@@ -75,6 +89,12 @@
           top: 0;
           left: 0;
           width: 100vh;
+          /* See the base #app rule's own comment on dvh vs vh — the same
+             mismatch applies here (this axis becomes the rotated view's
+             on-screen HEIGHT, the one browser chrome actually resizes),
+             just expressed against height instead of width since this
+             box is pre-rotation-swapped. */
+          width: 100dvh;
           height: 100vw;
           transform-origin: top left;
           transform: rotate(90deg) translateY(-100%);
