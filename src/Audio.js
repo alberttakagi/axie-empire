@@ -168,6 +168,26 @@ function playTone({ freq, startOffset = 0, duration = 0.15, type = 'sine', peakG
   osc.connect(gain).connect(ctx.destination);
   osc.start(start);
   osc.stop(start + duration + 0.02);
+  // Real bug, found live: neither node was ever disconnected once its one
+  // shot finished — harmless on most browsers (GC reclaims an unreferenced
+  // node once nothing's holding it), but WebKit/Safari is documented to
+  // keep a connected node's whole audio-graph chain alive until it's
+  // EXPLICITLY disconnected, GC or not. playTone is the single
+  // highest-frequency sound call in the game (every UI tap, every hit —
+  // "many can overlap in a single frame," per this function's own
+  // callers), so on an iOS Safari/WKWebView session (notably a link
+  // opened from X's in-app browser — see index.html's own note) a long
+  // battle's worth of un-disconnected nodes piling up is a real,
+  // compounding memory leak with nothing to do with scene transitions or
+  // the texture cache — exactly the kind of thing that would show up as
+  // "still crashes mid-game" after those were already fixed. `ended`
+  // fires once playback genuinely finishes; disconnecting there tears the
+  // whole node down immediately instead of leaving it for a GC pass
+  // WebKit isn't reliably making.
+  osc.onended = () => {
+    osc.disconnect();
+    gain.disconnect();
+  };
 }
 
 // A generic UI "tock" for menu navigation/confirm taps (Home's primary
@@ -304,6 +324,13 @@ export function playSfxFile(url, { gain = 0.8 } = {}) {
       gainNode.gain.value = gain * volume * SFX_MASTER_GAIN;
       source.connect(gainNode).connect(ctx.destination);
       source.start();
+      // See playTone's own comment on why this matters on WebKit/Safari
+      // specifically — every per-unit attack clip and status stinger in
+      // the game goes through this same one-shot path.
+      source.onended = () => {
+        source.disconnect();
+        gainNode.disconnect();
+      };
     })
     .catch(() => {}); // missing file / decode failure — no sound, no crash
 }
