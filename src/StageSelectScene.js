@@ -759,7 +759,7 @@ export default class StageSelectScene extends Phaser.Scene {
     objects.push(overlay);
 
     const intel = this.getEnemyIntel(stage);
-    const panelWidth = 380;
+    const panelWidth = 440; // wide enough for the intel lines at a phone-readable size
     const panelHeight = (stage.restrictions ? 230 : 190) + intel.height;
     const panelY = height / 2;
     objects.push(drawBcPanel(this, width / 2, panelY, panelWidth, panelHeight));
@@ -781,7 +781,7 @@ export default class StageSelectScene extends Phaser.Scene {
       objects.push(
         this.add
           .text(width / 2, panelY - panelHeight / 2 + 70, intel.lines.join('\n'), {
-            fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', lineSpacing: 5,
+            fontFamily: FONT, fontSize: '12px', color: BC.inkHex, align: 'center', lineSpacing: 5,
             wordWrap: { width: panelWidth - 30 },
           })
           .setOrigin(0.5, 0),
@@ -792,8 +792,10 @@ export default class StageSelectScene extends Phaser.Scene {
       const lines = ['Restriction Stage:', ...this.formatRestrictionLines(stage.restrictions)];
       objects.push(
         this.add
-          .text(width / 2, panelY - 20 + intel.height / 2, lines.join('\n'), { fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', lineSpacing: 6 })
-          .setOrigin(0.5),
+          // Stacked directly under the intel block (was centered on the
+          // panel, which overlapped the enemy list on long intel).
+          .text(width / 2, panelY - panelHeight / 2 + 70 + (intel.textHeight ? intel.textHeight + 10 : 50), lines.join('\n'), { fontFamily: FONT, fontSize: '12px', color: '#a0401e', align: 'center', lineSpacing: 5 })
+          .setOrigin(0.5, 0),
       );
     }
 
@@ -826,7 +828,7 @@ export default class StageSelectScene extends Phaser.Scene {
   // them — makes the attribute system a decision instead of a hidden stat.
   getEnemyIntel(stage) {
     const ids = [...new Set((stage.spawnScript || []).map((e) => e.enemyId))].filter((id) => ENEMY_CONFIG[id]);
-    if (!ids.length) return { lines: [], height: 0 };
+    if (!ids.length) return { lines: [], height: 0, textHeight: 0 };
     const names = ids.map((id) => {
       const c = ENEMY_CONFIG[id];
       const attr = c.attribute ? ` [${ATTRIBUTE_LABEL[c.attribute] || c.attribute}]` : '';
@@ -848,8 +850,13 @@ export default class StageSelectScene extends Phaser.Scene {
       });
       lines.push(...counterLines);
     }
-    const approxLines = lines.reduce((n, l) => n + Math.ceil(l.length / 52), 0);
-    return { lines, height: Math.max(0, approxLines * 15 - 20) };
+    // Measure the real wrapped height (same style the popup renders with).
+    const probe = this.add.text(-1000, -1000, lines.join('\n'), {
+      fontFamily: FONT, fontSize: '12px', align: 'center', lineSpacing: 5, wordWrap: { width: 440 - 30 },
+    });
+    const textHeight = probe.height;
+    probe.destroy();
+    return { lines, height: Math.max(0, textHeight - 30), textHeight };
   }
 
   hideDeployPopup() {
