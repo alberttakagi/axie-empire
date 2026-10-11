@@ -4,16 +4,25 @@
 // storage key so no existing save shape changes.
 const STORAGE_KEY = 'axieSkirmishOwnedUnits';
 
+// In-memory mirror: isUnitUnlocked runs this for every collection unit on
+// every Formation rebuild (no repeated JSON.parse), and ownership/dupe
+// logic stays correct for the session even when storage writes fail
+// (Safari private mode, full quota).
+let cache = null;
+
 function load() {
+  if (cache) return cache.slice();
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
+    cache = Array.isArray(parsed) ? parsed.filter((k) => typeof k === 'string') : [];
   } catch {
-    return [];
+    cache = [];
   }
+  return cache.slice();
 }
 
 function save(list) {
+  cache = list.slice();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
   } catch {
@@ -36,4 +45,9 @@ export function addOwnedUnit(unitType) {
   list.push(unitType);
   save(list);
   return true;
+}
+
+// Test hook: drop the in-memory mirror (tests swap localStorage per case).
+export function _resetUnitCollectionCache() {
+  cache = null;
 }

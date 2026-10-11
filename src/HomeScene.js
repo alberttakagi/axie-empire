@@ -106,7 +106,12 @@ export default class HomeScene extends Phaser.Scene {
     const { current, cap } = getEnergyState();
     const { width, height } = LOGICAL_SIZE;
 
-    createResourceBadge(this, width - 24, 26, 'XP', Math.floor(playerProgress.xp), { valueColor: '#7fe0ff' });
+    this.xpBadge = createResourceBadge(this, width - 24, 26, 'XP', Math.floor(playerProgress.xp), { valueColor: '#7fe0ff' });
+    // Rebuilt (not just re-texted) so the pill resizes with the new value.
+    this.refreshXpBadge = () => {
+      this.xpBadge?.destroy();
+      this.xpBadge = createResourceBadge(this, width - 24, 26, 'XP', Math.floor(loadPlayerProgress().xp), { valueColor: '#7fe0ff' });
+    };
 
     // Secondary status row, top-left under the title — mirrors the
     // reference's own "(i) 2502 [calendar]" cluster position. Both badges
@@ -248,7 +253,9 @@ export default class HomeScene extends Phaser.Scene {
     objects.push(createBcCircleButton(this, width / 2 + panelW / 2 - 8, height / 2 - panelH / 2 - 8, 16, '✕', close, { fill: BC.gold }));
 
     const body = [];
+    let lastState = null;
     const render = () => {
+      lastState = getExpeditionStatus().state;
       body.forEach((o) => o.destroy());
       body.length = 0;
       const status = getExpeditionStatus();
@@ -272,6 +279,7 @@ export default class HomeScene extends Phaser.Scene {
           const lines = collectExpedition();
           if (!lines) return;
           playSfxFile('/audio/sfx/buff.wav', { gain: 0.6 });
+          this.refreshXpBadge?.();
           render();
           const msg = this.add.text(width / 2, cy - 66, lines.join('   '), { fontFamily: FONT, fontSize: '14px', color: '#e8a400', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5).setScale(0);
           objects.push(msg);
@@ -282,7 +290,10 @@ export default class HomeScene extends Phaser.Scene {
     };
     render();
     this.expeditionTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => {
-      if (getExpeditionStatus().state !== 'idle') render();
+      // Only the countdown needs ticking; rebuilding the Collect button
+      // every second could swallow a tap that straddled the rebuild.
+      const state = getExpeditionStatus().state;
+      if (state === 'away' || state !== lastState) render();
     } });
   }
 

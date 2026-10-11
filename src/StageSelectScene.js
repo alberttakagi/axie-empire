@@ -540,11 +540,14 @@ export default class StageSelectScene extends Phaser.Scene {
     if (this.trippRunFrameEvent) this.trippRunFrameEvent.remove();
     this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run`, '0');
     let runFrame = 0;
+    // Full run cycle from the atlas (was a 2-frame flip from the old
+    // per-frame PNG days) at the shared animation rate.
+    const runFrameCount = Math.max(1, this.textures.get(`unit_${TRIPP_UNIT_ID}_run`).getFrameNames().length);
     this.trippRunFrameEvent = this.time.addEvent({
-      delay: TRIPP_RUN_FRAME_MS,
+      delay: runFrameCount > 2 ? 1000 / 24 : TRIPP_RUN_FRAME_MS,
       loop: true,
       callback: () => {
-        runFrame = runFrame === 0 ? 1 : 0;
+        runFrame = (runFrame + 1) % runFrameCount;
         this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run`, String(runFrame));
       },
     });

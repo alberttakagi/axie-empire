@@ -9,6 +9,7 @@ import {
   addXp, getNextLevelCost, loadPlayerProgress, tryLevelUpUnit, isUnitUnlocked,
 } from '../src/PlayerProgress.js';
 import { getUserRank } from '../src/UserRank.js';
+import { _resetUnitCollectionCache } from '../src/UnitCollection.js';
 import { claimMission, getMissionsWithStatus } from '../src/Missions.js';
 
 const FORMATIONS_KEY = 'axieSkirmishFormations';
@@ -22,6 +23,7 @@ beforeEach(() => {
   };
   // Tests use only this disposable in-memory store, never browser saves.
   Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: storage });
+  _resetUnitCollectionCache();
 });
 
 function formation(name, entries = { 0: 'basic' }, seenUnits = ['basic']) {

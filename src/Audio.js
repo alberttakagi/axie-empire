@@ -445,6 +445,9 @@ export function playSfxFile(url, { gain = 0.8, group = null, maxVoices = 4, minI
   const ctx = getCtx();
   if (!ctx) return;
 
+  // Suspended context (iOS before a gesture, backgrounded tab): sources
+  // wouldn't end, so a group's voices would stay "taken" and mute it.
+  if (group && ctx.state !== 'running') return;
   const now = performance.now();
   if (minIntervalMs && now - (lastPlayedAt.get(url) ?? -Infinity) < minIntervalMs) return;
   if (group && (groupVoices.get(group) ?? 0) >= maxVoices) return;
