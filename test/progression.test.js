@@ -196,3 +196,20 @@ test('gacha collection units unlock by ownership and seat inside the ten slots',
   assert.equal(unitKeys.length, 10);
   assert.ok(unitKeys.includes('hope'));
 });
+
+test('expedition runs on real time and pays out exactly once', async () => {
+  const { startExpedition, getExpeditionStatus, collectExpedition, EXPEDITION_OPTIONS } = await import('../src/Expedition.js');
+  const t0 = 1_000_000;
+  assert.equal(getExpeditionStatus(t0).state, 'idle');
+  assert.equal(startExpedition('short', t0), true);
+  assert.equal(startExpedition('long', t0), false); // one at a time
+  assert.equal(getExpeditionStatus(t0 + 1000).state, 'away');
+  assert.equal(collectExpedition(t0 + 1000), null);
+  const done = t0 + EXPEDITION_OPTIONS[0].durationMs;
+  const xpBefore = loadPlayerProgress().xp;
+  const lines = collectExpedition(done);
+  assert.ok(lines && lines[0].includes('XP'));
+  assert.equal(loadPlayerProgress().xp, xpBefore + EXPEDITION_OPTIONS[0].xp);
+  assert.equal(collectExpedition(done), null); // no double pay
+  assert.equal(getExpeditionStatus(done).state, 'idle');
+});

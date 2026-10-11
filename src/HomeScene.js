@@ -11,6 +11,7 @@ import {
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
+import { EXPEDITION_OPTIONS, getExpeditionStatus, startExpedition, collectExpedition, formatRemaining } from './Expedition.js';
 import { BC, FONT, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawWoodFrame, drawBcPanel } from './UITheme.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
@@ -48,6 +49,8 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   create() {
+    this.expeditionObjects = null; // reused scene instance — see other scenes' popup resets
+    this.expeditionTimer = null;
     // Every scene's camera is zoomed by RENDER_SCALE so the game's
     // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
     // renders onto the real, bigger HD canvas at full pixel density.
@@ -180,13 +183,20 @@ export default class HomeScene extends Phaser.Scene {
     // to match createPrimaryButtons' own centerX — was 110/190/270, whose
     // own midpoint (190) didn't line up with the button stack above it.
     const icons = [
-      // Excavation (Gamatoto stub) hidden until it has a real system behind
-      // it — a dead hub button reads as unfinished.
-      { label: 'Menu', x: 110, glyph: '☰', action: () => this.showMenuPopup() },
-      { label: 'Missions', x: 190, glyph: '📋', action: () => this.scene.start('MissionsScene') },
+      { label: 'Menu', x: 70, glyph: '☰', action: () => this.showMenuPopup() },
+      { label: 'Expedition', x: 150, glyph: '⛏', action: () => this.showExpeditionPopup() },
+      { label: 'Missions', x: 230, glyph: '📋', action: () => this.scene.start('MissionsScene') },
       { label: 'Gacha', x: 560, glyph: '🎰', action: () => this.scene.start('GachaScene') },
       { label: 'Treasure', x: 650, glyph: '🏆', action: () => this.scene.start('TreasureScene') },
     ];
+
+    // "!" badge on Expedition when a trip is ready to collect.
+    this.expeditionBadge = this.add
+      .text(150 + 20, y - 24, '!', { fontFamily: FONT, fontSize: '14px', color: '#ffffff', backgroundColor: '#e53935', padding: { x: 5, y: 1 } })
+      .setOrigin(0.5).setDepth(10);
+    this.refreshExpeditionBadge = () => this.expeditionBadge?.setVisible(getExpeditionStatus().state === 'ready');
+    this.refreshExpeditionBadge();
+    this.time.addEvent({ delay: 5000, loop: true, callback: () => this.refreshExpeditionBadge() });
 
     icons.forEach((icon) => {
       createBcCircleButton(this, icon.x, y, 28, icon.glyph, () => icon.action());
@@ -215,6 +225,65 @@ export default class HomeScene extends Phaser.Scene {
   // popup (cream panel, gold close button, gold guide tiles), which also
   // has several buttons (Treasure List, Cat Medals, Cat Club, Help) this
   // build has no equivalent system for yet.
+  // Expedition (Expedition.js) — idle: pick a trip; away: countdown;
+  // ready: collect. Re-renders itself every second while open.
+  showExpeditionPopup() {
+    if (this.expeditionObjects) return;
+    const { width, height } = LOGICAL_SIZE;
+    const objects = [];
+    this.expeditionObjects = objects;
+    const close = () => {
+      this.expeditionTimer?.remove();
+      this.expeditionTimer = null;
+      objects.forEach((o) => o.destroy());
+      this.expeditionObjects = null;
+      this.refreshExpeditionBadge?.();
+    };
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setInteractive());
+    const panelW = 360;
+    const panelH = 230;
+    objects.push(drawBcPanel(this, width / 2, height / 2, panelW, panelH));
+    objects.push(this.add.text(width / 2, height / 2 - panelH / 2 + 24, 'Expedition', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex }).setOrigin(0.5));
+    objects.push(createBcCircleButton(this, width / 2 + panelW / 2 - 8, height / 2 - panelH / 2 - 8, 16, '✕', close, { fill: BC.gold }));
+
+    const body = [];
+    const render = () => {
+      body.forEach((o) => o.destroy());
+      body.length = 0;
+      const status = getExpeditionStatus();
+      const cy = height / 2;
+      const add = (o) => { body.push(o); return o; };
+      if (status.state === 'idle') {
+        add(this.add.text(width / 2, cy - 36, 'Send your Axies to explore Lunacia.\nLonger trips bring back better loot!', { fontFamily: FONT, fontSize: '12px', color: '#7a5c1e', align: 'center' }).setOrigin(0.5));
+        EXPEDITION_OPTIONS.forEach((opt, i) => {
+          const bx = width / 2 + (i - 1) * 112;
+          add(createBcButton(this, bx, cy + 30, 100, 64, `${opt.label}\n${opt.xp.toLocaleString()} XP`, () => {
+            if (startExpedition(opt.id)) render();
+          }, { fontSize: 12 }));
+        });
+      } else if (status.state === 'away') {
+        add(this.add.text(width / 2, cy - 30, `On a ${status.option.label} trip...`, { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0.5));
+        add(this.add.text(width / 2, cy + 10, `Back in ${formatRemaining(status.remainingMs)}`, { fontFamily: FONT, fontSize: '22px', color: '#2a7ab0' }).setOrigin(0.5));
+        add(this.add.text(width / 2, cy + 50, 'Come back later — it keeps going while you play or close the game.', { fontFamily: FONT, fontSize: '10px', color: '#7a5c1e' }).setOrigin(0.5));
+      } else {
+        add(this.add.text(width / 2, cy - 30, 'Your Axies are back!', { fontFamily: FONT, fontSize: '16px', color: BC.inkHex }).setOrigin(0.5));
+        add(createBcButton(this, width / 2, cy + 30, 160, 52, 'Collect!', () => {
+          const lines = collectExpedition();
+          if (!lines) return;
+          render();
+          const msg = this.add.text(width / 2, cy - 66, lines.join('   '), { fontFamily: FONT, fontSize: '14px', color: '#e8a400', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5).setScale(0);
+          objects.push(msg);
+          this.tweens.add({ targets: msg, scale: 1, duration: 260, ease: 'Back.out' });
+        }, { fontSize: 16 }));
+      }
+      objects.push(...body);
+    };
+    render();
+    this.expeditionTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => {
+      if (getExpeditionStatus().state !== 'idle') render();
+    } });
+  }
+
   showMenuPopup() {
     const { width, height } = LOGICAL_SIZE;
     const objects = [];
