@@ -72,24 +72,26 @@ export function addBackground(scene, backgroundId) {
   return scene.add.image(width / 2, height / 2, key).setDisplaySize(width, height);
 }
 
-// Battle backdrop per stage, at a finer grain than one-per-saga: each saga
-// is itself split into stage sub-ranges, each with its own background (a
-// deliberate choice, not derived from anything in STAGE_CONFIG.js itself).
-// Falls back to the first range's background for a saga-less/unrecognized
-// stage id (e.g. Sparring Grounds' synthetic dojo pseudo-stage, which has
-// no stage number at all).
-const STAGE_BATTLE_BACKGROUND_RANGES = [
-  { min: 1, max: 5, id: 'plant' }, // saga1 stage1-5
-  { min: 6, max: 10, id: 'beast' }, // saga1 stage6-10
-  { min: 11, max: 15, id: 'aquatic' }, // saga2 stage11-15 (local 1-5)
-  { min: 16, max: 20, id: 'dusk' }, // saga2 stage16-20 (local 6-10)
-  { min: 21, max: 23, id: 'autumn24' }, // saga3 stage21-23 (local 1-3)
-  { min: 24, max: 26, id: 'autumn25' }, // saga3 stage24-26 (local 4-6)
-  { min: 27, max: 30, id: 'summerGauntlet24' }, // saga3 stage27-30 (local 7-10)
+// Battle backdrop per stage. Real bug, found in the round-2 audit: the old
+// table only covered stage1-30 (written back when each saga had 10
+// stages), so stages 31-144 — most of the campaign — all silently fell
+// back to 'plant'. Each 48-stage saga is now split into six 8-stage
+// "chapters" with their own scenery, and every saga finale (48/96/144)
+// fights in the arena. Dojo (no stage number) falls back to the first.
+const STAGES_PER_SAGA = 48;
+const STAGES_PER_CHAPTER = 8;
+const SAGA_CHAPTER_BACKGROUNDS = [
+  ['plant', 'beast', 'autumn24', 'dusk', 'metamorph2', 'temple'], // saga1
+  ['aquatic', 'summerGauntlet24', 'autumn25', 'metamorph', 'dusk', 'mech'], // saga2
+  ['temple', 'mech', 'metamorph2', 'autumn24', 'beast', 'metamorph'], // saga3
 ];
 
 export function getStageBattleBackgroundId(stageId) {
   const num = parseInt(String(stageId).replace('stage', ''), 10);
-  const range = STAGE_BATTLE_BACKGROUND_RANGES.find((r) => num >= r.min && num <= r.max);
-  return range ? range.id : STAGE_BATTLE_BACKGROUND_RANGES[0].id;
+  if (!Number.isFinite(num) || num < 1) return SAGA_CHAPTER_BACKGROUNDS[0][0];
+  const sagaIndex = Math.min(SAGA_CHAPTER_BACKGROUNDS.length - 1, Math.floor((num - 1) / STAGES_PER_SAGA));
+  const local = (num - 1) % STAGES_PER_SAGA; // 0-47
+  if (local === STAGES_PER_SAGA - 1) return 'gauntletArena'; // saga finale
+  const chapters = SAGA_CHAPTER_BACKGROUNDS[sagaIndex];
+  return chapters[Math.min(chapters.length - 1, Math.floor(local / STAGES_PER_CHAPTER))];
 }

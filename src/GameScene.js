@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
+import { addAmbientFx } from './AmbientFx.js';
 import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -861,9 +862,10 @@ export default class GameScene extends Phaser.Scene {
     // rather than per-saga (getStageBattleBackgroundId); dojo mode's
     // synthetic stage has no real stage number, so it falls back to the
     // first range's background.
-    this.worldGameObjects.push(
-      addBackground(this, this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id)),
-    );
+    const battleBackgroundId = this.mode === 'dojo' ? undefined : getStageBattleBackgroundId(this.stage.id);
+    this.worldGameObjects.push(addBackground(this, battleBackgroundId));
+    // Ambient drifting particles matched to the backdrop (AmbientFx.js).
+    this.worldGameObjects.push(addAmbientFx(this, battleBackgroundId || 'plant'));
 
     // Origin (0, 0.5) at x=0 — edge-anchored rather than centered on baseX
     // (only 30px from the edge) — so the full sprite always renders
