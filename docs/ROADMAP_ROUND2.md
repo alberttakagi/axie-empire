@@ -33,7 +33,9 @@ Written 2026-10-11 after a full audit. The goal is to go from "a solid Battle Ca
 
 **Sprite sheets:** all 3,016 run/idle frames are packed into 99 multiatlases (109 pages, max 2048px, alpha-trimmed, 256-color) by `tools/pack_sequence_atlases.py`. That's about 87MB down to 39MB and about 3,000 requests down to about 200. Locally, a battle starts in about 1.0s with every animation loaded by about 2s (was about 14s). To add or replace frame art: render the frames into public/sprites, then re-run the packer with `--delete-frames`.
 
-Still open from the audit: a few **still** poses (idle/attack/hit) still have 3–12px of top clipping on some units and enemies (Temujin, Mit, a few chimeras). It's minor because battles mostly show the animated sequences. The fix is to re-render them with the same `STARTER_SEQ_CANVAS` approach once the pose fraction used for each still has been confirmed.
+**Unattended pass:** a code review of the whole round-2 diff found no crashes and 5 low-severity issues, all fixed (Expedition button churn, an ownership cache that survives failed storage writes, sound voices stuck while audio is suspended, Tripp's full map-run cycle, the Home XP badge refresh). 9 clipped still poses were re-rendered after automatic pose matching (`docs/qa/still_crop_fix_before_after.png`); hit poses with no confident match were left alone. Added `docs/BALANCE_REPORT.md` (suggestions only). The Deploy popup text is phone-readable and the restriction overlap is fixed. The boss card no longer stacks on the twist banner.
+
+Still open from the audit: hit poses and a few enemy stills still have 3–12px of top clipping (no confident pose match). It's minor because battles mostly show the animated sequences. The fix is to re-render them with the same `STARTER_SEQ_CANVAS` approach once the pose fraction used for each still has been confirmed.
 
 ---
 
