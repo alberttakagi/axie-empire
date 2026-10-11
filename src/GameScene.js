@@ -776,6 +776,12 @@ export default class GameScene extends Phaser.Scene {
     this.quitConfirmObjects = null;
     this.settingsPopupObjects = null;
     this.tutorialObjects = null;
+    this.continueOfferObjects = null;
+    this.restrictionMessageText = null;
+    this.isLeavingScene = false;
+    // Constant for the whole battle — cached so update() isn't re-parsing
+    // the treasure save from localStorage twice per frame via getWalletCap.
+    this.walletCapBonusPercent = getBonusPercent('walletCapPercent');
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
     // real game gates 2x/3x behind item charges and a subscription perk;
     // out of scope here, see the Battle Items note in this session's
@@ -1452,6 +1458,9 @@ export default class GameScene extends Phaser.Scene {
   // row-wrapping), and vibration (no haptics on web).
   showSettingsPopup() {
     if (this.settingsPopupObjects) return; // already showing
+    // Results screen: pausing here froze the victory reveal's timers (no
+    // Restart/Next buttons until closed) and offered Retreat over results.
+    if (this.isGameOver) return;
     this.setPaused(true);
 
     const { width, height } = LOGICAL_SIZE;
@@ -1943,7 +1952,7 @@ export default class GameScene extends Phaser.Scene {
   getWalletCap() {
     const base = this.stage.startingMoney + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.walletCapPerLevel;
     // Treasure's walletCapPercent, on top of Worker Cat's own per-level cap.
-    return Math.round(base * (1 + getBonusPercent('walletCapPercent') / 100));
+    return Math.round(base * (1 + (this.walletCapBonusPercent ?? getBonusPercent('walletCapPercent')) / 100));
   }
 
   // Unit cost scales per stage/chapter, never per unit level (bible §A.3.7,
@@ -2057,9 +2066,10 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5);
     this.cameras.main.ignore(this.restrictionMessageText); // UI (see setupZoomControls)
 
+    const msg = this.restrictionMessageText;
     this.time.delayedCall(1500, () => {
-      if (this.restrictionMessageText) {
-        this.restrictionMessageText.destroy();
+      if (this.restrictionMessageText === msg) {
+        msg.destroy();
         this.restrictionMessageText = null;
       }
     });
@@ -2536,8 +2546,10 @@ export default class GameScene extends Phaser.Scene {
       this.unitCooldowns[key] = Math.max(0, this.unitCooldowns[key] - deltaMs);
     }
 
-    this.money = Math.min(this.getWalletCap(), this.money + (this.getMoneyAccrualPerSec() * deltaMs) / 1000);
-    this.walletText.setText(`${Math.round(this.money).toLocaleString()}/${Math.round(this.getWalletCap()).toLocaleString()}円`);
+    const walletCap = this.getWalletCap();
+    this.money = Math.min(walletCap, this.money + (this.getMoneyAccrualPerSec() * deltaMs) / 1000);
+    const walletLabel = `${Math.round(this.money).toLocaleString()}/${walletCap.toLocaleString()}円`;
+    if (this.walletText.text !== walletLabel) this.walletText.setText(walletLabel);
     this.updateSpawnButtons();
     this.updateWorkerCatButton();
     this.enemyBaseCurseMs = Math.max(0, this.enemyBaseCurseMs - deltaMs);
@@ -4145,18 +4157,22 @@ export default class GameScene extends Phaser.Scene {
           // charges the same Energy a fresh map/Next-Stage entry would —
           // Restart was the one entry point that let a player replay a
           // stage for free, inconsistent with every other way in.
+          if (this.isLeavingScene) return; // double-tap guard: don't charge Energy twice
           if (this.mode !== 'dojo' && !trySpendEnergy(this.stage.energyCost)) {
             this.showRestrictionMessage('Not enough Energy to retry!');
             return;
           }
+          this.isLeavingScene = true;
           this.scene.restart();
         };
       } else if (label === 'Next Stage') {
         onClick = () => {
+          if (this.isLeavingScene) return;
           if (!trySpendEnergy(nextStage.energyCost)) {
             this.showRestrictionMessage('Not enough Energy for the next stage!');
             return;
           }
+          this.isLeavingScene = true;
           this.scene.start('GameScene', { stageId: nextStage.id });
         };
       } else {

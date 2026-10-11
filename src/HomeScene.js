@@ -180,9 +180,10 @@ export default class HomeScene extends Phaser.Scene {
     // to match createPrimaryButtons' own centerX — was 110/190/270, whose
     // own midpoint (190) didn't line up with the button stack above it.
     const icons = [
-      { label: 'Menu', x: 70, glyph: '☰', action: () => this.showMenuPopup() },
-      { label: 'Excavation', x: 150, glyph: '⛏', action: () => this.showComingSoon('Excavation') },
-      { label: 'Missions', x: 230, glyph: '📋', action: () => this.scene.start('MissionsScene') },
+      // Excavation (Gamatoto stub) hidden until it has a real system behind
+      // it — a dead hub button reads as unfinished.
+      { label: 'Menu', x: 110, glyph: '☰', action: () => this.showMenuPopup() },
+      { label: 'Missions', x: 190, glyph: '📋', action: () => this.scene.start('MissionsScene') },
       { label: 'Gacha', x: 560, glyph: '🎰', action: () => this.scene.start('GachaScene') },
       { label: 'Treasure', x: 650, glyph: '🏆', action: () => this.scene.start('TreasureScene') },
     ];
@@ -321,7 +322,10 @@ export default class HomeScene extends Phaser.Scene {
   }
 
   showComingSoon(label) {
-    this.messageText.setText(`${label}: coming soon!`);
-    this.time.delayedCall(1500, () => this.messageText.setText(''));
+    const msg = `${label}: coming soon!`;
+    this.messageText.setText(msg);
+    this.time.delayedCall(1500, () => {
+      if (this.messageText.text === msg) this.messageText.setText('');
+    });
   }
 }

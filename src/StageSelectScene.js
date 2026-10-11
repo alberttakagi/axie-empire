@@ -153,6 +153,7 @@ export default class StageSelectScene extends Phaser.Scene {
     // (e.g. tapped Back) while the deploy-confirm popup was still open,
     // showDeployPopup's own "if (this.deployPopupObjects) return" guard
     // would otherwise silently no-op forever on every later visit.
+    this.insufficientEnergyText = null;
     this.deployPopupObjects = null;
 
     const { width, height } = LOGICAL_SIZE;
@@ -389,7 +390,12 @@ export default class StageSelectScene extends Phaser.Scene {
 
       if (isUnlocked) {
         const hit = this.add.circle(x, y, radius + 10, 0x000000, 0.001).setInteractive({ useHandCursor: true });
-        hit.on('pointerdown', () => {
+        // pointerup + small-movement check: firing on pointerdown meant any
+        // swipe that started on a node opened the Deploy popup instead of
+        // scrolling the map (most of the map is node hit-area on a phone).
+        hit.on('pointerup', (p) => {
+          if (Math.abs(p.upX - p.downX) > 10 || Math.abs(p.upY - p.downY) > 10) return;
+          if (this.deployPopupObjects || this.isLeavingScene) return;
           playUiTapSfx();
           this.onStageSelected(stage);
         });
@@ -592,6 +598,7 @@ export default class StageSelectScene extends Phaser.Scene {
     this.centerOnCurrentStage();
 
     this.input.on('wheel', (pointer, gameObjects, deltaX, deltaY) => {
+      if (this.deployPopupObjects || this.isLeavingScene) return;
       this.mapContainer.x = clamp(this.mapContainer.x - (deltaX || deltaY));
       this.mapScrollVelocity = 0; // a wheel nudge shouldn't also keep coasting afterward
     });
@@ -604,6 +611,7 @@ export default class StageSelectScene extends Phaser.Scene {
     let dragStartX = 0;
     let containerStartX = 0;
     this.input.on('pointerdown', (pointer) => {
+      if (this.deployPopupObjects || this.isLeavingScene) return;
       const world = this.cameras.main.getWorldPoint(pointer.x, pointer.y);
       if (world.y < MAP_VIEWPORT_TOP || world.y > MAP_VIEWPORT_BOTTOM) return;
       this.isDraggingMap = true;

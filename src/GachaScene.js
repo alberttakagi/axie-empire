@@ -155,6 +155,7 @@ export default class GachaScene extends Phaser.Scene {
   }
 
   create() {
+    this.confirmPopupObjects = null;
     // Every scene's camera is zoomed by RENDER_SCALE so the game's
     // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
     // renders onto the real, bigger HD canvas at full pixel density.

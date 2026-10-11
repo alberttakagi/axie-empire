@@ -170,7 +170,9 @@ export default class MissionsScene extends Phaser.Scene {
     const x = LOGICAL_SIZE.width - 90;
 
     if (mission.isClaimed) {
-      return createBcButton(this, x, y, 120, 40, 'Claimed', () => {}, { fill: 0x8a8a8a, textColor: '#e0e0e0' });
+      const claimedBtn = createBcButton(this, x, y, 120, 40, 'Claimed', () => {}, { fill: 0x8a8a8a, textColor: '#e0e0e0' });
+      claimedBtn.bcHit?.disableInteractive();
+      return claimedBtn;
     }
 
     return createBcButton(this, x, y, 120, 40, `Claim\n${mission.rewardGems} Gems`, () => {

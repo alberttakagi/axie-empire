@@ -21,7 +21,11 @@ import { applyDevUnlock } from './DevMode.js';
 // then strips the param via replaceState so an ordinary reload/bookmark of
 // the resulting plain URL doesn't keep re-stomping later real progress.
 if (new URLSearchParams(window.location.search).has('devunlock')) {
-  applyDevUnlock();
+  try {
+    applyDevUnlock();
+  } catch (e) {
+    console.warn('devunlock failed', e);
+  }
   const url = new URL(window.location.href);
   url.searchParams.delete('devunlock');
   window.history.replaceState(null, '', url);
@@ -107,12 +111,15 @@ Phaser.Input.InputManager.prototype.transformPointer = function (pointer, pageX,
   }
 };
 
-new Phaser.Game({
+const game = new Phaser.Game({
   type: Phaser.AUTO,
   parent: 'app',
   width: CANVAS_WIDTH,
   height: CANVAS_HEIGHT,
   backgroundColor: '#111111',
+  // Without a threshold any 1px finger wobble starts a drag, which
+  // swallowed Formation's tap-to-remove on touch screens.
+  input: { dragDistanceThreshold: 8 },
   scale: {
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -138,3 +145,6 @@ new Phaser.Game({
     MissionsScene,
   ],
 });
+
+// Dev-server only: handle for browser-driven debugging/verification.
+if (import.meta.env.DEV) window.__game = game;

@@ -28,6 +28,16 @@ const AXIE_IMAGES_URL = 'https://axiecdn.axieinfinity.com/mixer-stuffs/v6/';
 
 initAxieMixer(GenesData, SamplesData, VariantsData, AnimationsData);
 
+// img.decode() never settles in some embedded/background browser panes
+// (seen live in the Claude desktop browser) — onload is reliable everywhere.
+function loadImg(img) {
+  return new Promise((resolve, reject) => {
+    if (img.complete && img.naturalWidth) return resolve();
+    img.onload = () => resolve();
+    img.onerror = reject;
+  });
+}
+
 const app = new Application({
   view: document.getElementById('pixi-canvas'),
   width: 512,
@@ -416,7 +426,7 @@ window.renderStarter = async function renderStarter(axieId, animationName = 'act
 async function stripOpaqueBackdrop(dataUrl, { threshold = 24, alphaMin = 100, minBlobSize = 3000 } = {}) {
   const img = new Image();
   img.src = dataUrl;
-  await img.decode();
+  await loadImg(img);
 
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
@@ -509,7 +519,7 @@ window.stripOpaqueBackdrop = stripOpaqueBackdrop;
 async function computeAlphaBounds(dataUrl) {
   const img = new Image();
   img.src = dataUrl;
-  await img.decode();
+  await loadImg(img);
 
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
@@ -545,7 +555,7 @@ async function cropDataUrlToBounds(dataUrl, bounds, margin = 6) {
 
   const img = new Image();
   img.src = dataUrl;
-  await img.decode();
+  await loadImg(img);
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
   canvas.height = img.height;
@@ -790,7 +800,7 @@ window.renderChimeraFixedExtract = async function renderChimeraFixedExtract(chim
 async function isCorruptedRender(dataUrl) {
   const img = new Image();
   img.src = dataUrl;
-  await img.decode();
+  await loadImg(img);
   const canvas = document.createElement('canvas');
   canvas.width = img.width;
   canvas.height = img.height;
@@ -889,10 +899,24 @@ async function saveFrameSequence(baseFilename, croppedFrames) {
   return results;
 }
 
+// Real bug, found live: at the old fixed 512x512 canvas with the spine
+// anchored at y=340, tall poses (Xia's axe at the top of its hop,
+// Temujin's horns, Tripp-evolved's mohawk) rose ABOVE the canvas's own top
+// edge and were cut off at render time — baked into the PNG as a hard flat
+// edge that read in battle as an "invisible crop line" units clipped
+// against whenever they hopped. A taller canvas with the anchor pushed
+// down gives every starter clip ~2x the old headroom; the final output is
+// still cropped to the union of real alpha bounds, so the extra blank
+// space never ships.
+const STARTER_SEQ_CANVAS = { width: 640, height: 720, x: 320, y: 520 };
+
 async function renderStarterFrameRaw(skeletonData, animationName, poseFraction) {
   app.stage.removeChildren();
+  if (app.renderer.width !== STARTER_SEQ_CANVAS.width || app.renderer.height !== STARTER_SEQ_CANVAS.height) {
+    app.renderer.resize(STARTER_SEQ_CANVAS.width, STARTER_SEQ_CANVAS.height);
+  }
   const spine = new Spine(skeletonData);
-  spine.position.set(256, 340);
+  spine.position.set(STARTER_SEQ_CANVAS.x, STARTER_SEQ_CANVAS.y);
   spine.scale.set(0.4, 0.4); // same as renderStarter's own base-look scale
   const anim = skeletonData.animations.find((a) => a.name === animationName);
   const poseDelta = anim ? Math.max(0.016, anim.duration * poseFraction) : 0.016;
@@ -929,11 +953,19 @@ window.renderStarterSequenceAndSave = async function renderStarterSequenceAndSav
     rawFrames.push(await renderStarterFrameRaw(skeletonData, animationName, t));
   }
 
+  app.renderer.resize(RAW_CANVAS_SIZE, RAW_CANVAS_SIZE); // restore for the single-still renderers sharing `app`
+
   const bounds = unionBounds(await Promise.all(rawFrames.map((f) => computeAlphaBounds(f))));
+  const clipped =
+    bounds.minX <= CLIP_EDGE_THRESHOLD ||
+    bounds.minY <= CLIP_EDGE_THRESHOLD ||
+    bounds.maxX >= STARTER_SEQ_CANVAS.width - CLIP_EDGE_THRESHOLD ||
+    bounds.maxY >= STARTER_SEQ_CANVAS.height - CLIP_EDGE_THRESHOLD;
+  if (clipped) console.warn(`renderStarterSequenceAndSave: ${baseFilename} still touches the canvas edge`, bounds);
   const cropped = await Promise.all(rawFrames.map((f) => cropDataUrlToBounds(f, bounds, 6)));
   const results = await saveFrameSequence(baseFilename, cropped);
   document.getElementById('status').textContent = `done: sequence ${baseFilename}`;
-  return { frameCount: cropped.length, durationMs: durationSec * 1000, results };
+  return { frameCount: cropped.length, durationMs: durationSec * 1000, bounds, clipped, results };
 };
 
 // Evolved variants (see UNIT_CONFIG.js's `sprite.evolved`) turn out NOT to
@@ -1093,3 +1125,4 @@ window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSav
 };
 
 document.getElementById('status').textContent = 'ready — call window.renderAxie(className, partValue, animationName)';
+window.__dbg = { loadStarterSkeletonData, renderStarterFrameRaw, computeAlphaBounds, cropDataUrlToBounds, app };

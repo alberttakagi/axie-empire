@@ -298,9 +298,15 @@ function loadBuffer(ctx, url) {
     bufferCache.set(
       url,
       fetch(url)
-        .then((res) => res.arrayBuffer())
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.arrayBuffer();
+        })
         .then((data) => ctx.decodeAudioData(data)),
     );
+    // Don't cache a failure forever — one mobile network blip used to
+    // silence that sound for the rest of the session.
+    bufferCache.get(url).catch(() => bufferCache.delete(url));
   }
   return bufferCache.get(url);
 }
@@ -389,17 +395,24 @@ export function preloadMusic(url) {
   loadBuffer(ctx, url).catch(() => {});
 }
 
+let musicToken = 0;
+
 export function playMusic(url) {
   if (musicUrl === url && musicSource) return; // already the active track
   musicUrl = url;
   stopMusicNodes();
+  // Token, not just a url compare: two pending loads of the SAME url (e.g.
+  // stop + replay before the first decode finished) both passed the url
+  // check and each started a looping source — the orphan could never be
+  // stopped and played over every later scene.
+  const token = ++musicToken;
 
   const ctx = getCtx();
   if (!ctx) return;
 
   loadBuffer(ctx, url)
     .then((buffer) => {
-      if (musicUrl !== url) return; // superseded by a later playMusic/stopMusic while this was loading
+      if (token !== musicToken || musicUrl !== url) return; // superseded by a later playMusic/stopMusic while this was loading
       const source = ctx.createBufferSource();
       source.buffer = buffer;
       source.loop = true;
@@ -415,5 +428,6 @@ export function playMusic(url) {
 
 export function stopMusic() {
   musicUrl = null;
+  musicToken++;
   stopMusicNodes();
 }
