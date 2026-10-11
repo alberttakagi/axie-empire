@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
-import { preloadSpriteRoster, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
+import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
 import { addAmbientFx } from './AmbientFx.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
@@ -600,8 +600,13 @@ export default class GameScene extends Phaser.Scene {
       }
     }
 
-    preloadSpriteRoster(this, loadoutRoster, true);
-    preloadSpriteRoster(this, enemyRoster, false);
+    // Stills only — the run/idle frame sequences (most of the bytes) stream
+    // in after create() (see startFrameStreaming); until a sequence lands,
+    // entities just hold their still pose. Battles start much sooner on
+    // mobile.
+    preloadSpriteRosterStills(this, loadoutRoster, true);
+    preloadSpriteRosterStills(this, enemyRoster, false);
+    this.pendingFrameRosters = { loadoutRoster, enemyRoster };
     preloadBackgrounds(this);
     preloadAttackVfx(this);
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
@@ -991,6 +996,7 @@ export default class GameScene extends Phaser.Scene {
     // bulk diff instead of an ignore() call at every UI helper.
     this.setupZoomControls();
     this.showStageModifierBanner();
+    this.startFrameStreaming();
 
     // 戦闘開始！！ transition, other half (guide Chapter 10's transition
     // table): this scene loads fully black — see StageSelectScene's
@@ -2384,6 +2390,14 @@ export default class GameScene extends Phaser.Scene {
     });
   }
 
+  startFrameStreaming() {
+    const rosters = this.pendingFrameRosters;
+    if (!rosters) return;
+    this.pendingFrameRosters = null;
+    loadSpriteRosterFramesInBackground(this, rosters.loadoutRoster, true);
+    loadSpriteRosterFramesInBackground(this, rosters.enemyRoster, false);
+  }
+
   // Fog of War gimmick: a soft wall of mist over the enemy half of the
   // lane (world space, so it pans with the camera), above units but below
   // damage numbers. Enemies emerge as they push toward your base.
@@ -3221,7 +3235,10 @@ export default class GameScene extends Phaser.Scene {
     if (pose === 'run') {
       entity.runFrame = 0;
       entity.runCycleMs = 0;
-      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_0`, '__BASE');
+      const runKey = `${prefix}_${entity.config.id}${evolvedTag}_run_0`;
+      // Frames still streaming (startFrameStreaming): hold the idle still.
+      const key = this.textures.exists(runKey) ? runKey : `${prefix}_${entity.config.id}${evolvedTag}_idle`;
+      entity.spriteImage.setTexture(key, '__BASE');
     } else {
       // Explicit '__BASE' — see createEntityVisual's own comment. Pose
       // cycles back to 'idle' constantly during combat (between attacks,
@@ -3268,7 +3285,8 @@ export default class GameScene extends Phaser.Scene {
     if (frame !== entity.runFrame) {
       entity.runFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
-      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`, '__BASE');
+      const key = `${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`;
+      if (this.textures.exists(key)) entity.spriteImage.setTexture(key, '__BASE');
     }
   }
 
@@ -3294,7 +3312,8 @@ export default class GameScene extends Phaser.Scene {
     if (frame !== entity.idleFrame) {
       entity.idleFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
-      entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_idleanim_${frame}`, '__BASE');
+      const key = `${prefix}_${entity.config.id}${evolvedTag}_idleanim_${frame}`;
+      if (this.textures.exists(key)) entity.spriteImage.setTexture(key, '__BASE');
     }
   }
 
