@@ -37,21 +37,38 @@ const FRAME_FIELDS = ['run', 'idleAnim'];
 // place the '<prefix>_<id><evolvedTag>_<field>[_<i>]' key convention is
 // spelled out — every other function here builds on this instead of
 // re-deriving it, so they can never drift apart from one another.
+//
+// Frame sequences (run/idleAnim) ship as one multiatlas per sequence
+// (tools/pack_sequence_atlases.py → public/sprites/atlas/), keyed
+// '<prefix>_<id><evolvedTag>_<run|idleanim>' with frames named "0".."n".
+// ~3,000 individual PNG requests became ~200, and trimmed packing cut the
+// bytes by more than half. Entries are [key, url, kind] with kind
+// 'image' | 'atlas'.
+const ATLAS_DIR = '/sprites/atlas/';
+
+export function sequenceAtlasKey(prefix, id, evolvedTag, field) {
+  return `${prefix}_${id}${evolvedTag}_${field.toLowerCase()}`;
+}
+
 function spriteSetEntries(prefix, id, evolvedTag, sprite) {
-  const entries = CORE_POSES.map((pose) => [`${prefix}_${id}${evolvedTag}_${pose}`, sprite[pose]]);
+  const entries = CORE_POSES.map((pose) => [`${prefix}_${id}${evolvedTag}_${pose}`, sprite[pose], 'image']);
   for (const field of FRAME_FIELDS) {
-    if (!sprite[field]) continue;
-    sprite[field].forEach((path, i) => entries.push([`${prefix}_${id}${evolvedTag}_${field.toLowerCase()}_${i}`, path]));
+    if (!sprite[field]?.length) continue;
+    const key = sequenceAtlasKey(prefix, id, evolvedTag, field);
+    // URL from the art's own path, not the id: several ENEMY_CONFIG roles
+    // reuse another role's sprite files (e.g. a variant pointing at
+    // enemy_basic_*), so their atlas is named after that source.
+    const atlasName = sprite[field][0].split('/').pop().replace(/_0\.png$/, '');
+    entries.push([key, `${ATLAS_DIR}${atlasName}.json`, 'atlas']);
   }
   return entries;
 }
 
-// Texture keys for one frame-sequence field (run/idleAnim), same naming
-// convention as spriteSetEntries. Real bug: this helper was dropped in
-// fc5bde6 while addUnitIcon still called it, so every idleAnimated icon
-// (Character Formation, Unit Guide) threw a ReferenceError.
-function frameKeys(prefix, id, evolvedTag, field, count) {
-  return Array.from({ length: count }, (_, i) => `${prefix}_${id}${evolvedTag}_${field.toLowerCase()}_${i}`);
+function queueEntry(scene, [key, url, kind]) {
+  if (scene.textures.exists(key)) return false;
+  if (kind === 'atlas') scene.load.multiatlas(key, url, ATLAS_DIR);
+  else scene.load.image(key, url);
+  return true;
 }
 
 // Every {key, path} pair preloadSpriteRoster(scene, roster, isPlayerSide)
@@ -81,8 +98,8 @@ export function spriteKeysForRoster(roster, isPlayerSide = true) {
 // are ~2,000 images; loading them all in preload() made Formation/Guide
 // take seconds to open on mobile.
 export function preloadSpriteRosterStills(scene, roster, isPlayerSide = true) {
-  for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
-    if (/_(idle|attack|hit)$/.test(key) && !scene.textures.exists(key)) scene.load.image(key, path);
+  for (const entry of spriteRosterEntries(roster, isPlayerSide)) {
+    if (entry[2] === 'image') queueEntry(scene, entry);
   }
 }
 
@@ -92,11 +109,8 @@ export function preloadSpriteRosterStills(scene, roster, isPlayerSide = true) {
 // back to the still idle pose (see addUnitIcon).
 export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide = true, onComplete = () => {}) {
   let queued = 0;
-  for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
-    if (!scene.textures.exists(key)) {
-      scene.load.image(key, path);
-      queued += 1;
-    }
+  for (const entry of spriteRosterEntries(roster, isPlayerSide)) {
+    if (queueEntry(scene, entry)) queued += 1;
   }
   if (!queued) {
     onComplete();
@@ -109,9 +123,7 @@ export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide =
 }
 
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
-  for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
-    if (!scene.textures.exists(key)) scene.load.image(key, path);
-  }
+  for (const entry of spriteRosterEntries(roster, isPlayerSide)) queueEntry(scene, entry);
 }
 
 // idleAnimated's cycle (see addUnitIcon) steps the icon's texture through
@@ -196,15 +208,17 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   const evolvedTag = useEvolved && config.sprite.evolved ? '_evolved' : '';
   const spriteSet = useEvolved && config.sprite.evolved ? config.sprite.evolved : config.sprite;
-  let frames = idleAnimated && spriteSet.idleAnim ? frameKeys(prefix, config.id, evolvedTag, 'idleAnim', spriteSet.idleAnim.length) : null;
-  // Frames may still be streaming in (loadSpriteRosterFramesInBackground) —
-  // fall back to the still pose until every frame is cached.
-  if (frames && !frames.every((key) => scene.textures.exists(key))) frames = null;
+  const atlasKey = sequenceAtlasKey(prefix, config.id, evolvedTag, 'idleAnim');
+  // Atlas may still be streaming in (loadSpriteRosterFramesInBackground) —
+  // fall back to the still pose until it's cached.
+  const frames = idleAnimated && spriteSet.idleAnim && scene.textures.exists(atlasKey)
+    ? scene.textures.get(atlasKey).getFrameNames().sort((a, b) => a - b)
+    : null;
   const idleKey = `${prefix}_${config.id}${evolvedTag}_idle`;
 
   let icon;
   if (frames) {
-    icon = scene.add.image(x, y, frames[0]);
+    icon = scene.add.image(x, y, atlasKey, frames[0]);
   } else if (faceZoom) {
     icon = scene.add.image(x, y, idleKey, ensureFaceFrame(scene, idleKey));
   } else {
@@ -234,14 +248,14 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
     // lockstep" staggering the old 2-frame version got from randomizing
     // across its one single (bigger) per-frame delay.
     let frame = Math.floor(Math.random() * frames.length);
-    icon.setTexture(frames[frame], '__BASE');
+    icon.setTexture(atlasKey, frames[frame]);
     const timer = scene.time.addEvent({
       delay: ANIMATION_FRAME_DELAY_MS,
       startAt: Math.random() * ANIMATION_FRAME_DELAY_MS,
       loop: true,
       callback: () => {
         frame = (frame + 1) % frames.length;
-        icon.setTexture(frames[frame], '__BASE');
+        icon.setTexture(atlasKey, frames[frame]);
       },
     });
     // LoadoutScene/CatalogScene rebuild their cards repeatedly (tapping a

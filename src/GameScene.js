@@ -3235,10 +3235,10 @@ export default class GameScene extends Phaser.Scene {
     if (pose === 'run') {
       entity.runFrame = 0;
       entity.runCycleMs = 0;
-      const runKey = `${prefix}_${entity.config.id}${evolvedTag}_run_0`;
-      // Frames still streaming (startFrameStreaming): hold the idle still.
-      const key = this.textures.exists(runKey) ? runKey : `${prefix}_${entity.config.id}${evolvedTag}_idle`;
-      entity.spriteImage.setTexture(key, '__BASE');
+      const runAtlas = `${prefix}_${entity.config.id}${evolvedTag}_run`;
+      // Atlas still streaming (startFrameStreaming): hold the idle still.
+      if (this.textures.exists(runAtlas)) entity.spriteImage.setTexture(runAtlas, '0');
+      else entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_idle`, '__BASE');
     } else {
       // Explicit '__BASE' — see createEntityVisual's own comment. Pose
       // cycles back to 'idle' constantly during combat (between attacks,
@@ -3285,8 +3285,8 @@ export default class GameScene extends Phaser.Scene {
     if (frame !== entity.runFrame) {
       entity.runFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
-      const key = `${prefix}_${entity.config.id}${evolvedTag}_run_${frame}`;
-      if (this.textures.exists(key)) entity.spriteImage.setTexture(key, '__BASE');
+      const atlas = `${prefix}_${entity.config.id}${evolvedTag}_run`;
+      if (this.textures.exists(atlas)) entity.spriteImage.setTexture(atlas, String(frame));
     }
   }
 
@@ -3312,8 +3312,8 @@ export default class GameScene extends Phaser.Scene {
     if (frame !== entity.idleFrame) {
       entity.idleFrame = frame;
       const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
-      const key = `${prefix}_${entity.config.id}${evolvedTag}_idleanim_${frame}`;
-      if (this.textures.exists(key)) entity.spriteImage.setTexture(key, '__BASE');
+      const atlas = `${prefix}_${entity.config.id}${evolvedTag}_idleanim`;
+      if (this.textures.exists(atlas)) entity.spriteImage.setTexture(atlas, String(frame));
     }
   }
 

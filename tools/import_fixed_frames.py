@@ -1,4 +1,7 @@
-"""Import re-rendered (un-clipped) frame sequences from tools/sprite-gen/output/fix_*
+"""NOTE: frame sequences now ship as atlases (tools/pack_sequence_atlases.py);
+run this against unpacked frames, then re-run the packer.
+
+Import re-rendered (un-clipped) frame sequences from tools/sprite-gen/output/fix_*
 into public/sprites, matching the shipped frames' pixel scale and the
 character's position relative to the frame center (sprites use origin 0.5),
 so in-game size/foot placement are unchanged — only the clipped tops return."""

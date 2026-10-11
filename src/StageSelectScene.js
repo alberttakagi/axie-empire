@@ -538,14 +538,14 @@ export default class StageSelectScene extends Phaser.Scene {
     this.tripp.setFlipX(targetX > this.tripp.x);
 
     if (this.trippRunFrameEvent) this.trippRunFrameEvent.remove();
-    this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run_0`, '__BASE');
+    this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run`, '0');
     let runFrame = 0;
     this.trippRunFrameEvent = this.time.addEvent({
       delay: TRIPP_RUN_FRAME_MS,
       loop: true,
       callback: () => {
         runFrame = runFrame === 0 ? 1 : 0;
-        this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run_${runFrame}`, '__BASE');
+        this.tripp.setTexture(`unit_${TRIPP_UNIT_ID}_run`, String(runFrame));
       },
     });
 
