@@ -190,6 +190,76 @@ function playTone({ freq, startOffset = 0, duration = 0.15, type = 'sine', peakG
   };
 }
 
+// Shared white-noise buffer for impact layers (explosions, thuds, debris).
+let noiseBuffer = null;
+function getNoiseBuffer(ctx) {
+  if (!noiseBuffer) {
+    noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+    const data = noiseBuffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  }
+  return noiseBuffer;
+}
+
+function sfxGainScale() {
+  if (isMuted()) return 0;
+  return VOLUME_LEVELS[getSfxVolumeLevel()] * SFX_MASTER_GAIN;
+}
+
+// Filtered noise burst — the "body" of an explosion/impact that pure
+// oscillators can't produce. `filterFrom`→`filterTo` sweeps a lowpass so a
+// blast starts bright and rolls off into rumble.
+function playNoise({ startOffset = 0, duration = 0.3, peakGain = 0.2, filterFrom = 4000, filterTo = 200, q = 0.7 }) {
+  const scale = sfxGainScale();
+  if (scale <= 0) return;
+  const ctx = getCtx();
+  if (!ctx) return;
+  const start = ctx.currentTime + startOffset;
+  const src = ctx.createBufferSource();
+  src.buffer = getNoiseBuffer(ctx);
+  const filter = ctx.createBiquadFilter();
+  filter.type = 'lowpass';
+  filter.Q.value = q;
+  filter.frequency.setValueAtTime(filterFrom, start);
+  filter.frequency.exponentialRampToValueAtTime(Math.max(40, filterTo), start + duration);
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.linearRampToValueAtTime(peakGain * scale, start + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start(start);
+  src.stop(start + duration + 0.02);
+  src.onended = () => {
+    src.disconnect();
+    filter.disconnect();
+    gain.disconnect();
+  };
+}
+
+// Oscillator with a pitch glide — sub-bass "drops" and charge-up whines.
+function playSweep({ from, to, startOffset = 0, duration = 0.4, type = 'sine', peakGain = 0.2, attack = 0.01 }) {
+  const scale = sfxGainScale();
+  if (scale <= 0) return;
+  const ctx = getCtx();
+  if (!ctx) return;
+  const start = ctx.currentTime + startOffset;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(from, start);
+  osc.frequency.exponentialRampToValueAtTime(Math.max(20, to), start + duration);
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.linearRampToValueAtTime(peakGain * scale, start + attack);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
+  osc.connect(gain).connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + duration + 0.02);
+  osc.onended = () => {
+    osc.disconnect();
+    gain.disconnect();
+  };
+}
+
 // A generic UI "tock" for menu navigation/confirm taps (Home's primary
 // buttons, a Mission claim, a Gacha roll) — distinct from Deploy's own sfx
 // below so an in-battle spawn still reads as its own, busier sound.
@@ -227,26 +297,59 @@ export function playMapArrivalSfx() {
   playTone({ freq: 1050, startOffset: 0.05, duration: 0.09, type: 'sine', peakGain: 0.12 });
 }
 
+// ±6% pitch jitter so a wall of identical hits doesn't fatigue the ear.
+const jitter = () => 0.94 + Math.random() * 0.12;
+
 export function playHitSfx() {
-  playTone({ freq: 220, duration: 0.06, type: 'square', peakGain: 0.09 });
+  const j = jitter();
+  playTone({ freq: 220 * j, duration: 0.06, type: 'square', peakGain: 0.07 });
+  playNoise({ duration: 0.06, peakGain: 0.08, filterFrom: 2500 * j, filterTo: 400 });
 }
 
 // Brighter/higher two-tone version for a Critical Hit landing, so a crit
 // reads as distinct from a normal hit by ear as well as by the bigger
 // floating number (see CombatFeedback.js).
 export function playCritSfx() {
+  playNoise({ duration: 0.12, peakGain: 0.14, filterFrom: 6000, filterTo: 600 });
   playTone({ freq: 660, duration: 0.05, type: 'square', peakGain: 0.13 });
   playTone({ freq: 990, startOffset: 0.04, duration: 0.07, type: 'square', peakGain: 0.1 });
 }
 
+// Layered cannon blast: a short rising "charge" zip, then a bright noise
+// crack rolling off into rumble, a falling sub-bass drop for weight, and a
+// scatter of small debris ticks afterward.
 export function playCannonSfx() {
-  // A quick two-tone descending "whump" rather than a single flat tone.
-  playTone({ freq: 180, duration: 0.35, type: 'sawtooth', peakGain: 0.22 });
-  playTone({ freq: 90, startOffset: 0.05, duration: 0.3, type: 'sawtooth', peakGain: 0.18 });
+  playSweep({ from: 300, to: 1400, duration: 0.12, type: 'sawtooth', peakGain: 0.06, attack: 0.1 });
+  playNoise({ startOffset: 0.1, duration: 0.9, peakGain: 0.32, filterFrom: 7000, filterTo: 120 });
+  playSweep({ from: 140, to: 32, startOffset: 0.1, duration: 0.8, type: 'sine', peakGain: 0.42 });
+  playTone({ freq: 90, startOffset: 0.1, duration: 0.25, type: 'sawtooth', peakGain: 0.12 });
+  for (let i = 0; i < 5; i++) {
+    playNoise({ startOffset: 0.35 + i * 0.07 + Math.random() * 0.04, duration: 0.05, peakGain: 0.05, filterFrom: 3500, filterTo: 1500, q: 4 });
+  }
 }
 
 export function playBossShockwaveSfx() {
-  playTone({ freq: 70, duration: 0.6, type: 'sawtooth', peakGain: 0.25 });
+  playSweep({ from: 90, to: 28, duration: 1.2, type: 'sawtooth', peakGain: 0.22 });
+  playNoise({ duration: 1.1, peakGain: 0.25, filterFrom: 900, filterTo: 60 });
+  playTone({ freq: 55, startOffset: 0.05, duration: 0.9, type: 'sine', peakGain: 0.3 });
+}
+
+// Bright two-note "ka-ching" for kill payouts. Throttled: a swarm dying
+// at once would otherwise stack into noise.
+let lastCoinAt = 0;
+export function playCoinSfx() {
+  const now = performance.now();
+  if (now - lastCoinAt < 90) return;
+  lastCoinAt = now;
+  const j = jitter();
+  playTone({ freq: 1320 * j, duration: 0.06, type: 'triangle', peakGain: 0.07 });
+  playTone({ freq: 1980 * j, startOffset: 0.05, duration: 0.12, type: 'triangle', peakGain: 0.06 });
+}
+
+// Soft "poof" for a unit/enemy defeat (pairs with GameScene.playDeathPop).
+export function playDefeatPoofSfx() {
+  playNoise({ duration: 0.22, peakGain: 0.07, filterFrom: 1800, filterTo: 200 });
+  playSweep({ from: 500, to: 180, duration: 0.18, type: 'triangle', peakGain: 0.05 });
 }
 
 // Gacha reveal sequence (GachaScene) — a rising 4-note arpeggio for the

@@ -40,6 +40,8 @@ import { describeUnit } from './UnitDescription.js';
 import { hasCompletedTutorial, markTutorialCompleted } from './Tutorial.js';
 import {
   playCannonSfx,
+  playCoinSfx,
+  playDefeatPoofSfx,
   playBossShockwaveSfx,
   playHitSfx,
   playCritSfx,
@@ -4028,6 +4030,7 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     target.disableInteractive?.();
+    playDefeatPoofSfx();
     const away = entity.isPlayerSide ? -1 : 1;
     const sx = target.scaleX;
     const sy = target.scaleY;
@@ -4058,6 +4061,7 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0.5).setDepth(1001).setScale(0.4);
     this.uiCamera.ignore(label);
     this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.out' });
+    playCoinSfx();
     this.tweens.add({ targets: label, y: label.y - 40, alpha: 0, delay: 350, duration: 500, ease: 'Cubic.in', onComplete: () => label.destroy() });
   }
 
