@@ -193,6 +193,11 @@ const SPRITE_SIZE_SLOPE = 1.45; // px of extra diameter per point of radius abov
 // pop with no gameplay reason for it.
 const MAX_POSE_SCALE_GROWTH = 1.3;
 
+// Hit-stop (see update) — short enough to never feel like lag, long enough
+// to register. Kills are lighter than crits since swarms die constantly.
+const HIT_STOP_CRIT_MS = 70;
+const HIT_STOP_KILL_MS = 35;
+
 // Run/idle-pose animation (see updateRunCycle/updateIdleCycle) — real bug,
 // found live: an earlier pass fit however many frames a sequence had into
 // a FIXED total cycle length (e.g. always 320ms for run, however many
@@ -779,6 +784,7 @@ export default class GameScene extends Phaser.Scene {
     this.continueOfferObjects = null;
     this.restrictionMessageText = null;
     this.isLeavingScene = false;
+    this.hitStopMs = 0;
     // Constant for the whole battle — cached so update() isn't re-parsing
     // the treasure save from localStorage twice per frame via getWalletCap.
     this.walletCapBonusPercent = getBonusPercent('walletCapPercent');
@@ -2530,6 +2536,14 @@ export default class GameScene extends Phaser.Scene {
   update(time, deltaMs) {
     if (this.isGameOver || this.isPaused) return;
 
+    // Hit-stop: a few real milliseconds where the simulation holds still on
+    // a crit/kill so the impact reads (classic fighting-game "weight").
+    // Rendering and tweens keep running; only combat time freezes.
+    if (this.hitStopMs > 0) {
+      this.hitStopMs -= deltaMs;
+      return;
+    }
+
     // Speed Up (see toggleSpeedUp) scales every per-frame calculation below
     // by reassigning the parameter itself — everything downstream
     // (updatePlayerUnits(deltaMs), updateEnemies(deltaMs), updateSpawns's
@@ -3314,6 +3328,9 @@ export default class GameScene extends Phaser.Scene {
       showDamageNumber(this, entity.shape.x, entity.shape.y, appliedToHp, { isCrit });
       if (isCrit) playCritSfx();
       else playHitSfx();
+      if (isCrit || entity.hp <= 0) {
+        this.hitStopMs = Math.max(this.hitStopMs || 0, isCrit ? HIT_STOP_CRIT_MS : HIT_STOP_KILL_MS);
+      }
       if (attacker.isPlayerSide) addLifetimeStat('damageDealt', appliedToHp);
     }
   }
