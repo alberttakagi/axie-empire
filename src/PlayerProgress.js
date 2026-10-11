@@ -24,6 +24,7 @@
 // on Gacha pulls (Gacha.js/GachaScene.js) — separate from XP (the
 // unit/base-upgrade currency) and from in-battle money.
 
+import { isUnitOwned } from './UnitCollection.js';
 import { PROGRESSION_CONFIG, STORY_GATE_LEVEL_CAP_BONUS, STORY_GATE_STAGE_ID } from './PROGRESSION_CONFIG.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
@@ -83,6 +84,8 @@ export function getUnitProgress(progress, unitType) {
 export function isUnitUnlocked(unitType) {
   const requirement = UNIT_CONFIG[unitType]?.unlockRequirement;
   if (requirement === null || requirement === undefined) return true;
+
+  if (requirement.gacha) return isUnitOwned(unitType);
 
   if (requirement.unitEvolved) {
     const config = PROGRESSION_CONFIG[requirement.unitEvolved];

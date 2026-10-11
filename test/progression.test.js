@@ -170,3 +170,29 @@ test('mission rewards cannot be claimed before eligibility or paid twice', () =>
   assert.equal(claimMission(stageMission.id), null);
   assert.equal(loadPlayerProgress().gems, stageMission.rewardGems);
 });
+
+test('gacha collection units unlock by ownership and seat inside the ten slots', async () => {
+  const { addOwnedUnit } = await import('../src/UnitCollection.js');
+  assert.equal(isUnitUnlocked('ena'), false);
+  assert.equal(addOwnedUnit('ena'), true);
+  assert.equal(addOwnedUnit('ena'), false); // duplicate
+  assert.equal(isUnitUnlocked('ena'), true);
+
+  // Fresh save: owned collection unit lands in a free slot, never past index 9.
+  const fresh = loadLoadout();
+  assert.equal(fresh.length, 10);
+  assert.ok(fresh.includes('ena'));
+
+  // Existing save that hasn't seen it yet: auto-seated on next load.
+  seedFormations({ activeSlot: 0, slots: [formation('A'), formation('B'), formation('C')], pinned: [] });
+  addOwnedUnit('hope');
+  const seated = loadLoadout();
+  assert.equal(seated.length, 10);
+  assert.ok(seated.includes('hope'));
+
+  // Toggling it off then on keeps the array at ten entries.
+  toggleUnitInActiveFormation('hope');
+  const { unitKeys } = toggleUnitInActiveFormation('hope');
+  assert.equal(unitKeys.length, 10);
+  assert.ok(unitKeys.includes('hope'));
+});

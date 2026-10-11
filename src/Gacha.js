@@ -15,6 +15,23 @@
 
 import { addXp, addEvoShards, addGrowthCharms, trySpendGems } from './PlayerProgress.js';
 import { addEnergy } from './Energy.js';
+import { UNIT_CONFIG } from './UNIT_CONFIG.js';
+import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
+import { addOwnedUnit } from './UnitCollection.js';
+
+// Round 2: the capsule now also drops real units — the gacha-only roster
+// (UNIT_CONFIG entries with unlockRequirement { gacha: true }), grouped by
+// PROGRESSION_CONFIG rarity. A duplicate converts to XP, Battle Cats-style.
+const UNIT_TIERS = {
+  'Rare': { revealRarity: 'epic', dupeXp: 3000 },
+  'Super Rare': { revealRarity: 'legendary', dupeXp: 8000 },
+  'Uber Rare': { revealRarity: 'legendary', dupeXp: 20000 },
+};
+function gachaUnitsOfRarity(rarity) {
+  return Object.keys(UNIT_CONFIG).filter(
+    (k) => UNIT_CONFIG[k].unlockRequirement?.gacha && PROGRESSION_CONFIG[k]?.rarity === rarity,
+  );
+}
 
 export const GACHA_SINGLE_ROLL_COST = 50;
 export const GACHA_MULTI_ROLL_COUNT = 11;
@@ -31,16 +48,19 @@ export const XP_REWARD_MAX = 10000;
 // reveal flourish (text/color/sound/particles) — ordered the same as the
 // weights (rarer reward = louder reveal), not a separate balance concept.
 const REWARD_POOL = [
-  { weight: 35, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
-  { weight: 25, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' },
+  { weight: 9, type: 'unit', unitRarity: 'Rare', rarity: 'epic' },
+  { weight: 2.5, type: 'unit', unitRarity: 'Super Rare', rarity: 'legendary' },
+  { weight: 0.5, type: 'unit', unitRarity: 'Uber Rare', rarity: 'legendary' },
+  { weight: 29, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
+  { weight: 21, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' },
   // Energy (bible's real "Leadership" item is a full refill — see
   // Energy.js's addEnergy comment for why this grants a smaller partial
   // bump instead): user request, roughly one mid-tier stage's worth of
   // Energy (see STAGE_CONFIG.js's own energyCost range) so a pull is
   // worth taking without trivializing the resource.
   { weight: 10, type: 'energy', amount: 30, label: '30 Energy', rarity: 'rare' },
-  { weight: 15, type: 'evoShard', amount: 1, label: '1 Evo Shard', rarity: 'epic' },
-  { weight: 10, type: 'growthCharm', amount: 1, label: '1 Growth Charm', rarity: 'epic' },
+  { weight: 14, type: 'evoShard', amount: 1, label: '1 Evo Shard', rarity: 'epic' },
+  { weight: 9, type: 'growthCharm', amount: 1, label: '1 Growth Charm', rarity: 'epic' },
   {
     weight: 5,
     type: 'jackpot',
@@ -83,7 +103,26 @@ function grantOne(type, amount) {
   }
 }
 
+// Turns a pool 'unit' entry into a concrete pull: picks one unit of that
+// rarity, records ownership, or pays dupe XP. Returns the reward object
+// GachaScene renders ({ type:'unit', unitId, isNew, dupeXp, rarity }).
+function resolveUnitReward(entry) {
+  const candidates = gachaUnitsOfRarity(entry.unitRarity);
+  if (!candidates.length) return { weight: 0, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' };
+  const unitId = candidates[Math.floor(Math.random() * candidates.length)];
+  const isNew = addOwnedUnit(unitId);
+  const tier = UNIT_TIERS[entry.unitRarity];
+  if (!isNew) addXp(tier.dupeXp);
+  return {
+    type: 'unit', unitId, unitRarity: entry.unitRarity, isNew,
+    dupeXp: isNew ? 0 : tier.dupeXp,
+    rarity: tier.revealRarity,
+    label: UNIT_CONFIG[unitId].characterName,
+  };
+}
+
 function applyReward(reward) {
+  if (reward.type === 'unit') return; // already applied in resolveUnitReward
   if (reward.type === 'jackpot') {
     reward.bundle.forEach(({ type, amount }) => grantOne(type, amount));
   } else {
@@ -101,7 +140,13 @@ function performRolls(count, cost) {
 
   const rewards = [];
   for (let i = 0; i < count; i += 1) {
-    const reward = rollReward();
+    let reward = rollReward();
+    // 11x pull guarantee: the last pull is at least a Rare unit if none
+    // dropped yet — a multi-roll should always feel like it got you someone.
+    if (count > 1 && i === count - 1 && !rewards.some((r) => r.type === 'unit') && reward.type !== 'unit') {
+      reward = REWARD_POOL.find((e) => e.type === 'unit');
+    }
+    if (reward.type === 'unit') reward = resolveUnitReward(reward);
     applyReward(reward);
     rewards.push(reward);
   }

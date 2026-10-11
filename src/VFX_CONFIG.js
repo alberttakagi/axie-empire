@@ -195,6 +195,15 @@ export const UNIT_ATTACK_VFX = {
   guardian: 'reptile_gore', // Xia
   support: 'plant_cast', // Mit
   titan: 'dawn_smash', // Temujin
+  ena: 'aquatic_bite', // Ena
+  venoki: 'reptile_gore', // Venoki
+  pomodoro: 'plant_gore', // Pomodoro
+  bing: 'beast_slash', // Bing
+  rouge: 'bird_smash', // Rouge
+  machito: 'bug_bite', // Machito
+  bard: 'plant_cast', // Bard
+  hope: 'dawn_smash', // Hope
+  shufen: 'aquatic_smash', // Shufen
 };
 
 // Enemies: unchanged from the original ranged-attack-only pass — only the

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { loadPlayerProgress } from './PlayerProgress.js';
+import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import {
   GACHA_SINGLE_ROLL_COST,
   GACHA_MULTI_ROLL_COUNT,
@@ -152,6 +153,12 @@ export default class GachaScene extends Phaser.Scene {
     this.load.image('gacha_evo_shard', 'gacha/evo_shard.png');
     this.load.image('gacha_growth_charm', 'gacha/growth_charm.png');
     this.load.image('gacha_energy', 'gacha/energy_refill.png');
+    // Portraits for the gacha-only units (unit drops show their own art).
+    for (const [key, unit] of Object.entries(UNIT_CONFIG)) {
+      if (unit.unlockRequirement?.gacha && !this.textures.exists(`gacha_unit_${key}`)) {
+        this.load.image(`gacha_unit_${key}`, unit.sprite.idle);
+      }
+    }
   }
 
   create() {
@@ -206,7 +213,7 @@ export default class GachaScene extends Phaser.Scene {
     // GRID_AREA_H can't silently drift out of sync with each other.
     drawBcPanel(this, width / 2, RESULTS_PANEL_Y, width - 64, RESULTS_PANEL_H);
     this.messageText = this.add
-      .text(width / 2, RESULTS_PANEL_Y, 'Tap a roll button to begin!', {
+      .text(width / 2, RESULTS_PANEL_Y, 'Pull for 9 new Axies! 11x guarantees a unit.', {
         fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
       })
       .setOrigin(0.5);
@@ -425,6 +432,31 @@ export default class GachaScene extends Phaser.Scene {
   renderRewardContent(reward, w, h) {
     const iconSize = Phaser.Math.Clamp(Math.min(w, h) * 0.5, 18, 64);
     const objects = [];
+
+    if (reward.type === 'unit') {
+      const unit = UNIT_CONFIG[reward.unitId];
+      const fs = (k) => `${Math.round(Math.min(w, h) * k)}px`;
+      const portrait = this.add.image(0, -h * 0.08, `gacha_unit_${reward.unitId}`);
+      const scale = (Math.min(w, h) * 0.62) / Math.max(portrait.width, portrait.height);
+      portrait.setScale(scale).setFlipX(true);
+      objects.push(portrait);
+      objects.push(
+        this.add
+          .text(0, -h / 2 + Math.min(12, h * 0.12), reward.isNew ? 'NEW!' : reward.unitRarity, {
+            fontFamily: FONT, fontSize: fs(0.13), color: reward.isNew ? '#ff4d6d' : '#7a5c1e', stroke: '#ffffff', strokeThickness: 3,
+          })
+          .setOrigin(0.5),
+      );
+      objects.push(
+        this.add
+          .text(0, h / 2 - Math.min(16, h * 0.2), reward.isNew ? unit.characterName : `${unit.characterName}\n+${reward.dupeXp.toLocaleString()} XP`, {
+            fontFamily: FONT, fontSize: fs(reward.isNew ? 0.16 : 0.11), color: BC.inkHex, align: 'center',
+          })
+          .setOrigin(0.5),
+      );
+      if (reward.isNew) this.tweens.add({ targets: portrait, scale: scale * 1.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      return objects;
+    }
 
     if (reward.type === 'jackpot') {
       objects.push(

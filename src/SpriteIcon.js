@@ -46,6 +46,14 @@ function spriteSetEntries(prefix, id, evolvedTag, sprite) {
   return entries;
 }
 
+// Texture keys for one frame-sequence field (run/idleAnim), same naming
+// convention as spriteSetEntries. Real bug: this helper was dropped in
+// fc5bde6 while addUnitIcon still called it, so every idleAnimated icon
+// (Character Formation, Unit Guide) threw a ReferenceError.
+function frameKeys(prefix, id, evolvedTag, field, count) {
+  return Array.from({ length: count }, (_, i) => `${prefix}_${id}${evolvedTag}_${field.toLowerCase()}_${i}`);
+}
+
 // Every {key, path} pair preloadSpriteRoster(scene, roster, isPlayerSide)
 // would ever queue for this roster.
 function spriteRosterEntries(roster, isPlayerSide = true) {

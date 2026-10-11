@@ -139,6 +139,7 @@ export default class CatalogScene extends Phaser.Scene {
   // (enemies have no unlock concept at all).
   describeLockedUnit(type) {
     const requirement = UNIT_CONFIG[type]?.unlockRequirement;
+    if (requirement?.gacha) return 'Pull this Axie from the Gacha to unlock!';
     if (requirement?.unitEvolved) {
       const otherName = UNIT_CONFIG[requirement.unitEvolved]?.characterName ?? requirement.unitEvolved;
       return `Evolve ${otherName} to True Form to unlock!`;

@@ -48,6 +48,15 @@ const PLAYER_UNIT_SFX_CATEGORY = {
   support: 'other',
   titan: 'melee',
   guardian: 'melee', // Xia — real user feedback: wanted OFF its old unique reptile_gore clip
+  ena: 'ranged',
+  venoki: 'melee',
+  pomodoro: 'melee',
+  bing: 'melee',
+  rouge: 'melee',
+  machito: 'melee',
+  bard: 'other',
+  hope: 'melee',
+  shufen: 'ranged',
 };
 
 // Enemies only ever have 3 possible vfxIds (see ROLE_ATTACK_VFX), and all 3

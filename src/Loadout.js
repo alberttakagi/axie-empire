@@ -46,12 +46,28 @@ function rosterSlot(key) {
   return ROSTER_KEYS.indexOf(key);
 }
 
+// A unit's home slot if it has one (roster index < MAX_LOADOUT_SIZE) and
+// it's free, else the first free slot, else -1. Units past the first 10
+// roster entries (the gacha collection) have no home slot — without this
+// guard `arr[home]` read undefined (== null) and wrote past the array end.
+function seatIndex(arr, key) {
+  const home = rosterSlot(key);
+  if (home >= 0 && home < MAX_LOADOUT_SIZE && arr[home] == null) return home;
+  return arr.findIndex((slotKey) => slotKey == null);
+}
+
 // A brand-new Formation: every currently-unlocked unit seated at its own
 // fixed roster slot, locked ones left as empty (null) slots.
 function defaultSlotArray() {
   const arr = new Array(MAX_LOADOUT_SIZE).fill(null);
   ROSTER_KEYS.forEach((key, index) => {
     if (index < MAX_LOADOUT_SIZE && isUnitUnlocked(key)) arr[index] = key;
+  });
+  // Unlocked collection units (no home slot) fill whatever is still free.
+  ROSTER_KEYS.slice(MAX_LOADOUT_SIZE).forEach((key) => {
+    if (!isUnitUnlocked(key)) return;
+    const free = arr.indexOf(null);
+    if (free !== -1) arr[free] = key;
   });
   return arr;
 }
@@ -82,8 +98,7 @@ function migrateLegacySlot() {
 
     const arr = new Array(MAX_LOADOUT_SIZE).fill(null);
     validKeys.forEach((key) => {
-      const home = rosterSlot(key);
-      const target = home !== -1 && arr[home] == null ? home : arr.findIndex((slotKey) => slotKey == null);
+      const target = seatIndex(arr, key);
       if (target !== -1) arr[target] = key;
     });
     return arr;
@@ -182,8 +197,7 @@ function sanitizeSlot(slot) {
       seenUnits.add(key);
       return;
     }
-    const home = rosterSlot(key);
-    const target = arr[home] == null ? home : arr.findIndex((slotKey) => slotKey == null);
+    const target = seatIndex(arr, key);
     if (target === -1) return; // Formation already full (all 10 roster units unlocked+included) — nothing to do
     arr[target] = key;
     seenUnits.add(key);
@@ -249,8 +263,7 @@ export function toggleUnitInActiveFormation(type) {
       arr[currentIndex] = null;
     }
   } else {
-    const home = rosterSlot(type);
-    const target = home !== -1 && arr[home] == null ? home : arr.findIndex((key) => key == null);
+    const target = seatIndex(arr, type);
     if (target === -1) {
       result = 'full';
     } else {
@@ -326,8 +339,7 @@ export function autoEquipActiveSlot() {
   const chosen = [...pinnedKeys, ...rest].slice(0, MAX_LOADOUT_SIZE);
   const arr = new Array(MAX_LOADOUT_SIZE).fill(null);
   chosen.forEach((key) => {
-    const home = rosterSlot(key);
-    const target = home !== -1 && arr[home] == null ? home : arr.findIndex((slotKey) => slotKey == null);
+    const target = seatIndex(arr, key);
     if (target !== -1) arr[target] = key;
   });
 

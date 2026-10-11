@@ -20,7 +20,7 @@ import { getActiveCombos } from './Combo.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
-import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
+import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // The bible's §A.10.3 Pre-Battle Loadout ("Equip") Screen — a standalone
@@ -33,6 +33,7 @@ const CARD_HEIGHT = 100;
 const CARD_GAP = 12;
 const CARDS_PER_ROW = 5;
 const ROW_GAP = 118;
+const CARDS_PER_PAGE = 10; // 2 rows — the roster grew past 10 with the gacha collection
 
 export default class LoadoutScene extends Phaser.Scene {
   constructor() {
@@ -112,6 +113,9 @@ export default class LoadoutScene extends Phaser.Scene {
     this.totalCostText = this.add
       .text(width / 2, 418, '', { fontFamily: FONT, fontSize: '12px', color: '#7fe0ff', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);
+
+    this.rosterPage = 0;
+    this.createRosterPager();
 
     this.createTooltip();
     this.renderSlotTabs();
@@ -228,6 +232,32 @@ export default class LoadoutScene extends Phaser.Scene {
     this.totalCostText.setText(`Formation total cost: ${totalCost.toLocaleString()}円`);
   }
 
+  // Side arrows paging the roster grid (page 1: the original lineages,
+  // page 2: the gacha collection).
+  createRosterPager() {
+    const { width } = LOGICAL_SIZE;
+    const y = 220;
+    const go = (delta) => {
+      const totalPages = Math.max(1, Math.ceil(Object.keys(UNIT_CONFIG).length / CARDS_PER_PAGE));
+      const next = Phaser.Math.Clamp(this.rosterPage + delta, 0, totalPages - 1);
+      if (next === this.rosterPage) return;
+      this.rosterPage = next;
+      this.renderCards();
+    };
+    this.pagerPrev = createBcCircleButton(this, 22, y, 16, '◀', () => go(-1), { fontSize: 12 });
+    this.pagerNext = createBcCircleButton(this, width - 22, y, 16, '▶', () => go(1), { fontSize: 12 });
+    this.pagerLabel = this.add
+      .text(width / 2, 106, '', { fontFamily: FONT, fontSize: '11px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
+      .setOrigin(0.5);
+  }
+
+  refreshRosterPager(totalPages) {
+    if (!this.pagerLabel) return;
+    this.pagerPrev.setVisible(this.rosterPage > 0);
+    this.pagerNext.setVisible(this.rosterPage < totalPages - 1);
+    this.pagerLabel.setText(totalPages > 1 ? (this.rosterPage === 0 ? `Lineages  (page 1/${totalPages})  ▶ Collection` : `◀ Lineages  ·  Gacha Collection (page ${this.rosterPage + 1}/${totalPages})`) : '');
+  }
+
   renderCards() {
     this.cardContainer.removeAll(true);
     this.hideTooltip(); // a rebuild destroys whatever card the pointer was over
@@ -236,7 +266,11 @@ export default class LoadoutScene extends Phaser.Scene {
     // in one row, so it wraps into rows of CARDS_PER_ROW — this is just a
     // browse/select grid (unlike GameScene's in-battle deploy bar, it
     // doesn't need to fit in one un-scrolled strip).
-    const keys = Object.keys(UNIT_CONFIG);
+    const allKeys = Object.keys(UNIT_CONFIG);
+    const totalPages = Math.max(1, Math.ceil(allKeys.length / CARDS_PER_PAGE));
+    this.rosterPage = Math.min(this.rosterPage || 0, totalPages - 1);
+    const keys = allKeys.slice(this.rosterPage * CARDS_PER_PAGE, (this.rosterPage + 1) * CARDS_PER_PAGE);
+    this.refreshRosterPager?.(totalPages);
     const rowWidth = Math.min(keys.length, CARDS_PER_ROW) * CARD_WIDTH + (Math.min(keys.length, CARDS_PER_ROW) - 1) * CARD_GAP;
     const startX = (LOGICAL_SIZE.width - rowWidth) / 2 + CARD_WIDTH / 2;
     const startY = 162;
@@ -458,6 +492,7 @@ export default class LoadoutScene extends Phaser.Scene {
   // alone left the player with no idea how far off it was.
   describeLockedUnit(type) {
     const requirement = UNIT_CONFIG[type]?.unlockRequirement;
+    if (requirement?.gacha) return 'Pull this Axie from the Gacha to unlock!';
     if (requirement?.unitEvolved) {
       const otherName = UNIT_CONFIG[requirement.unitEvolved]?.characterName ?? requirement.unitEvolved;
       return `Evolve ${otherName} to True Form to unlock!`;

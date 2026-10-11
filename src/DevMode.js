@@ -53,6 +53,12 @@ export function applyDevUnlock() {
     units[key] = { level: DEV_UNIT_LEVEL, extraCap: DEV_EXTRA_CAP, evolutionStage: maxEvolutionStage };
   }
 
+  // Own every gacha-only unit too (see UnitCollection.js).
+  localStorage.setItem(
+    'axieSkirmishOwnedUnits',
+    JSON.stringify(Object.keys(UNIT_CONFIG).filter((k) => UNIT_CONFIG[k].unlockRequirement?.gacha)),
+  );
+
   // Every account-wide Base Upgrade (cannon, base HP, research, accounting,
   // study, stamina cap, ...) maxed at its own real maxLevel too — reads
   // BASE_UPGRADE_CONFIG.js itself rather than hardcoding its key list, so

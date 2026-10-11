@@ -1125,4 +1125,21 @@ window.renderChimeraSequenceAndSave = async function renderChimeraSequenceAndSav
 };
 
 document.getElementById('status').textContent = 'ready — call window.renderAxie(className, partValue, animationName)';
+// Single still pose on the tall headroom canvas (see STARTER_SEQ_CANVAS),
+// cropped to its own alpha bounds — the clip-safe counterpart of
+// renderStarterAndSave for new roster art.
+window.renderStarterStillAndSave = async function renderStarterStillAndSave(filename, axieId, animationName, poseFraction) {
+  const skeletonData = await loadStarterSkeletonData(axieId);
+  const raw = await renderStarterFrameRaw(skeletonData, animationName, poseFraction);
+  app.renderer.resize(RAW_CANVAS_SIZE, RAW_CANVAS_SIZE);
+  const bounds = await computeAlphaBounds(raw);
+  const cropped = await cropDataUrlToBounds(raw, bounds, 6);
+  const res = await fetch('/api/save-sprite', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filename, dataUrl: cropped }),
+  });
+  return res.json();
+};
+
 window.__dbg = { loadStarterSkeletonData, renderStarterFrameRaw, computeAlphaBounds, cropDataUrlToBounds, app };
