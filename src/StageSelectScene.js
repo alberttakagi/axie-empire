@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
+import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
+import { loadLoadout } from './Loadout.js';
+import { ATTRIBUTE_LABEL } from './UnitDescription.js';
 import { loadStageProgress } from './StageProgress.js';
 import { getEnergyState, trySpendEnergy } from './Energy.js';
 import { getStageTier } from './Treasure.js';
@@ -747,8 +750,9 @@ export default class StageSelectScene extends Phaser.Scene {
     const overlay = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.55).setInteractive();
     objects.push(overlay);
 
-    const panelWidth = 340;
-    const panelHeight = stage.restrictions ? 230 : 190;
+    const intel = this.getEnemyIntel(stage);
+    const panelWidth = 380;
+    const panelHeight = (stage.restrictions ? 230 : 190) + intel.height;
     const panelY = height / 2;
     objects.push(drawBcPanel(this, width / 2, panelY, panelWidth, panelHeight));
 
@@ -765,11 +769,22 @@ export default class StageSelectScene extends Phaser.Scene {
         .setOrigin(0.5),
     );
 
+    if (intel.lines.length) {
+      objects.push(
+        this.add
+          .text(width / 2, panelY - panelHeight / 2 + 70, intel.lines.join('\n'), {
+            fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', lineSpacing: 5,
+            wordWrap: { width: panelWidth - 30 },
+          })
+          .setOrigin(0.5, 0),
+      );
+    }
+
     if (stage.restrictions) {
       const lines = ['Restriction Stage:', ...this.formatRestrictionLines(stage.restrictions)];
       objects.push(
         this.add
-          .text(width / 2, panelY - 20, lines.join('\n'), { fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', lineSpacing: 6 })
+          .text(width / 2, panelY - 20 + intel.height / 2, lines.join('\n'), { fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', lineSpacing: 6 })
           .setOrigin(0.5),
       );
     }
@@ -788,6 +803,34 @@ export default class StageSelectScene extends Phaser.Scene {
     );
 
     this.deployPopupObjects = objects;
+  }
+
+  // Pre-battle scouting: which enemies appear, their attribute (Red/
+  // Floating/Zombie...), and which units in the current Formation counter
+  // them — makes the attribute system a decision instead of a hidden stat.
+  getEnemyIntel(stage) {
+    const ids = [...new Set((stage.spawnScript || []).map((e) => e.enemyId))].filter((id) => ENEMY_CONFIG[id]);
+    if (!ids.length) return { lines: [], height: 0 };
+    const names = ids.map((id) => {
+      const c = ENEMY_CONFIG[id];
+      const attr = c.attribute ? ` [${ATTRIBUTE_LABEL[c.attribute] || c.attribute}]` : '';
+      return `${c.characterName || id}${attr}`;
+    });
+    const lines = [`Enemies: ${[...new Set(names)].join(', ')}`];
+    const attrs = [...new Set(ids.map((id) => ENEMY_CONFIG[id].attribute).filter(Boolean))];
+    if (attrs.length) {
+      const formation = loadLoadout().filter((k) => k && UNIT_CONFIG[k]);
+      const counterLines = attrs.map((attr) => {
+        const counters = Object.values(UNIT_CONFIG)
+          .filter((u) => u.strongVs === attr || u.massiveVs === attr || u.resistantVs === attr)
+          .map((u) => (formation.includes(u.id) ? `${u.characterName}✓` : u.characterName));
+        const label = ATTRIBUTE_LABEL[attr] || attr;
+        return counters.length ? `${label} counters: ${counters.join(', ')}` : `${label}: no counter yet`;
+      });
+      lines.push(...counterLines);
+    }
+    const approxLines = lines.reduce((n, l) => n + Math.ceil(l.length / 52), 0);
+    return { lines, height: Math.max(0, approxLines * 15 - 20) };
   }
 
   hideDeployPopup() {

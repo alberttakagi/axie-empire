@@ -7,7 +7,7 @@
 import { METAL_ATTRIBUTE, SUPER_CLASS_SLAYER_BONUSES } from './TRAIT_CONFIG.js';
 import { STATUS_TYPES } from './STATUS_CONFIG.js';
 
-const ATTRIBUTE_LABEL = { red: 'Red', black: 'Black', floating: 'Floating', metal: 'Metal', zombie: 'Zombie' };
+export const ATTRIBUTE_LABEL = { red: 'Red', black: 'Black', floating: 'Floating', metal: 'Metal', zombie: 'Zombie' };
 
 const STATUS_LABEL = {
   [STATUS_TYPES.SLOW]: 'Slow',
