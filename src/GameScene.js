@@ -570,6 +570,7 @@ export default class GameScene extends Phaser.Scene {
   // keeping the cache bounded to "at most one battle's roster" for the
   // rest of the session instead of every roster ever seen.
   preload() {
+    this.createLoadingBar();
     const loadoutRoster = {};
     for (const key of loadLoadout()) {
       if (key && UNIT_CONFIG[key]) loadoutRoster[key] = UNIT_CONFIG[key];
@@ -618,6 +619,29 @@ export default class GameScene extends Phaser.Scene {
     // own playMusic/playSfxFile fetch+decode real files directly via the
     // Web Audio API (see its header comment), independent of Phaser's
     // loader/cache, the same as every other scene that plays a real sound.
+  }
+
+  // Battle preload can take several seconds on mobile (hundreds of frame
+  // PNGs). A progress bar instead of a blank screen. Phaser destroys these
+  // with the rest of the display list once create() rebuilds the scene, but
+  // they're cleaned up explicitly on 'complete' too.
+  createLoadingBar() {
+    const { width, height } = LOGICAL_SIZE;
+    this.cameras.main.setZoom(RENDER_SCALE);
+    this.cameras.main.centerOn(width / 2, height / 2);
+    const bg = this.add.rectangle(width / 2, height / 2, width, height, 0x1d1a16);
+    const title = this.add
+      .text(width / 2, height / 2 - 36, 'Preparing for battle...', { fontFamily: 'Rowdies, sans-serif', fontSize: '20px', color: '#ffe58a', stroke: '#000000', strokeThickness: 4 })
+      .setOrigin(0.5);
+    const frame = this.add.rectangle(width / 2, height / 2 + 6, 304, 20, 0x000000).setStrokeStyle(2, 0xffe58a);
+    const fill = this.add.rectangle(width / 2 - 150, height / 2 + 6, 0, 14, 0xffc93c).setOrigin(0, 0.5);
+    const parts = [bg, title, frame, fill];
+    const onProgress = (v) => { fill.width = 300 * v; };
+    this.load.on('progress', onProgress);
+    this.load.once('complete', () => {
+      this.load.off('progress', onProgress); // scene is reused — don't stack listeners across battles
+      parts.forEach((o) => o.destroy());
+    });
   }
 
   create(data) {
