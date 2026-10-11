@@ -2359,6 +2359,9 @@ export default class GameScene extends Phaser.Scene {
   // every boss. Pure presentation (tweens only), so it never touches the
   // simulation or pause state.
   showBossWarning(bossName = 'Boss') {
+    // Don't stack on the opening twist banner if a boss arrives that early.
+    this.twistBannerParts?.forEach((o) => o.active && o.destroy());
+    this.twistBannerParts = null;
     const { width, height } = LOGICAL_SIZE;
     const cy = height / 2 - 50;
     const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setDepth(1500);
@@ -2446,6 +2449,7 @@ export default class GameScene extends Phaser.Scene {
       .text(width / 2, 180, `${mod.description}  (+${mod.xpBonusPercent}% XP)`, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5).setDepth(1500).setAlpha(0);
     this.cameras.main.ignore([title, sub]);
+    this.twistBannerParts = [title, sub];
     this.tweens.add({ targets: title, scale: 1, duration: 260, ease: 'Back.out' });
     this.tweens.add({ targets: sub, alpha: 1, duration: 260, delay: 150 });
     this.tweens.add({ targets: [title, sub], alpha: 0, delay: 2600, duration: 400, onComplete: () => { title.destroy(); sub.destroy(); } });
