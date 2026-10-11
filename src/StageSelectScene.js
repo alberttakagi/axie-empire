@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
+import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { loadLoadout } from './Loadout.js';
 import { ATTRIBUTE_LABEL } from './UnitDescription.js';
 import { loadStageProgress } from './StageProgress.js';
@@ -816,7 +817,10 @@ export default class StageSelectScene extends Phaser.Scene {
       const attr = c.attribute ? ` [${ATTRIBUTE_LABEL[c.attribute] || c.attribute}]` : '';
       return `${c.characterName || id}${attr}`;
     });
-    const lines = [`Enemies: ${[...new Set(names)].join(', ')}`];
+    const lines = [];
+    const mod = getStageModifier(stage);
+    if (mod) lines.push(`★ Twist: ${mod.name} — ${mod.description} (+${mod.xpBonusPercent}% XP)`);
+    lines.push(`Enemies: ${[...new Set(names)].join(', ')}`);
     const attrs = [...new Set(ids.map((id) => ENEMY_CONFIG[id].attribute).filter(Boolean))];
     if (attrs.length) {
       const formation = loadLoadout().filter((k) => k && UNIT_CONFIG[k]);

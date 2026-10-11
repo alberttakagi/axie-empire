@@ -3,6 +3,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
 import { preloadSpriteRoster, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
 import { addAmbientFx } from './AmbientFx.js';
+import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -818,6 +819,8 @@ export default class GameScene extends Phaser.Scene {
     // Constant for the whole battle — cached so update() isn't re-parsing
     // the treasure save from localStorage twice per frame via getWalletCap.
     this.walletCapBonusPercent = getBonusPercent('walletCapPercent');
+    // Stage gimmick (STAGE_MODIFIERS.js) — null on normal stages and Dojo.
+    this.stageModifier = this.mode === 'dojo' ? null : getStageModifier(this.stage);
     // Speed Up (bible §A.10.4) — an unlimited toggle in this build (the
     // real game gates 2x/3x behind item charges and a subscription perk;
     // out of scope here, see the Battle Items note in this session's
@@ -866,6 +869,7 @@ export default class GameScene extends Phaser.Scene {
     this.worldGameObjects.push(addBackground(this, battleBackgroundId));
     // Ambient drifting particles matched to the backdrop (AmbientFx.js).
     this.worldGameObjects.push(addAmbientFx(this, battleBackgroundId || 'plant'));
+    if (this.stageModifier?.id === 'fog') this.worldGameObjects.push(...this.createFogOfWar());
 
     // Origin (0, 0.5) at x=0 — edge-anchored rather than centered on baseX
     // (only 30px from the edge) — so the full sprite always renders
@@ -986,6 +990,7 @@ export default class GameScene extends Phaser.Scene {
     // and this.worldGameObjects' own comment above for why this can be one
     // bulk diff instead of an ignore() call at every UI helper.
     this.setupZoomControls();
+    this.showStageModifierBanner();
 
     // 戦闘開始！！ transition, other half (guide Chapter 10's transition
     // table): this scene loads fully black — see StageSelectScene's
@@ -1976,7 +1981,7 @@ export default class GameScene extends Phaser.Scene {
   // multiplies the whole thing.
   getMoneyAccrualPerSec() {
     const base = this.stage.moneyAccrualPerSec + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.accrualPerLevel;
-    return base * (1 + this.moneyIncomeBonusPercent / 100) * this.getMoneyRampMultiplier();
+    return base * (1 + this.moneyIncomeBonusPercent / 100) * this.getMoneyRampMultiplier() * (this.stageModifier?.incomeMultiplier ?? 1);
   }
 
   // See MONEY_RAMP_START_MULTIPLIER/MONEY_RAMP_DURATION_MS above.
@@ -1989,7 +1994,7 @@ export default class GameScene extends Phaser.Scene {
   getWalletCap() {
     const base = this.stage.startingMoney + (this.workerCatLevel - 1) * MONEY_CONFIG.workerCat.walletCapPerLevel;
     // Treasure's walletCapPercent, on top of Worker Cat's own per-level cap.
-    return Math.round(base * (1 + (this.walletCapBonusPercent ?? getBonusPercent('walletCapPercent')) / 100));
+    return Math.round(base * (1 + (this.walletCapBonusPercent ?? getBonusPercent('walletCapPercent')) / 100) * (this.stageModifier?.walletCapMultiplier ?? 1));
   }
 
   // Unit cost scales per stage/chapter, never per unit level (bible §A.3.7,
@@ -2265,6 +2270,7 @@ export default class GameScene extends Phaser.Scene {
       ...base,
       hp: Math.round(base.hp * entry.statMultiplier),
       damage: Math.round(base.damage * entry.statMultiplier),
+      moveSpeed: base.moveSpeed * (this.stageModifier?.enemySpeedMultiplier ?? 1),
     };
 
     // A boss needs to look BOSS_VISUAL_SCALE_MULTIPLIER bigger than its base
@@ -2375,6 +2381,58 @@ export default class GameScene extends Phaser.Scene {
         });
       },
     });
+  }
+
+  // Fog of War gimmick: a soft wall of mist over the enemy half of the
+  // lane (world space, so it pans with the camera), above units but below
+  // damage numbers. Enemies emerge as they push toward your base.
+  createFogOfWar() {
+    const { width, height } = LOGICAL_SIZE;
+    const start = width * 0.42;
+    const fogW = Math.ceil(width - start);
+    if (!this.textures.exists('fx_fog')) {
+      const tex = this.textures.createCanvas('fx_fog', fogW, height);
+      const ctx = tex.getContext();
+      const grad = ctx.createLinearGradient(0, 0, fogW, 0);
+      grad.addColorStop(0, 'rgba(214,224,232,0)');
+      grad.addColorStop(0.35, 'rgba(214,224,232,0.55)');
+      grad.addColorStop(1, 'rgba(214,224,232,0.9)');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, fogW, height);
+      // Soft cloud blobs for texture.
+      for (let k = 0; k < 26; k++) {
+        const cx = fogW * (0.15 + Math.random() * 0.85);
+        const cy = Math.random() * height;
+        const r = 30 + Math.random() * 70;
+        const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, r);
+        g.addColorStop(0, 'rgba(240,245,250,0.35)');
+        g.addColorStop(1, 'rgba(240,245,250,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+      }
+      tex.refresh();
+    }
+    const fog = this.add.image(start, height / 2, 'fx_fog').setOrigin(0, 0.5).setDepth(900);
+    // Gentle breathing so the fog feels alive.
+    this.tweens.add({ targets: fog, alpha: 0.85, x: start + 12, duration: 3500, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    return [fog];
+  }
+
+  // Opening banner announcing the stage's gimmick.
+  showStageModifierBanner() {
+    const mod = this.stageModifier;
+    if (!mod) return;
+    const { width } = LOGICAL_SIZE;
+    const title = this.add
+      .text(width / 2, 150, `TWIST: ${mod.name.toUpperCase()}`, { fontFamily: 'Rowdies, sans-serif', fontSize: '26px', color: '#ffe58a', stroke: '#000000', strokeThickness: 5 })
+      .setOrigin(0.5).setDepth(1500).setScale(0);
+    const sub = this.add
+      .text(width / 2, 180, `${mod.description}  (+${mod.xpBonusPercent}% XP)`, { fontFamily: 'Rowdies, sans-serif', fontSize: '13px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 })
+      .setOrigin(0.5).setDepth(1500).setAlpha(0);
+    this.cameras.main.ignore([title, sub]);
+    this.tweens.add({ targets: title, scale: 1, duration: 260, ease: 'Back.out' });
+    this.tweens.add({ targets: sub, alpha: 1, duration: 260, delay: 150 });
+    this.tweens.add({ targets: [title, sub], alpha: 0, delay: 2600, duration: 400, onComplete: () => { title.destroy(); sub.destroy(); } });
   }
 
   // Top-center boss HP bar, shown while a scripted boss is alive.
@@ -4283,7 +4341,8 @@ export default class GameScene extends Phaser.Scene {
     // (bible §A.8, this.xpBoostMultiplier) is likewise separate, defaulting
     // to 1 (a no-op) when unused.
     return Math.round(
-      this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100) * (1 + getBonusPercent('xpPercent') / 100) * this.xpBoostMultiplier,
+      this.stage.baseXp * decay * (1 + this.studyBonusPercent / 100) * (1 + getBonusPercent('xpPercent') / 100) * this.xpBoostMultiplier *
+        (1 + (this.stageModifier?.xpBonusPercent ?? 0) / 100),
     );
   }
 
