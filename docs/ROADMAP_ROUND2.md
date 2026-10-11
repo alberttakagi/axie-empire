@@ -27,6 +27,10 @@ Written 2026-10-11 after a full audit. The goal is to go from "a solid Battle Ca
 
 **Fourth pass: unit collection.** 9 new gacha-only Axies (Ena, Venoki, Pomodoro, Bing = Rare; Rouge, Machito, Bard = Super Rare; Hope, Shufen = Uber Rare), rendered from the asset kit's unused starters in both forms (`docs/qa/new_units_contact_sheet.png`). Each has its own role: slow, weaken, red wall, crit, red slayer, shockwave, freeze, wave and surge. The capsule now drops units (Rare 9%, SR 2.5%, Uber 0.5%), every 11x pull guarantees one, and duplicates convert to XP. Ownership is stored in a new `axieSkirmishOwnedUnits` key (no existing save shape changed). The Formation screen has a second roster page. Fixed a live bug where `SpriteIcon.frameKeys` had been missing since fc5bde6, which crashed the animated portraits in Formation and the Unit Guide. Fixed Formation seating for units without a home slot. Added a regression test (15/15).
 
+**Fifth pass:** the roster screens (Formation, Guide, Upgrade) preload only 111 stills instead of about 2,160 frame PNGs and stream the animations in afterward. Formation opens in about 0.2s, measured locally. The Deploy popup has a Formation shortcut that returns to the same stage. Expedition (the Gamatoto equivalent) is real: 15m/1h/4h trips for XP plus a chance of Energy/Evo Shard/Growth Charm, collect-once guarded, with a "!" badge. Tests: 16/16.
+
+**Next up:** a real-device mobile pass and a new demo video; sampled SFX (ElevenLabs or Kenney); battle-preload streaming or texture atlases for faster battle start; a balance playtest of the 9 gacha units and the twist stages; refreshing the Home XP badge after collecting an Expedition.
+
 Still open from the audit: a few **still** poses (idle/attack/hit) still have 3–12px of top clipping on some units and enemies (Temujin, Mit, a few chimeras). It's minor because battles mostly show the animated sequences. The fix is to re-render them with the same `STARTER_SEQ_CANVAS` approach once the pose fraction used for each still has been confirmed.
 
 ---
