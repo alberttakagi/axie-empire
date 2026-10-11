@@ -26,6 +26,20 @@ export function showDamageNumber(scene, x, y, amount, { isCrit = false, isMiss =
     .setDepth(1000);
   scene.uiCamera?.ignore(label);
 
+  if (isCrit) {
+    // Crits get a stamped "CRITICAL!" and a pop-in so they read instantly.
+    const stamp = scene.add
+      .text(label.x, label.y - 20, 'CRITICAL!', {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#ff5a3c', stroke: '#000000', strokeThickness: 3,
+      })
+      .setOrigin(0.5).setDepth(1000).setScale(1.8).setAngle(-8);
+    scene.uiCamera?.ignore(stamp);
+    scene.tweens.add({ targets: stamp, scale: 1, duration: 120, ease: 'Back.out' });
+    scene.tweens.add({ targets: stamp, y: stamp.y - RISE_DISTANCE_PX, alpha: 0, delay: 200, duration: DURATION_MS, onComplete: () => stamp.destroy() });
+    label.setScale(1.6);
+    scene.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.out' });
+  }
+
   scene.tweens.add({
     targets: label,
     y: label.y - RISE_DISTANCE_PX,

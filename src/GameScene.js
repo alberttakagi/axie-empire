@@ -2162,6 +2162,7 @@ export default class GameScene extends Phaser.Scene {
 
     const entity = this.makeEntityState(type, config, shape, label, spriteImage, true, 1, isEvolved);
     this.playerUnits.push(entity);
+    this.playDeployPop(entity);
     this.setupEntityHoverTooltip(shape, entity);
   }
 
@@ -4078,6 +4079,19 @@ export default class GameScene extends Phaser.Scene {
         if (onKill) onKill(entity);
       }
     }
+  }
+
+  // Deploy pop: the new unit springs in from small with a ground puff.
+  playDeployPop(entity) {
+    const target = entity.spriteImage;
+    if (!target) return;
+    const sx = target.scaleX;
+    const sy = target.scaleY;
+    target.setScale(sx * 0.2, sy * 1.4);
+    this.tweens.add({ targets: target, scaleX: sx, scaleY: sy, duration: 260, ease: 'Back.out' });
+    const ring = this.add.ellipse(target.x, target.y + target.displayHeight * 0.4, 30, 10, 0xffffff, 0.7);
+    this.uiCamera.ignore(ring);
+    this.tweens.add({ targets: ring, scaleX: 3, scaleY: 2, alpha: 0, duration: 300, ease: 'Cubic.out', onComplete: () => ring.destroy() });
   }
 
   // Death "pop": the sprite squashes, flies up-and-back, spins and fades

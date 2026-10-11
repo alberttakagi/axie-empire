@@ -23,6 +23,8 @@ Written 2026-10-11 after a full audit. The goal is to go from "a solid Battle Ca
 
 **Second pass (P0 progress):** boss entrance card (dim + WARNING stripes + name plate), top-center boss HP bar, death pop (squash → spin → fade + dust puff), floating "+N円" kill payouts, a pulsing ring and "READY!" stamp when the cannon is charged, a battle loading progress bar, and layered Web Audio SFX: a cannon blast (charge zip, noise crack, sub-bass drop, debris), a boss rumble, hits and crits with pitch jitter, a coin ka-ching and a defeat poof. Real sampled audio (ElevenLabs or Kenney) is still the recommended upgrade over synthesis.
 
+**Third pass:** all 144 stages now have chapter-specific backgrounds (stages 31-144 used to fall back to one image), ambient particles for each background, enemy intel and counters in the Deploy popup, new Floating/Zombie counters (Noir, Momo), 17 twist stages (Fog of War / Frenzy / Tight Budget, +30% XP), a deploy spring-in, and a CRITICAL! stamp.
+
 Still open from the audit: a few **still** poses (idle/attack/hit) still have 3–12px of top clipping on some units and enemies (Temujin, Mit, a few chimeras). It's minor because battles mostly show the animated sequences. The fix is to re-render them with the same `STARTER_SEQ_CANVAS` approach once the pose fraction used for each still has been confirmed.
 
 ---
