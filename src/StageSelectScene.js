@@ -192,6 +192,10 @@ export default class StageSelectScene extends Phaser.Scene {
     createBackButton(this, () => this.scene.start('SagaSelectScene'));
     this.createEnergyDisplay();
     this.createMapArrows();
+
+    // Returning from the Deploy popup's Formation button: reopen it.
+    const reopen = data?.reopenStageId && this.sagaStages.find((st) => st.id === data.reopenStageId);
+    if (reopen) this.showDeployPopup(reopen);
   }
 
   // Inertia + rubber-band-snap-back tick (see setupMapScroll) plus Tripp
@@ -791,6 +795,14 @@ export default class StageSelectScene extends Phaser.Scene {
     }
 
     const buttonY = panelY + panelHeight / 2 - 40;
+    // Contextual pre-battle Formation edit (guide UI ch. 6): swap in the
+    // counters the intel above recommends, then come straight back here.
+    objects.push(
+      createBcButton(this, width / 2 + panelWidth / 2 - 58, panelY - panelHeight / 2 + 26, 96, 30, 'Formation', () => {
+        this.hideDeployPopup();
+        this.scene.start('LoadoutScene', { returnTo: { sagaId: this.sagaId, reopenStageId: stage.id } });
+      }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 11 }),
+    );
     objects.push(
       createBcButton(this, width / 2 - 84, buttonY, 130, 48, 'Close', () => this.hideDeployPopup(), {
         fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 14,

@@ -49,7 +49,9 @@ export default class LoadoutScene extends Phaser.Scene {
     preloadBackgrounds(this);
   }
 
-  create() {
+  create(data) {
+    // Opened from a stage's Deploy popup: Back returns there with the popup reopened.
+    this.returnTo = data?.returnTo || null;
     // Every scene's camera is zoomed by RENDER_SCALE so the game's
     // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
     // renders onto the real, bigger HD canvas at full pixel density.
@@ -71,7 +73,7 @@ export default class LoadoutScene extends Phaser.Scene {
     drawWoodFrame(this, width, height);
 
     createTitlePill(this, 24, 22, 'Character Formation');
-    createBackButton(this, () => this.scene.start('HomeScene'));
+    createBackButton(this, () => (this.returnTo ? this.scene.start('StageSelectScene', this.returnTo) : this.scene.start('HomeScene')));
 
     this.add
       .text(width / 2, 60, `Tap to include/exclude, drag to reorder — max ${MAX_LOADOUT_SIZE} in Formation`, {
