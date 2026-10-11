@@ -12,7 +12,7 @@ import {
 } from './Gacha.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
-import { playGachaChargeSfx, playGachaRevealSfx } from './Audio.js';
+import { playGachaChargeSfx, playGachaRevealSfx, playSfxFile } from './Audio.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // The bible's §A.10.7 Gacha screen — adapted per Gacha.js's scope note
@@ -400,6 +400,7 @@ export default class GachaScene extends Phaser.Scene {
     this.tweens.add({ targets: card, scale: 1, duration: 320, ease: 'Back.easeOut' });
 
     playGachaRevealSfx(reward.rarity);
+    if (reward.type === 'unit' && reward.isNew) playSfxFile('/audio/sfx/power_awaken.wav', { gain: 0.7 });
     this.sparkleBurst(x, y, color, reward.rarity === 'legendary' ? 14 : reward.rarity === 'epic' ? 9 : 6);
 
     const flourish = RARITY_FLOURISH[reward.rarity];

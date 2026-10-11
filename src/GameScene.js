@@ -293,9 +293,9 @@ const EVOLUTION_STAGE_GLOW_COLOR = { 1: 0x66ccff, 2: 0xaa66ff };
 // "taken out of the fight" cue the kit has). SLOW has no equally direct
 // match; `drain` (something being sapped away) is the closest fit.
 const STATUS_SFX_FILE = {
-  [STATUS_TYPES.SLOW]: 'drain.wav',
+  [STATUS_TYPES.SLOW]: 'bubble.wav', // Ena's bubbles
   [STATUS_TYPES.STOP]: 'stunned.wav',
-  [STATUS_TYPES.WEAKEN]: 'weak.wav',
+  [STATUS_TYPES.WEAKEN]: 'poison.wav', // Venoki's venom
   [STATUS_TYPES.CURSE]: 'hex.wav',
   [STATUS_TYPES.WARP]: 'summon_off.wav',
 };
@@ -2093,7 +2093,7 @@ export default class GameScene extends Phaser.Scene {
     // synth-baseline-plus-real-flavor approach attack sounds use (see
     // AttackVfx.js's fireAttackVfx) — one clean sound, not two competing
     // ones, for the thing the player does constantly.
-    playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.6 });
+    playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.6, minIntervalMs: 150, group: 'deploy', maxVoices: 2 });
     addLifetimeStat('unitsDeployed');
   }
 
@@ -2349,6 +2349,7 @@ export default class GameScene extends Phaser.Scene {
     }
 
     this.showBossWarning(bossName);
+    playSfxFile('/audio/sfx/death_mark.wav', { gain: 0.6 });
     playBossShockwaveSfx();
     this.cameras.main.shake(300, 0.012);
   }
@@ -3501,6 +3502,7 @@ export default class GameScene extends Phaser.Scene {
       } else {
         const absorbed = Math.min(entity.barrierHp, totalDamage);
         entity.barrierHp -= absorbed;
+        playSfxFile('/audio/sfx/shield.wav', { gain: 0.45, minIntervalMs: 400 });
         appliedToHp = totalDamage - absorbed;
       }
     }
@@ -3696,7 +3698,7 @@ export default class GameScene extends Phaser.Scene {
     // replacement. Played once per successful proc, same point the effect
     // itself gets applied below.
     const statusSfxFile = STATUS_SFX_FILE[status.type];
-    if (statusSfxFile) playSfxFile(`/audio/sfx/${statusSfxFile}`, { gain: 0.65 });
+    if (statusSfxFile) playSfxFile(`/audio/sfx/${statusSfxFile}`, { gain: 0.6, minIntervalMs: 200, group: 'status', maxVoices: 2 });
 
     switch (status.type) {
       case STATUS_TYPES.SLOW:

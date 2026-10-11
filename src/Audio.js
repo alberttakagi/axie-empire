@@ -300,7 +300,16 @@ export function playMapArrivalSfx() {
 // ±6% pitch jitter so a wall of identical hits doesn't fatigue the ear.
 const jitter = () => 0.94 + Math.random() * 0.12;
 
+// Hit layers fire once per damage instance — an AoE or a crowd can land
+// dozens in one frame (measured: 118 overlapping). One shared limiter: at
+// most one normal hit every 45ms, one crit every 70ms.
+let lastHitAt = 0;
+let lastCritAt = 0;
+
 export function playHitSfx() {
+  const now = performance.now();
+  if (now - lastHitAt < 45) return;
+  lastHitAt = now;
   const j = jitter();
   playTone({ freq: 220 * j, duration: 0.06, type: 'square', peakGain: 0.07 });
   playNoise({ duration: 0.06, peakGain: 0.08, filterFrom: 2500 * j, filterTo: 400 });
@@ -310,6 +319,9 @@ export function playHitSfx() {
 // reads as distinct from a normal hit by ear as well as by the bigger
 // floating number (see CombatFeedback.js).
 export function playCritSfx() {
+  const now = performance.now();
+  if (now - lastCritAt < 70) return;
+  lastCritAt = now;
   playNoise({ duration: 0.12, peakGain: 0.14, filterFrom: 6000, filterTo: 600 });
   playTone({ freq: 660, duration: 0.05, type: 'square', peakGain: 0.13 });
   playTone({ freq: 990, startOffset: 0.04, duration: 0.07, type: 'square', peakGain: 0.1 });
@@ -418,17 +430,35 @@ function loadBuffer(ctx, url) {
 // stinger, ...) — scaled by SFX volume, same gating as playTone. `gain`
 // (0-1) lets a caller balance an individually loud/quiet source file
 // against the rest without re-encoding it.
-export function playSfxFile(url, { gain = 0.8 } = {}) {
+// Voice limiting (Round 2): per-character attack sounds used to turn a big
+// fight into noise. A `group` caps how many of its clips can sound at once
+// (`maxVoices`), and the same url can't retrigger within `minIntervalMs` —
+// a crowd of identical units reads as one rhythmic hit instead of a smear.
+// `detune` (cents, random ±) keeps repeats from sounding machine-gunned.
+const groupVoices = new Map(); // group -> active count
+const lastPlayedAt = new Map(); // url -> ms
+
+export function playSfxFile(url, { gain = 0.8, group = null, maxVoices = 4, minIntervalMs = 0, detune = 0 } = {}) {
   if (isMuted()) return;
   const volume = VOLUME_LEVELS[getSfxVolumeLevel()];
   if (volume <= 0) return;
   const ctx = getCtx();
   if (!ctx) return;
 
+  const now = performance.now();
+  if (minIntervalMs && now - (lastPlayedAt.get(url) ?? -Infinity) < minIntervalMs) return;
+  if (group && (groupVoices.get(group) ?? 0) >= maxVoices) return;
+  lastPlayedAt.set(url, now);
+  if (group) groupVoices.set(group, (groupVoices.get(group) ?? 0) + 1);
+  const releaseVoice = () => {
+    if (group) groupVoices.set(group, Math.max(0, (groupVoices.get(group) ?? 1) - 1));
+  };
+
   loadBuffer(ctx, url)
     .then((buffer) => {
       const source = ctx.createBufferSource();
       source.buffer = buffer;
+      if (detune) source.detune.value = (Math.random() * 2 - 1) * detune;
       const gainNode = ctx.createGain();
       gainNode.gain.value = gain * volume * SFX_MASTER_GAIN;
       source.connect(gainNode).connect(ctx.destination);
@@ -439,9 +469,10 @@ export function playSfxFile(url, { gain = 0.8 } = {}) {
       source.onended = () => {
         source.disconnect();
         gainNode.disconnect();
+        releaseVoice();
       };
     })
-    .catch(() => {}); // missing file / decode failure — no sound, no crash
+    .catch(releaseVoice); // missing file / decode failure — no sound, no crash
 }
 
 // Looping real music track — one playing at a time. `musicUrl` is what the

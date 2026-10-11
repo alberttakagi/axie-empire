@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { playSfxFile } from './Audio.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { PROGRESSION_CONFIG, STORY_GATE_STAGE_ID } from './PROGRESSION_CONFIG.js';
 import {
@@ -251,7 +252,10 @@ export default class UpgradeScene extends Phaser.Scene {
         : `Evolve: ${nextEvolution.name}\nNeeds Lv ${nextEvolution.unlockLevel}`,
       () => {
         if (!eligible) return;
-        if (tryEvolveUnit(type).ok) this.refresh();
+        if (tryEvolveUnit(type).ok) {
+          playSfxFile('/audio/sfx/power_awaken.wav', { gain: 0.7 });
+          this.refresh();
+        }
       },
       { fontSize: 9, fill: !eligible ? 0x8a8a8a : affordable ? 0xb98cff : 0x9a7ab0, textColor: '#2a1a3a' },
     );

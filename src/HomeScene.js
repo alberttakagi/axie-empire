@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { playSfxFile } from './Audio.js';
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState } from './Energy.js';
 import {
@@ -270,6 +271,7 @@ export default class HomeScene extends Phaser.Scene {
         add(createBcButton(this, width / 2, cy + 30, 160, 52, 'Collect!', () => {
           const lines = collectExpedition();
           if (!lines) return;
+          playSfxFile('/audio/sfx/buff.wav', { gain: 0.6 });
           render();
           const msg = this.add.text(width / 2, cy - 66, lines.join('   '), { fontFamily: FONT, fontSize: '14px', color: '#e8a400', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5).setScale(0);
           objects.push(msg);

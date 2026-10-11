@@ -13,61 +13,30 @@ const PLAYBACK_MS = 420;
 const MIN_SCALE = 0.2;
 const MAX_SCALE = 1.0;
 
-// Real user feedback: every one of the 10 player units plus 3 enemy roles
-// had its OWN distinct attack sfx (12 different real wav clips total, each
-// picked per-vfxId — see the old `/audio/sfx/${vfxId}_attack.wav` lookup
-// this replaces), which reads as chaotic noise once more than one or two
-// units are fighting at once. Collapsed down to exactly 3 shared clips —
-// melee/ranged/"other" — reusing the shortest real clip of each flavor
-// already in the kit (no new assets) rather than inventing a 4th category
-// or keeping the per-character variety.
-const ATTACK_SFX_FILE = {
-  melee: '/audio/sfx/beast_bite_attack.wav',
-  ranged: '/audio/sfx/bug_projectile_attack.wav',
-  other: '/audio/sfx/plant_cast_attack.wav',
+// Per-character attack sound matched to the attack animation's own VFX
+// family (Round 2): each unit plays the real Origins clip for its VFX id
+// (`/audio/sfx/<vfxId>_attack.wav`, trimmed to a one-shot by
+// tools/prepare_sfx.py). Earlier feedback that per-character sounds were
+// "chaotic noise" came from the untrimmed 1.5-3s clips overlapping; the
+// trimmed clips plus Audio.js's voice limiting (group cap + per-clip
+// retrigger gap + slight detune) keep a big fight readable.
+//
+// Enemies: ranged roles use their projectile clip; melee roles get a family
+// matched to their chimera (slimes = aquatic, wolves/bears = beast,
+// treants/dryads = plant), mixed quieter than the player's side.
+const ENEMY_MELEE_SFX = {
+  basic: 'aquatic_slash', thatguy: 'aquatic_slash', mehmeh: 'aquatic_slash', kanban: 'aquatic_slash', zombie: 'aquatic_slash', swarm: 'aquatic_slash',
+  fast: 'beast_bite', wanikun: 'beast_bite', usagin: 'beast_bite', kangaroo: 'beast_gore', gory: 'beast_gore', colossus: 'beast_gore',
+  titan: 'beast_gore', behemoth: 'beast_gore', ikkaku: 'beast_gore', gagagaga: 'aquatic_smash',
+  tank: 'plant_smash', guardian: 'plant_smash', aoe: 'plant_cast',
 };
 
-// Player units, by GAMEPLAY range (UNIT_CONFIG.js's own range vs radius —
-// not by vfxId name: the vfx clip names (bite/slash/smash/gore/cast) are a
-// VISUAL flavor picked per-character and don't line up with which units
-// actually reach past contact range, e.g. 'ranged' (Puffy, real range 350
-// vs Cat's 140) and 'aoe' (Noir, real range 170 + a splash special) both
-// happen to use a "bite"/"smash"-named clip despite genuinely being ranged
-// attackers). 'support' (Mit) gets its own "other" bucket rather than
-// lumping it into 'ranged' — the roster's true longest reach (range 400)
-// AND its own vfx is already a spellcast, not a projectile, so it reads as
-// a caster, not just "ranged."
-const PLAYER_UNIT_SFX_CATEGORY = {
-  basic: 'melee',
-  tank: 'melee',
-  swarm: 'melee',
-  ranged: 'ranged',
-  fast: 'melee',
-  aoe: 'ranged',
-  sniper: 'melee',
-  support: 'other',
-  titan: 'melee',
-  guardian: 'melee', // Xia — real user feedback: wanted OFF its old unique reptile_gore clip
-  ena: 'ranged',
-  venoki: 'melee',
-  pomodoro: 'melee',
-  bing: 'melee',
-  rouge: 'melee',
-  machito: 'melee',
-  bard: 'other',
-  hope: 'melee',
-  shufen: 'ranged',
-};
-
-// Enemies only ever have 3 possible vfxIds (see ROLE_ATTACK_VFX), and all 3
-// are already named '..._projectile' — deriving from the name is simplest
-// here and happens to line up with reality (every enemy role with a vfx
-// entry at all IS one of the ranged/sniper/support roles ROLE_ATTACK_VFX's
-// own header says are the only ones with real reach).
-function attackSfxCategory(isPlayerSide, unitId, vfxId) {
-  if (isPlayerSide) return PLAYER_UNIT_SFX_CATEGORY[unitId] || 'melee';
-  return vfxId.includes('projectile') ? 'ranged' : 'melee';
+function attackSfxUrl(isPlayerSide, attackerConfig, vfxId) {
+  if (vfxId) return `/audio/sfx/${vfxId}_attack.wav`;
+  const family = !isPlayerSide && ENEMY_MELEE_SFX[attackerConfig.role];
+  return family ? `/audio/sfx/${family}_attack.wav` : null;
 }
+
 
 export function preloadAttackVfx(scene) {
   for (const vfx of Object.values(ATTACK_VFX)) {
@@ -92,32 +61,21 @@ export function createAttackVfxAnims(scene) {
   }
 }
 
-// Fires a one-shot attack VFX for `attacker`'s hit landing at
-// (targetX, targetY) — called exactly at the moment an attack connects (see
-// GameScene's dealDamage/base-hit onHit closures), so this is purely a
-// cosmetic flourish layered on top of damage that's already been applied,
-// not something gameplay timing depends on. Player units pick their VFX by
-// character (UNIT_ATTACK_VFX, keyed by UNIT_CONFIG id); enemies still pick
-// by role (ROLE_ATTACK_VFX — only the three ranged roles). No-ops for any
-// attacker without an entry in the relevant map.
-//
-// The sprite's origin is pinned to the clip's `anchor` point and its
-// position set once to the target and never animated — see VFX_CONFIG.js's
-// header comment for why (the effect's on-screen motion is baked into the
-// frames themselves, not something we tween).
+// Fires a one-shot attack VFX + its matching sound for `attacker`'s hit
+// landing at (targetX, targetY) — called exactly when an attack connects
+// (GameScene's dealDamage/base-hit closures), purely cosmetic.
 export function fireAttackVfx(scene, attacker, targetX, targetY) {
   const vfxId = attacker.isPlayerSide
     ? UNIT_ATTACK_VFX[attacker.config.id]
     : ROLE_ATTACK_VFX[attacker.config.role];
-  if (!vfxId) return;
 
-  // One of exactly 3 shared attack clips (see ATTACK_SFX_FILE's own
-  // comment) rather than a unique real clip per vfxId. Played alongside
-  // (not instead of) GameScene's own generic hit/crit blip (see
-  // applyResolvedDamage) — this is the melee/ranged/other flavor layered
-  // on top of that universal baseline, not a replacement.
-  const sfxCategory = attackSfxCategory(attacker.isPlayerSide, attacker.config.id, vfxId);
-  playSfxFile(ATTACK_SFX_FILE[sfxCategory], { gain: 0.55 });
+  const sfxUrl = attackSfxUrl(attacker.isPlayerSide, attacker.config, vfxId);
+  if (sfxUrl) {
+    playSfxFile(sfxUrl, attacker.isPlayerSide
+      ? { gain: 0.5, group: 'attack-player', maxVoices: 3, minIntervalMs: 110, detune: 60 }
+      : { gain: 0.32, group: 'attack-enemy', maxVoices: 2, minIntervalMs: 140, detune: 60 });
+  }
+  if (!vfxId) return;
 
   const vfx = ATTACK_VFX[vfxId];
   if (!scene.textures.exists(vfx.key)) return;
