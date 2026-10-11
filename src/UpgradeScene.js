@@ -14,7 +14,7 @@ import {
 } from './PlayerProgress.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
-import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
+import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, addUnitIcon } from './SpriteIcon.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, drawWoodFrame } from './UITheme.js';
@@ -50,7 +50,7 @@ export default class UpgradeScene extends Phaser.Scene {
   // here too since a player can reach this screen without ever having
   // started GameScene first.
   preload() {
-    preloadSpriteRoster(this, UNIT_CONFIG, true);
+    preloadSpriteRosterStills(this, UNIT_CONFIG, true);
     preloadBackgrounds(this);
   }
 

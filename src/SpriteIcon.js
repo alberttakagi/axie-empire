@@ -76,6 +76,38 @@ export function spriteKeysForRoster(roster, isPlayerSide = true) {
   return spriteRosterEntries(roster, isPlayerSide).map(([key]) => key);
 }
 
+// Stills only (idle/attack/hit, base + evolved) — what a menu screen
+// needs to draw its first frame. With 19 units, the full frame sequences
+// are ~2,000 images; loading them all in preload() made Formation/Guide
+// take seconds to open on mobile.
+export function preloadSpriteRosterStills(scene, roster, isPlayerSide = true) {
+  for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
+    if (/_(idle|attack|hit)$/.test(key) && !scene.textures.exists(key)) scene.load.image(key, path);
+  }
+}
+
+// Streams the remaining frame sequences in after create(); `onComplete`
+// fires once they're all cached (immediately if nothing was missing), so a
+// screen can re-render its icons as animated. Icons drawn before then fall
+// back to the still idle pose (see addUnitIcon).
+export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide = true, onComplete = () => {}) {
+  let queued = 0;
+  for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
+    if (!scene.textures.exists(key)) {
+      scene.load.image(key, path);
+      queued += 1;
+    }
+  }
+  if (!queued) {
+    onComplete();
+    return;
+  }
+  scene.load.once('complete', () => {
+    if (scene.sys.isActive()) onComplete();
+  });
+  scene.load.start();
+}
+
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
   for (const [key, path] of spriteRosterEntries(roster, isPlayerSide)) {
     if (!scene.textures.exists(key)) scene.load.image(key, path);
@@ -164,7 +196,10 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   const evolvedTag = useEvolved && config.sprite.evolved ? '_evolved' : '';
   const spriteSet = useEvolved && config.sprite.evolved ? config.sprite.evolved : config.sprite;
-  const frames = idleAnimated && spriteSet.idleAnim ? frameKeys(prefix, config.id, evolvedTag, 'idleAnim', spriteSet.idleAnim.length) : null;
+  let frames = idleAnimated && spriteSet.idleAnim ? frameKeys(prefix, config.id, evolvedTag, 'idleAnim', spriteSet.idleAnim.length) : null;
+  // Frames may still be streaming in (loadSpriteRosterFramesInBackground) —
+  // fall back to the still pose until every frame is cached.
+  if (frames && !frames.every((key) => scene.textures.exists(key))) frames = null;
   const idleKey = `${prefix}_${config.id}${evolvedTag}_idle`;
 
   let icon;

@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
-import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
+import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, addUnitIcon } from './SpriteIcon.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { getUnitProgress, loadPlayerProgress, isUnitUnlocked } from './PlayerProgress.js';
 import { hasReachedPartEvolution } from './PartEvolution.js';
@@ -45,7 +45,7 @@ export default class LoadoutScene extends Phaser.Scene {
   // started GameScene yet, and Phaser's texture cache is per-load, not
   // pre-populated just because another scene also uses the same keys.
   preload() {
-    preloadSpriteRoster(this, UNIT_CONFIG, true);
+    preloadSpriteRosterStills(this, UNIT_CONFIG, true);
     preloadBackgrounds(this);
   }
 
@@ -121,6 +121,8 @@ export default class LoadoutScene extends Phaser.Scene {
     this.renderSlotTabs();
     this.renderCards();
     this.refreshSynergies();
+    // Animated portraits swap in once frame sequences finish streaming.
+    loadSpriteRosterFramesInBackground(this, UNIT_CONFIG, true, () => this.renderCards());
     this.refreshTotalCost();
   }
 

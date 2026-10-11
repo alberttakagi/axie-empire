@@ -3,7 +3,7 @@ import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { isUnitUnlocked } from './PlayerProgress.js';
-import { preloadSpriteRoster, addUnitIcon } from './SpriteIcon.js';
+import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, addUnitIcon } from './SpriteIcon.js';
 import { describeUnit } from './UnitDescription.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createBcCircleButton, createTitlePill, drawBcPanel } from './UITheme.js';
@@ -47,8 +47,8 @@ export default class CatalogScene extends Phaser.Scene {
   }
 
   preload() {
-    preloadSpriteRoster(this, UNIT_CONFIG, true);
-    preloadSpriteRoster(this, ENEMY_CONFIG, false);
+    preloadSpriteRosterStills(this, UNIT_CONFIG, true);
+    preloadSpriteRosterStills(this, ENEMY_CONFIG, false);
     preloadBackgrounds(this);
   }
 
@@ -103,9 +103,16 @@ export default class CatalogScene extends Phaser.Scene {
 
     this.contentContainer = this.add.container(0, 0);
     this.renderGrid();
+    // Stills render instantly; animated portraits swap in once the frame
+    // sequences finish streaming (re-renders whichever view is showing).
+    loadSpriteRosterFramesInBackground(this, this.roster, this.isPlayerSide, () => {
+      if (this.showingDetail) this.renderDetail();
+      else this.renderGrid();
+    });
   }
 
   renderGrid() {
+    this.showingDetail = false;
     this.contentContainer.removeAll(true);
     const { width } = LOGICAL_SIZE;
     const totalPages = Math.ceil(this.keys.length / CARDS_PER_PAGE);
@@ -208,6 +215,7 @@ export default class CatalogScene extends Phaser.Scene {
   }
 
   renderDetail() {
+    this.showingDetail = true;
     this.contentContainer.removeAll(true);
     this.pagerObjects.forEach((obj) => obj.setVisible(false));
     this.pageText.setText('');
