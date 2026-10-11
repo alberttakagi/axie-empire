@@ -785,6 +785,9 @@ export default class GameScene extends Phaser.Scene {
     this.restrictionMessageText = null;
     this.isLeavingScene = false;
     this.hitStopMs = 0;
+    this.trackedBoss = null;
+    this.bossBar = null;
+    this.cannonReadyFx = null;
     // Constant for the whole battle — cached so update() isn't re-parsing
     // the treasure save from localStorage twice per frame via getWalletCap.
     this.walletCapBonusPercent = getBonusPercent('walletCapPercent');
@@ -2264,7 +2267,8 @@ export default class GameScene extends Phaser.Scene {
     this.createEnemy(entry.enemyId, config, entry.isBoss);
 
     if (entry.isBoss) {
-      this.triggerBossShockwave();
+      this.trackedBoss = this.enemies[this.enemies.length - 1];
+      this.triggerBossShockwave(config.characterName || 'Boss');
       this.aliveBossCount += 1;
     }
   }
@@ -2290,7 +2294,7 @@ export default class GameScene extends Phaser.Scene {
   }
 
   // See BOSS_SHOCKWAVE_* constants above.
-  triggerBossShockwave() {
+  triggerBossShockwave(bossName = 'Boss') {
     const duration = KNOCKBACK_DURATION_MS * BOSS_SHOCKWAVE_DURATION_MULTIPLIER;
 
     for (const unit of this.playerUnits) {
@@ -2303,20 +2307,74 @@ export default class GameScene extends Phaser.Scene {
       unit.phaseMs = 0;
     }
 
-    this.showBossWarning();
+    this.showBossWarning(bossName);
     playBossShockwaveSfx();
     this.cameras.main.shake(300, 0.012);
   }
 
-  showBossWarning() {
+  // Boss entrance card: a brief dim, red WARNING stripes and a name plate
+  // sliding through screen-center — the "oh no" beat Battle Cats gives
+  // every boss. Pure presentation (tweens only), so it never touches the
+  // simulation or pause state.
+  showBossWarning(bossName = 'Boss') {
     const { width, height } = LOGICAL_SIZE;
-    const text = this.add
-      .text(width / 2, height / 2 - 60, 'BOSS!', { fontFamily: 'Rowdies, sans-serif', fontSize: '40px', color: '#ff3333', fontStyle: 'bold' })
-      .setOrigin(0.5)
-      .setAlpha(0);
-    this.cameras.main.ignore(text); // UI (see setupZoomControls) — a fixed screen-center banner, not tied to a world position
+    const cy = height / 2 - 50;
+    const dim = this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0).setDepth(1500);
+    const band = this.add.rectangle(width / 2, cy, width, 78, 0x2a0000, 0.85).setDepth(1501).setScale(1, 0);
+    const stripeTop = this.add.rectangle(width / 2, cy - 39, width, 6, 0xff3333).setDepth(1502).setScale(0, 1);
+    const stripeBottom = this.add.rectangle(width / 2, cy + 39, width, 6, 0xff3333).setDepth(1502).setScale(0, 1);
+    const warning = this.add
+      .text(width / 2, cy - 16, '⚠ WARNING ⚠', { fontFamily: 'Rowdies, sans-serif', fontSize: '16px', color: '#ff6666', stroke: '#000000', strokeThickness: 3 })
+      .setOrigin(0.5).setDepth(1503).setAlpha(0);
+    const name = this.add
+      .text(width + 200, cy + 12, bossName.toUpperCase(), { fontFamily: 'Rowdies, sans-serif', fontSize: '30px', color: '#ffe58a', stroke: '#000000', strokeThickness: 5 })
+      .setOrigin(0.5).setDepth(1503);
+    const parts = [dim, band, stripeTop, stripeBottom, warning, name];
+    this.cameras.main.ignore(parts); // UI (see setupZoomControls)
 
-    this.tweens.add({ targets: text, alpha: 1, duration: 200, yoyo: true, hold: 500, onComplete: () => text.destroy() });
+    this.tweens.add({ targets: dim, fillAlpha: 0.35, duration: 200, yoyo: true, hold: 1300 });
+    this.tweens.add({ targets: band, scaleY: 1, duration: 180, ease: 'Back.out' });
+    this.tweens.add({ targets: [stripeTop, stripeBottom], scaleX: 1, duration: 260, ease: 'Cubic.out' });
+    this.tweens.add({ targets: warning, alpha: 1, duration: 120, yoyo: true, repeat: 4, hold: 80 });
+    this.tweens.add({
+      targets: name, x: width / 2, duration: 320, ease: 'Back.out',
+      onComplete: () => {
+        this.tweens.add({
+          targets: name, x: -200, delay: 1000, duration: 260, ease: 'Cubic.in',
+          onComplete: () => {
+            this.tweens.add({ targets: [band, stripeTop, stripeBottom, warning], alpha: 0, duration: 200, onComplete: () => parts.forEach((o) => o.destroy()) });
+          },
+        });
+      },
+    });
+  }
+
+  // Top-center boss HP bar, shown while a scripted boss is alive.
+  updateBossHpBar() {
+    const boss = this.trackedBoss;
+    const alive = boss && boss.hp > 0 && this.enemies.includes(boss);
+    if (!alive) {
+      if (this.bossBar) {
+        this.bossBar.forEach((o) => o.destroy());
+        this.bossBar = null;
+      }
+      if (boss && !alive) this.trackedBoss = null;
+      return;
+    }
+    const { width } = LOGICAL_SIZE;
+    const barW = 260;
+    const y = 94;
+    if (!this.bossBar) {
+      const bg = this.add.rectangle(width / 2, y, barW + 6, 16, 0x000000, 0.7).setStrokeStyle(2, 0xffe58a).setDepth(1400);
+      const fill = this.add.rectangle(width / 2 - barW / 2, y, barW, 10, 0xd83a3a).setOrigin(0, 0.5).setDepth(1401);
+      const label = this.add
+        .text(width / 2, y - 14, (boss.config.characterName || 'Boss').toUpperCase(), { fontFamily: 'Rowdies, sans-serif', fontSize: '11px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
+        .setOrigin(0.5).setDepth(1401);
+      this.bossBar = [bg, fill, label];
+      this.cameras.main.ignore(this.bossBar);
+    }
+    const ratio = Phaser.Math.Clamp(boss.hp / boss.config.hp, 0, 1);
+    this.bossBar[1].width = barW * ratio;
   }
 
   createEnemy(type, config, isBoss = false) {
@@ -2588,6 +2646,7 @@ export default class GameScene extends Phaser.Scene {
     if (this.mode !== 'dojo') this.updateSpawns();
     this.updateCannonButton();
     this.updateLowHpVignette(time);
+    this.updateBossHpBar();
     this.updateBossMusic();
 
     this.updatePlayerUnits(deltaMs);
@@ -2665,6 +2724,7 @@ export default class GameScene extends Phaser.Scene {
   updateCannonButton() {
     const ready = this.specialMeter >= SPECIAL_METER_MAX;
     this.cannonBase.fillColor = ready ? CANNON_READY_COLOR : CANNON_NOT_READY_COLOR;
+    this.updateCannonReadyFx(ready);
 
     const fraction = Math.min(1, this.specialMeter / SPECIAL_METER_MAX);
     this.cannonChargeGraphics.clear();
@@ -2679,6 +2739,26 @@ export default class GameScene extends Phaser.Scene {
         false,
       );
       this.cannonChargeGraphics.fillPath();
+    }
+  }
+
+  // Full-charge cue: a pulsing glow ring plus a one-shot "READY!" stamp, so
+  // the player notices the moment the cannon can fire.
+  updateCannonReadyFx(ready) {
+    if (ready && !this.cannonReadyFx) {
+      const ring = this.add.circle(this.cannonX, this.cannonY, CANNON_BUTTON_RADIUS + 4).setStrokeStyle(4, 0xffe58a, 1);
+      const stamp = this.add
+        .text(this.cannonX, this.cannonY - CANNON_BUTTON_RADIUS - 14, 'READY!', { fontFamily: 'Rowdies, sans-serif', fontSize: '14px', color: '#ffe58a', stroke: '#000000', strokeThickness: 4 })
+        .setOrigin(0.5).setScale(0);
+      this.cameras.main.ignore([ring, stamp]);
+      const pulse = this.tweens.add({ targets: ring, scale: 1.25, alpha: 0.2, duration: 600, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.tweens.add({ targets: stamp, scale: 1, duration: 220, ease: 'Back.out' });
+      this.cannonReadyFx = { ring, stamp, pulse };
+    } else if (!ready && this.cannonReadyFx) {
+      this.cannonReadyFx.pulse.remove();
+      this.cannonReadyFx.ring.destroy();
+      this.cannonReadyFx.stamp.destroy();
+      this.cannonReadyFx = null;
     }
   }
 
@@ -2987,6 +3067,7 @@ export default class GameScene extends Phaser.Scene {
     // attackBonusMultiplier above).
     const bonus = baseReward * (1 + this.accountingBonusPercent / 100) * (1 + getBonusPercent('killMoneyPercent') / 100);
     this.money = Math.min(this.getWalletCap(), this.money + bonus);
+    this.showKillPayout(enemy, bonus);
   }
 
   // Pose swap ("make the movements more interesting... when knocked back,
@@ -3904,13 +3985,56 @@ export default class GameScene extends Phaser.Scene {
     for (let i = list.length - 1; i >= 0; i -= 1) {
       if (list[i].hp <= 0) {
         const entity = list[i];
-        entity.shape.destroy();
+        this.playDeathPop(entity);
         if (entity.label) entity.label.destroy();
         for (const icon of Object.values(entity.statusIcons)) icon.destroy();
         list.splice(i, 1);
         if (onKill) onKill(entity);
       }
     }
+  }
+
+  // Death "pop": the sprite squashes, flies up-and-back, spins and fades
+  // instead of vanishing on the spot. The entity is already out of the
+  // simulation list (see removeDead) — this is presentation only.
+  playDeathPop(entity) {
+    const target = entity.spriteImage || entity.shape;
+    if (!target || !target.scene) {
+      entity.shape?.destroy();
+      return;
+    }
+    target.disableInteractive?.();
+    const away = entity.isPlayerSide ? -1 : 1;
+    const sx = target.scaleX;
+    const sy = target.scaleY;
+    this.tweens.add({ targets: target, scaleX: sx * 1.25, scaleY: sy * 0.75, duration: 70, yoyo: true });
+    this.tweens.add({
+      targets: target,
+      x: target.x + away * 40,
+      y: target.y - 50,
+      angle: away * 160,
+      alpha: 0,
+      delay: 90,
+      duration: 380,
+      ease: 'Cubic.out',
+      onComplete: () => target.destroy(),
+    });
+    const puff = this.add.circle(target.x, target.y + 10, 10, 0xffffff, 0.8);
+    this.uiCamera.ignore(puff);
+    this.tweens.add({ targets: puff, scale: 4, alpha: 0, duration: 320, ease: 'Cubic.out', onComplete: () => puff.destroy() });
+  }
+
+  // "+N円" payout floating off a defeated enemy.
+  showKillPayout(enemy, amount) {
+    if (!(amount > 0) || !enemy.shape) return;
+    const label = this.add
+      .text(enemy.shape.x, enemy.shape.y - 30, `+${Math.round(amount)}円`, {
+        fontFamily: 'Rowdies, sans-serif', fontSize: '15px', color: '#ffd84a', stroke: '#5a3a00', strokeThickness: 4,
+      })
+      .setOrigin(0.5).setDepth(1001).setScale(0.4);
+    this.uiCamera.ignore(label);
+    this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.out' });
+    this.tweens.add({ targets: label, y: label.y - 40, alpha: 0, delay: 350, duration: 500, ease: 'Cubic.in', onComplete: () => label.destroy() });
   }
 
   damageBase(amount) {
