@@ -108,6 +108,8 @@ export default class UpgradeScene extends Phaser.Scene {
     this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: FONT, fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
 
     this.refresh();
+    // Stills render instantly; animated portraits swap in once streamed.
+    loadSpriteRosterFramesInBackground(this, UNIT_CONFIG, true, () => this.refresh());
   }
 
   refresh() {
@@ -167,12 +169,13 @@ export default class UpgradeScene extends Phaser.Scene {
     // split evenly) — icon centered well clear of that left edge so it
     // never pokes outside the row, text following it likewise pulled in
     // rather than leaving a dead gap between the icon and the name.
-    const icon = addUnitIcon(this, 54, y, base, ROW_HEIGHT - 10, true, isEvolved);
+    // Idle-animated like Character Formation / Unit Guide (user request).
+    const icon = addUnitIcon(this, 54, y, base, ROW_HEIGHT - 10, true, isEvolved, true);
     if (icon) rowObjects.push(icon);
     else rowObjects.push(this.add.rectangle(30, y, 20, 20, base.color));
     rowObjects.push(
       this.add
-        .text(92, y - 12, `${base.displayName}  (${meta.rarity})  —  ${evoName}`, {
+        .text(92, y - 12, `${base.characterName} (${base.abilityLabel})  ·  ${meta.rarity}  —  ${evoName}`, {
           fontFamily: FONT, fontSize: '13px',
           color: BC.inkHex,
         })

@@ -191,7 +191,9 @@ export default class GachaScene extends Phaser.Scene {
     // buttons pulled up to match (was y=165) — real user feedback: this
     // banner+button block was eating space the results box below badly
     // needed (see GRID_AREA_H's own comment on the overflow that caused).
-    drawBcPanel(this, width / 2, BANNER_Y, width - 64, BANNER_H, { fill: 0x2a1f3d });
+    // Narrowed so it sits between the title pill and the Gem badge
+    // (full-width, it covered the 'Gacha' title).
+    drawBcPanel(this, width / 2, BANNER_Y, 360, BANNER_H, { fill: 0x2a1f3d });
     this.add
       .text(width / 2, BANNER_Y, 'Axie Gacha', { fontFamily: FONT, fontSize: '17px', color: '#ffd27f' })
       .setOrigin(0.5);

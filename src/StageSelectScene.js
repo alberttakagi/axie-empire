@@ -740,7 +740,7 @@ export default class StageSelectScene extends Phaser.Scene {
       lines.push(`Max ${restrictions.maxDeployed} units deployed at once`);
     }
     if (restrictions.bannedUnitTypes) {
-      const names = restrictions.bannedUnitTypes.map((key) => UNIT_CONFIG[key]?.displayName || key);
+      const names = restrictions.bannedUnitTypes.map((key) => UNIT_CONFIG[key]?.characterName || key);
       lines.push(`Banned: ${names.join(', ')}`);
     }
     if (restrictions.costRange) {
