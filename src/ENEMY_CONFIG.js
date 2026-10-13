@@ -72,6 +72,7 @@ export const ENEMY_RARITY = {
 export const ENEMY_CONFIG = {
   basic: {
     id: 'basic',
+    abilityLabel: 'Small Fry', // battle-style tag shown in (), like the units'
     displayName: 'Doge',
     characterName: 'Slime', // わんこ (Doge) — the first enemy in the real game
     role: 'basic',
@@ -104,6 +105,7 @@ export const ENEMY_CONFIG = {
   },
   fast: {
     id: 'fast',
+    abilityLabel: 'Quick Biter', // battle-style tag shown in (), like the units'
     displayName: 'Snache',
     characterName: 'Gray Wolf', // にょろ (Snache)
     role: 'fast',
@@ -134,6 +136,7 @@ export const ENEMY_CONFIG = {
   },
   tank: {
     id: 'tank',
+    abilityLabel: 'Stump Wall', // battle-style tag shown in (), like the units'
     displayName: 'Hippoe',
     characterName: 'Treant', // カバちゃん (Hippoe) — real Battle Cats' own early "wall boss"
     role: 'tank',
@@ -161,6 +164,7 @@ export const ENEMY_CONFIG = {
   },
   ranged: {
     id: 'ranged',
+    abilityLabel: 'Water Cannon', // battle-style tag shown in (), like the units'
     displayName: 'Paon',
     characterName: 'Aquatic Slime', // パオン (Paon) — real long-range artillery
     role: 'ranged',
@@ -188,6 +192,7 @@ export const ENEMY_CONFIG = {
   },
   aoe: {
     id: 'aoe',
+    abilityLabel: 'Red Caster', // battle-style tag shown in (), like the units'
     displayName: 'Piggeh',
     characterName: 'Dryad Mage', // ブタヤロウ (Piggeh) — the first Red enemy
     role: 'aoe',
@@ -227,6 +232,7 @@ export const ENEMY_CONFIG = {
 
   swarm: {
     id: 'swarm',
+    abilityLabel: 'Rusher', // battle-style tag shown in (), like the units'
     displayName: 'Listen To Me',
     characterName: 'Forest Slime Fighter', // リッスントゥミー — cheap, extremely fast swarm filler
     role: 'swarm',
@@ -254,6 +260,7 @@ export const ENEMY_CONFIG = {
   },
   sniper: {
     id: 'sniper',
+    abilityLabel: 'Bruiser', // battle-style tag shown in (), like the units'
     displayName: 'Jackie Penguin',
     characterName: 'Dryad Ranger', // ジャッキー・ペン (Jackie Penguin) — a fast attacker
     role: 'sniper',
@@ -283,6 +290,7 @@ export const ENEMY_CONFIG = {
   },
   guardian: {
     id: 'guardian',
+    abilityLabel: 'Siege Tree', // battle-style tag shown in (), like the units'
     displayName: 'Kuma-sensei',
     characterName: 'Flowering Treant', // クマ先生 (Kuma-sensei) — long range, KB10
     role: 'guardian',
@@ -310,6 +318,7 @@ export const ENEMY_CONFIG = {
   },
   support: {
     id: 'support',
+    abilityLabel: 'Red Splasher', // battle-style tag shown in (), like the units'
     displayName: 'Gomasama',
     characterName: 'Aquatic Flowering Slime', // ゴマさま (Gomasama) — fast Red area attacker
     role: 'support',
@@ -344,6 +353,7 @@ export const ENEMY_CONFIG = {
   // still fits) now holds his real data instead.
   titan: {
     id: 'titan',
+    abilityLabel: 'Elite Brute', // battle-style tag shown in (), like the units'
     displayName: 'Kaoru-kun',
     characterName: 'Daddy Bear', // カオル君 (Kaoru-kun) — the real Empire of Cats Chapter 1 final boss (stage 48, 西表島)
     role: 'titan',
@@ -381,6 +391,7 @@ export const ENEMY_CONFIG = {
   },
   thatguy: {
     id: 'thatguy',
+    abilityLabel: 'Grunt', // battle-style tag shown in (), like the units'
     displayName: 'That Guy',
     characterName: 'Slime', // 例のヤツ (That Guy) — real early stage filler, KB1
     role: 'thatguy',
@@ -408,6 +419,7 @@ export const ENEMY_CONFIG = {
   },
   gory: {
     id: 'gory',
+    abilityLabel: 'Pack Leader', // battle-style tag shown in (), like the units'
     displayName: 'Gory',
     characterName: 'Alpha Wolf', // ゴリさん (Gory) — real stage-16 boss, fast AoE
     role: 'gory',
@@ -435,6 +447,7 @@ export const ENEMY_CONFIG = {
   },
   mehmeh: {
     id: 'mehmeh',
+    abilityLabel: 'Tough Fry', // battle-style tag shown in (), like the units'
     displayName: 'Meh Meh',
     characterName: 'Slime', // メェメェ (Meh Meh) — plain early filler
     role: 'mehmeh',
@@ -462,6 +475,7 @@ export const ENEMY_CONFIG = {
   },
   wanikun: {
     id: 'wanikun',
+    abilityLabel: 'Pup Rusher', // battle-style tag shown in (), like the units'
     displayName: 'Wanikun',
     characterName: 'Gray Wolf', // ワニック (Wanikun) — weak but fast filler
     role: 'wanikun',
@@ -489,6 +503,7 @@ export const ENEMY_CONFIG = {
   },
   usagin: {
     id: 'usagin',
+    abilityLabel: 'Red Sprinter', // battle-style tag shown in (), like the units'
     displayName: 'Usagin',
     characterName: 'Gray Wolf', // ウサ銀 (Usagin) — real Red-attribute speedster
     role: 'usagin',
@@ -517,6 +532,7 @@ export const ENEMY_CONFIG = {
   },
   kangaroo: {
     id: 'kangaroo',
+    abilityLabel: 'Speed Boss', // battle-style tag shown in (), like the units'
     displayName: 'Kangaroo',
     characterName: 'Wolf', // カ・ンガリュ (Kangaroo) — real stage-35/Tokyo boss
     role: 'kangaroo',
@@ -544,6 +560,7 @@ export const ENEMY_CONFIG = {
   },
   ikkaku: {
     id: 'ikkaku',
+    abilityLabel: 'Red Crusher', // battle-style tag shown in (), like the units'
     displayName: 'Ikkaku-kun',
     characterName: 'Behemoth', // 一角くん (Ikkaku-kun) — real stage-41 boss, ultra-close range, Red
     role: 'ikkaku',
@@ -572,6 +589,7 @@ export const ENEMY_CONFIG = {
   },
   gagagaga: {
     id: 'gagagaga',
+    abilityLabel: 'Floating Raider', // battle-style tag shown in (), like the units'
     displayName: 'Gagagaga',
     characterName: 'Elder Aquatic Wolf', // ガガガガ (Gagagaga) — real stage-38 boss, Floating
     role: 'gagagaga',
@@ -606,6 +624,7 @@ export const ENEMY_CONFIG = {
   // either way and this keeps the formula meaningful.
   kanban: {
     id: 'kanban',
+    abilityLabel: 'Decoy', // battle-style tag shown in (), like the units'
     displayName: 'Kanban Musume',
     characterName: 'Slime', // カンバン娘 — a harmless recurring background filler present in every real Chapter 1 stage
     role: 'kanban',
@@ -642,6 +661,7 @@ export const ENEMY_CONFIG = {
   // their superClass tag, so `attribute` is simply omitted for them now.
   zombie: {
     id: 'zombie',
+    abilityLabel: 'Undying', // battle-style tag shown in (), like the units'
     displayName: 'Zombie',
     characterName: 'Old Slime',
     role: 'zombie',
@@ -671,6 +691,7 @@ export const ENEMY_CONFIG = {
   },
   colossus: {
     id: 'colossus',
+    abilityLabel: 'Alpha Bruiser', // battle-style tag shown in (), like the units'
     displayName: 'Colossus',
     characterName: 'Alpha Wolf',
     role: 'colossus',
@@ -698,18 +719,23 @@ export const ENEMY_CONFIG = {
   },
   behemoth: {
     id: 'behemoth',
+    abilityLabel: 'Apex Predator', // battle-style tag shown in (), like the units'
     displayName: 'Behemoth',
     characterName: 'Werewolf',
     role: 'behemoth',
     threat: 35,
     rarity: ENEMY_RARITY.MYTHIC,
-    hp: 500,
-    damage: 55,
+    // Round 2 (user decision): the Werewolf is the biggest threat in the
+    // lore, so it is the saga finales' true final boss — tougher than
+    // Daddy Bear (40000/2000) at every stage multiplier.
+    hp: 60000,
+    damage: 2600,
     attackSpeed: 0.35,
     foreswingMs: 1000,
     backswingMs: 1857,
     moveSpeed: 18,
     radius: 38,
+    bossScale: 3.2, // drawn even bigger than other bosses when it's the stage boss
     range: 38,
     rechargeMs: 0,
     knockbackCount: 1,

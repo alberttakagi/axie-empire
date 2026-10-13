@@ -252,7 +252,8 @@ const WORLD_ZOOM_WHEEL_SENSITIVITY = 0.001; // fraction of zoom changed per whee
 // as long as it's alive — see spawnScriptedEnemy for why this scales
 // radius/range directly rather than being a sprite-only multiplier (the
 // hitbox needs to keep pace with what's actually on screen).
-const BOSS_VISUAL_SCALE_MULTIPLIER = 1.6;
+const FOOT_ANCHOR_HEIGHT = 110; // see fitSpriteToRadius
+const BOSS_VISUAL_SCALE_MULTIPLIER = 2.4; // Round 2: bosses must read as big and intimidating (was 1.6)
 
 // Enemy rarity (see ENEMY_CONFIG.js's own ENEMY_RARITY header) — the same
 // radius-scaling technique as the boss multiplier just above, applied by
@@ -265,7 +266,7 @@ const ENEMY_RARITY_SIZE_MULTIPLIER = {
   [ENEMY_RARITY.COMMON]: 1,
   [ENEMY_RARITY.RARE]: 1.15,
   [ENEMY_RARITY.EPIC]: 1.35,
-  [ENEMY_RARITY.LEGENDARY]: 1.6,
+  [ENEMY_RARITY.LEGENDARY]: 2.0, // Round 2: was 1.6 — boss-tier enemies should loom
   [ENEMY_RARITY.MYTHIC]: 2.6, // Behemoth/Werewolf alone — see ENEMY_CONFIG.js's own comment on why
 };
 
@@ -1240,7 +1241,9 @@ export default class GameScene extends Phaser.Scene {
       if (rule.maxCount !== null && state.spawnedCount >= rule.maxCount) continue;
       if (percent > rule.castleHpBelowPercent) continue;
       if (battleMs < state.nextMs) continue;
-      if (aliveEnemyCount >= maxEnemiesOnField) continue;
+      // A boss never waits behind the field cap — a full screen of small fry
+      // used to hold the saga finale's Werewolf back indefinitely.
+      if (aliveEnemyCount >= maxEnemiesOnField && !state.entry.isBoss) continue;
 
       this.spawnScriptedEnemy(state.entry);
       aliveEnemyCount += 1;
@@ -2299,6 +2302,11 @@ export default class GameScene extends Phaser.Scene {
     sprite.idleMaxDim = Math.max(sprite.width, sprite.height);
     sprite.baseTargetSize = targetSize;
     sprite.setScale(targetSize / sprite.idleMaxDim);
+    // Big sprites (bosses) grow UPWARD from the lane instead of out from
+    // their center — centered, a boss's feet sank behind the deploy bar.
+    // Sprites up to FOOT_ANCHOR_HEIGHT keep the original centered framing.
+    const overflow = sprite.displayHeight - FOOT_ANCHOR_HEIGHT;
+    if (overflow > 0) sprite.setOrigin(0.5, 0.5 + overflow / 2 / sprite.displayHeight);
   }
 
   // Stage mode: fixed script — no randomness, no tier-based auto-scaling.
@@ -2338,7 +2346,7 @@ export default class GameScene extends Phaser.Scene {
     // range too, wherever range === radius — a pure melee identity) by the
     // same multiplier keeps the hitbox honest against what's actually on
     // screen.
-    const sizeMultiplier = entry.isBoss ? BOSS_VISUAL_SCALE_MULTIPLIER : ENEMY_RARITY_SIZE_MULTIPLIER[base.rarity] || 1;
+    const sizeMultiplier = entry.isBoss ? (base.bossScale ?? BOSS_VISUAL_SCALE_MULTIPLIER) : ENEMY_RARITY_SIZE_MULTIPLIER[base.rarity] || 1;
     if (sizeMultiplier !== 1) {
       config.radius = Math.round(base.radius * sizeMultiplier);
       if (base.range === base.radius) config.range = config.radius;
