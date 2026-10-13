@@ -12,6 +12,9 @@ import {
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { getMissionsWithStatus } from './Missions.js';
+import { UNIT_CONFIG } from './UNIT_CONFIG.js';
+import { loadLoadout } from './Loadout.js';
+import { preloadSpriteRoster } from './SpriteIcon.js';
 import { EXPEDITION_OPTIONS, getExpeditionStatus, startExpedition, collectExpedition, formatRemaining } from './Expedition.js';
 import { BC, FONT, createBcButton, createBcCircleButton, createTitlePill, createResourceBadge, drawWoodFrame, drawBcPanel } from './UITheme.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
@@ -47,6 +50,10 @@ export default class HomeScene extends Phaser.Scene {
 
   preload() {
     preloadBackgrounds(this);
+    // Expedition popup's party (first 3 Formation units): stills + run/idle atlases.
+    const party = {};
+    for (const key of this.getExpeditionParty()) party[key] = UNIT_CONFIG[key];
+    preloadSpriteRoster(this, party, true);
   }
 
   create() {
@@ -231,8 +238,17 @@ export default class HomeScene extends Phaser.Scene {
   // popup (cream panel, gold close button, gold guide tiles), which also
   // has several buttons (Treasure List, Cat Medals, Cat Club, Help) this
   // build has no equivalent system for yet.
-  // Expedition (Expedition.js) — idle: pick a trip; away: countdown;
-  // ready: collect. Re-renders itself every second while open.
+  // Expedition (Expedition.js). Three states, each its own little scene
+  // inside the popup: idle (pick a trip), away (your party runs along a
+  // scrolling trail with a progress bar), ready (party waits beside a
+  // bouncing treasure chest that bursts open on Collect). The per-second
+  // tick only updates the countdown/progress; the animated stage is
+  // rebuilt only when the state changes.
+  getExpeditionParty() {
+    const party = loadLoadout().filter((key) => key && UNIT_CONFIG[key]).slice(0, 3);
+    return party.length ? party : ['basic'];
+  }
+
   showExpeditionPopup() {
     if (this.expeditionObjects) return;
     const { width, height } = LOGICAL_SIZE;
@@ -241,60 +257,168 @@ export default class HomeScene extends Phaser.Scene {
     const close = () => {
       this.expeditionTimer?.remove();
       this.expeditionTimer = null;
+      stageObjs.forEach((o) => o.destroy());
       objects.forEach((o) => o.destroy());
       this.expeditionObjects = null;
       this.refreshExpeditionBadge?.();
     };
-    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.6).setInteractive());
-    const panelW = 360;
-    const panelH = 230;
-    objects.push(drawBcPanel(this, width / 2, height / 2, panelW, panelH));
-    objects.push(this.add.text(width / 2, height / 2 - panelH / 2 + 24, 'Expedition', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex }).setOrigin(0.5));
-    objects.push(createBcCircleButton(this, width / 2 + panelW / 2 - 8, height / 2 - panelH / 2 - 8, 16, '✕', close, { fill: BC.gold }));
+    const cx = width / 2;
+    const cy = height / 2;
+    const panelW = 470;
+    const panelH = 300;
+    objects.push(this.add.rectangle(cx, cy, width, height, 0x000000, 0.6).setInteractive());
+    objects.push(drawBcPanel(this, cx, cy, panelW, panelH));
+    objects.push(this.add.text(cx, cy - panelH / 2 + 22, '⛏  Expedition', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex }).setOrigin(0.5));
+    objects.push(createBcCircleButton(this, cx + panelW / 2 - 8, cy - panelH / 2 - 8, 16, '✕', close, { fill: BC.gold }));
 
-    const body = [];
+    // Trail "window" — the animated stage for every state.
+    const stripW = panelW - 40;
+    const stripH = 118;
+    const stripY = cy - 40;
+    const stripLeft = cx - stripW / 2;
+    const stageObjs = [];
+    const party = this.getExpeditionParty();
     let lastState = null;
-    const render = () => {
-      lastState = getExpeditionStatus().state;
-      body.forEach((o) => o.destroy());
-      body.length = 0;
-      const status = getExpeditionStatus();
-      const cy = height / 2;
-      const add = (o) => { body.push(o); return o; };
-      if (status.state === 'idle') {
-        add(this.add.text(width / 2, cy - 36, 'Send your Axies to explore Lunacia.\nLonger trips bring back better loot!', { fontFamily: FONT, fontSize: '12px', color: '#7a5c1e', align: 'center' }).setOrigin(0.5));
+    let countdownText = null;
+    let progressFill = null;
+
+    const addStage = (o) => { stageObjs.push(o); return o; };
+    const clearStage = () => { stageObjs.forEach((o) => { this.tweens.killTweensOf(o); o.destroy(); }); stageObjs.length = 0; };
+
+    // Masked sky + ground so scrolling props never spill outside the window.
+    const maskShape = this.make.graphics({ add: false });
+    maskShape.fillStyle(0xffffff).fillRoundedRect(stripLeft, stripY - stripH / 2, stripW, stripH, 10);
+    const mask = maskShape.createGeometryMask();
+    objects.push({ destroy: () => maskShape.destroy() });
+
+    const drawBackdrop = (night) => {
+      addStage(this.add.rectangle(cx, stripY - 14, stripW, stripH - 28, night ? 0x2c3e6b : 0x9ad7f5)).setMask(mask);
+      addStage(this.add.rectangle(cx, stripY + stripH / 2 - 14, stripW, 28, 0x7cb342)).setMask(mask);
+      addStage(this.add.rectangle(cx, stripY + stripH / 2 - 27, stripW, 3, 0x558b2f)).setMask(mask);
+      const frame = addStage(this.add.graphics());
+      frame.lineStyle(3, BC.ink, 1).strokeRoundedRect(stripLeft, stripY - stripH / 2, stripW, stripH, 10);
+    };
+
+    // Party sprite cycling an atlas sequence (run/idleanim) at 24fps;
+    // falls back to the still idle pose if the atlas isn't cached yet.
+    const addPartyMember = (key, x, field, size) => {
+      const atlasKey = `unit_${key}_${field}`;
+      const hasAtlas = this.textures.exists(atlasKey);
+      const img = hasAtlas ? this.add.image(x, 0, atlasKey, '0') : this.add.image(x, 0, `unit_${key}_idle`, '__BASE');
+      img.setFlipX(true).setMask(mask);
+      const base = this.textures.exists(`unit_${key}_idle`) ? this.textures.get(`unit_${key}_idle`).getSourceImage() : img;
+      img.setScale(size / Math.max(base.width, base.height));
+      img.setY(stripY + stripH / 2 - 26 - img.displayHeight * 0.45);
+      addStage(img);
+      if (hasAtlas) {
+        const frames = this.textures.get(atlasKey).getFrameNames().sort((a, b) => a - b);
+        let f = Math.floor(Math.random() * frames.length);
+        const ev = this.time.addEvent({ delay: 1000 / 24, loop: true, callback: () => { f = (f + 1) % frames.length; if (img.active) img.setFrame(frames[f]); } });
+        addStage({ destroy: () => ev.remove() });
+      }
+      return img;
+    };
+
+    const buildStage = (state) => {
+      clearStage();
+      countdownText = null;
+      progressFill = null;
+      if (state === 'idle') {
+        drawBackdrop(false);
+        party.forEach((key, i) => {
+          const m = addPartyMember(key, cx - 60 + i * 60, 'idleanim', 56);
+          this.tweens.add({ targets: m, y: m.y - 3, duration: 900 + i * 120, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        });
+        addStage(this.add.text(cx, stripY - stripH / 2 + 16, 'Your party is ready to explore Lunacia!', { fontFamily: FONT, fontSize: '12px', color: '#1d1a16' }).setOrigin(0.5));
         EXPEDITION_OPTIONS.forEach((opt, i) => {
-          const bx = width / 2 + (i - 1) * 112;
-          add(createBcButton(this, bx, cy + 30, 100, 64, `${opt.label}\n${opt.xp.toLocaleString()} XP`, () => {
-            if (startExpedition(opt.id)) render();
+          const bx = cx + (i - 1) * 146;
+          const label = `${opt.label}\n+${opt.xp.toLocaleString()} XP${opt.bonusChance >= 1 ? '\n+ bonus item' : `\n${Math.round(opt.bonusChance * 100)}% bonus`}`;
+          addStage(createBcButton(this, bx, cy + 82, 132, 72, label, () => {
+            if (!startExpedition(opt.id)) return;
+            playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.5 });
+            refresh(true);
           }, { fontSize: 12 }));
         });
-      } else if (status.state === 'away') {
-        add(this.add.text(width / 2, cy - 30, `On a ${status.option.label} trip...`, { fontFamily: FONT, fontSize: '14px', color: BC.inkHex }).setOrigin(0.5));
-        add(this.add.text(width / 2, cy + 10, `Back in ${formatRemaining(status.remainingMs)}`, { fontFamily: FONT, fontSize: '22px', color: '#2a7ab0' }).setOrigin(0.5));
-        add(this.add.text(width / 2, cy + 50, 'Come back later — it keeps going while you play or close the game.', { fontFamily: FONT, fontSize: '10px', color: '#7a5c1e' }).setOrigin(0.5));
+      } else if (state === 'away') {
+        drawBackdrop(false);
+        // Scrolling props: clouds above, bushes/rocks on the ground.
+        const scroller = (y, w, h, color, dur, count) => {
+          for (let k = 0; k < count; k++) {
+            const startX = stripLeft + (stripW / count) * k + Math.random() * 30;
+            const o = addStage(this.add.ellipse(startX, y, w, h, color)).setMask(mask);
+            const travel = startX - (stripLeft - w);
+            this.tweens.add({
+              targets: o, x: stripLeft - w, duration: dur * (travel / (stripW + w)), onComplete: () => {
+                o.x = stripLeft + stripW + w;
+                this.tweens.add({ targets: o, x: stripLeft - w, duration: dur, repeat: -1 });
+              },
+            });
+          }
+        };
+        scroller(stripY - 34, 54, 18, 0xffffff, 9000, 3);
+        scroller(stripY + stripH / 2 - 30, 26, 14, 0x4e8a2a, 2600, 5);
+        scroller(stripY + stripH / 2 - 8, 10, 6, 0x8d6e63, 1800, 7);
+        party.forEach((key, i) => {
+          const m = addPartyMember(key, cx + 40 - i * 52, 'run', 52);
+          this.tweens.add({ targets: m, y: m.y - 4, duration: 220 + i * 30, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        });
+        countdownText = addStage(this.add.text(cx, cy + 50, '', { fontFamily: FONT, fontSize: '20px', color: '#2a7ab0' }).setOrigin(0.5));
+        addStage(this.add.rectangle(cx, cy + 80, 300, 14, 0x000000, 0.25).setStrokeStyle(2, BC.ink));
+        progressFill = addStage(this.add.rectangle(cx - 148, cy + 80, 0, 10, 0xffc93c).setOrigin(0, 0.5));
+        addStage(this.add.text(cx, cy + 108, 'Keeps going while you play or close the game.', { fontFamily: FONT, fontSize: '10px', color: '#7a5c1e' }).setOrigin(0.5));
       } else {
-        add(this.add.text(width / 2, cy - 30, 'Your Axies are back!', { fontFamily: FONT, fontSize: '16px', color: BC.inkHex }).setOrigin(0.5));
-        add(createBcButton(this, width / 2, cy + 30, 160, 52, 'Collect!', () => {
+        drawBackdrop(true);
+        for (let k = 0; k < 14; k++) {
+          const star = addStage(this.add.circle(stripLeft + 10 + Math.random() * (stripW - 20), stripY - stripH / 2 + 8 + Math.random() * 40, 1.5, 0xffffff)).setMask(mask);
+          this.tweens.add({ targets: star, alpha: 0.2, duration: 600 + Math.random() * 900, yoyo: true, repeat: -1 });
+        }
+        party.forEach((key, i) => addPartyMember(key, cx - 120 + i * 50, 'idleanim', 52));
+        // Treasure chest (drawn, no art needed): body + lid that pops open.
+        const chestX = cx + 110;
+        const groundY = stripY + stripH / 2 - 28;
+        const body = addStage(this.add.rectangle(chestX, groundY - 14, 56, 30, 0x8d5524).setStrokeStyle(3, 0x3e2310));
+        const band = addStage(this.add.rectangle(chestX, groundY - 14, 56, 6, 0xffc93c));
+        const lid = addStage(this.add.rectangle(chestX, groundY - 33, 60, 14, 0xa0652d).setStrokeStyle(3, 0x3e2310));
+        const glow = addStage(this.add.circle(chestX, groundY - 20, 42, 0xfff3a0, 0.25));
+        this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.08, duration: 800, yoyo: true, repeat: -1 });
+        this.tweens.add({ targets: [body, band, lid], y: '-=6', duration: 380, yoyo: true, repeat: -1, ease: 'Quad.out' });
+        addStage(this.add.text(cx, stripY - stripH / 2 + 16, 'Your party is back with loot!', { fontFamily: FONT, fontSize: '12px', color: '#ffffff' }).setOrigin(0.5));
+        addStage(createBcButton(this, cx, cy + 82, 170, 54, 'Collect!', () => {
           const lines = collectExpedition();
           if (!lines) return;
           playSfxFile('/audio/sfx/buff.wav', { gain: 0.6 });
           this.refreshXpBadge?.();
-          render();
-          const msg = this.add.text(width / 2, cy - 66, lines.join('   '), { fontFamily: FONT, fontSize: '14px', color: '#e8a400', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5).setScale(0);
+          this.tweens.killTweensOf([body, band, lid]);
+          this.tweens.add({ targets: lid, y: lid.y - 26, angle: -35, duration: 260, ease: 'Back.out' });
+          for (let k = 0; k < 18; k++) {
+            const sp = this.add.circle(chestX, groundY - 26, 3, [0xffd54f, 0xffffff, 0x81d4fa][k % 3]).setDepth(5000);
+            const ang = Phaser.Math.DegToRad(-160 + Math.random() * 140);
+            const dist = 50 + Math.random() * 70;
+            this.tweens.add({ targets: sp, x: chestX + Math.cos(ang) * dist, y: groundY - 26 + Math.sin(ang) * dist, alpha: 0, duration: 700, ease: 'Cubic.out', onComplete: () => sp.destroy() });
+          }
+          const msg = this.add.text(cx, cy + 40, lines.join('   '), { fontFamily: FONT, fontSize: '16px', color: '#e8a400', stroke: '#ffffff', strokeThickness: 4 }).setOrigin(0.5).setScale(0).setDepth(5000);
           objects.push(msg);
-          this.tweens.add({ targets: msg, scale: 1, duration: 260, ease: 'Back.out' });
+          this.tweens.add({ targets: msg, scale: 1, duration: 280, ease: 'Back.out' });
+          this.time.delayedCall(1600, () => { if (this.expeditionObjects === objects) refresh(true); });
         }, { fontSize: 16 }));
       }
-      objects.push(...body);
+      objects.push(...stageObjs.filter((o) => o.setDepth)); // keep popup objects above the hub
     };
-    render();
-    this.expeditionTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => {
-      // Only the countdown needs ticking; rebuilding the Collect button
-      // every second could swallow a tap that straddled the rebuild.
-      const state = getExpeditionStatus().state;
-      if (state === 'away' || state !== lastState) render();
-    } });
+
+    const refresh = (force = false) => {
+      const status = getExpeditionStatus();
+      if (force || status.state !== lastState) {
+        lastState = status.state;
+        buildStage(status.state);
+      }
+      if (status.state === 'away' && countdownText) {
+        countdownText.setText(`${status.option.label} trip — back in ${formatRemaining(status.remainingMs)}`);
+        const frac = 1 - status.remainingMs / status.option.durationMs;
+        progressFill.width = 296 * Phaser.Math.Clamp(frac, 0, 1);
+      }
+    };
+    refresh(true);
+    this.expeditionTimer = this.time.addEvent({ delay: 1000, loop: true, callback: () => refresh() });
   }
 
   showMenuPopup() {
