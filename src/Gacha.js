@@ -141,11 +141,6 @@ function performRolls(count, cost) {
   const rewards = [];
   for (let i = 0; i < count; i += 1) {
     let reward = rollReward();
-    // 11x pull guarantee: the last pull is at least a Rare unit if none
-    // dropped yet — a multi-roll should always feel like it got you someone.
-    if (count > 1 && i === count - 1 && !rewards.some((r) => r.type === 'unit') && reward.type !== 'unit') {
-      reward = REWARD_POOL.find((e) => e.type === 'unit');
-    }
     if (reward.type === 'unit') reward = resolveUnitReward(reward);
     applyReward(reward);
     rewards.push(reward);

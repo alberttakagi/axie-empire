@@ -1067,7 +1067,11 @@ export default class GameScene extends Phaser.Scene {
     // every exit point. Covers the boss track too now — both it and the
     // normal battle track go through the same Audio.js player (see
     // updateBossMusic), so there's nothing separate left to tear down.
-    this.events.once('shutdown', () => stopMusic());
+    this.events.once('shutdown', () => {
+      stopMusic();
+      if (this.tooltipTimer) clearTimeout(this.tooltipTimer); // plain setTimeout outlives the scene
+      this.tooltipTimer = null;
+    });
   }
 
 
@@ -1314,9 +1318,11 @@ export default class GameScene extends Phaser.Scene {
   // the battlefield anyway).
   createBattleTooltip() {
     const { width } = LOGICAL_SIZE;
-    const y = 92;
-    this.battleTooltipContainer = this.add.container(width / 2, y).setDepth(1000).setVisible(false);
-    this.battleTooltipBg = this.add.rectangle(0, 0, 260, 40, 0x000000, 0.92).setStrokeStyle(2, 0xffdd33);
+    // Round 2 (user feedback: it covered the boss HP bar and results):
+    // anchored just ABOVE the deploy-button row, bottom-aligned, next to
+    // whatever was hovered. See queueBattleTooltip for the hover delay.
+    this.battleTooltipContainer = this.add.container(width / 2, 300).setDepth(1000).setVisible(false);
+    this.battleTooltipBg = this.add.rectangle(0, 0, 260, 40, 0x000000, 0.92).setStrokeStyle(2, 0xffdd33).setOrigin(0.5, 1);
     this.battleTooltipText = this.add
       .text(0, 0, '', {
         fontFamily: 'Rowdies, sans-serif', fontSize: '11px',
@@ -1325,15 +1331,39 @@ export default class GameScene extends Phaser.Scene {
         wordWrap: { width: 280 },
         lineSpacing: 5,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5, 1);
     this.battleTooltipContainer.add([this.battleTooltipBg, this.battleTooltipText]);
+    this.tooltipTimer = null;
+  }
+
+  // Hover intent delay, like most PC games' tooltips: a pass-over doesn't
+  // flash a panel, a deliberate ~0.6s hover does. Touch: a 0.45s hold
+  // (long-press) shows it; lifting the finger hides it.
+  queueBattleTooltip(pointer, getArgs) {
+    this.cancelBattleTooltip();
+    if (this.isGameOver) return;
+    const delay = pointer?.wasTouch ? 450 : 600;
+    const anchorX = pointer ? pointer.x / RENDER_SCALE : LOGICAL_SIZE.width / 2;
+    this.tooltipTimer = setTimeout(() => {
+      this.tooltipTimer = null;
+      if (!this.sys.isActive() || this.isGameOver) return;
+      const [config, liveStats] = getArgs();
+      this.showBattleTooltip(config, liveStats, anchorX);
+    }, delay);
+  }
+
+  cancelBattleTooltip() {
+    if (this.tooltipTimer) clearTimeout(this.tooltipTimer);
+    this.tooltipTimer = null;
+    this.hideBattleTooltip();
   }
 
   // `liveStats` (optional): { hp, maxHp } for an actual on-field entity, so
   // its CURRENT (damaged) HP shows instead of just the max — omitted for a
   // spawn-button hover, where nothing has been deployed yet and only the
   // base stats mean anything.
-  showBattleTooltip(config, liveStats = null) {
+  showBattleTooltip(config, liveStats = null, anchorX = LOGICAL_SIZE.width / 2) {
+    if (this.isGameOver) return;
     const header = `${config.characterName}  (${config.abilityLabel || config.displayName})`;
     // Cost isn't repeated here even on a spawn-button hover (liveStats ===
     // null) — the button underneath already prints its own price, so this
@@ -1347,7 +1377,13 @@ export default class GameScene extends Phaser.Scene {
 
     const padding = 12;
     const bounds = this.battleTooltipText.getBounds();
-    this.battleTooltipBg.setSize(bounds.width + padding * 2, bounds.height + padding * 2);
+    const w = bounds.width + padding * 2;
+    this.battleTooltipBg.setSize(w, bounds.height + padding * 2);
+    this.battleTooltipText.setY(-padding);
+    // Bottom edge just above the deploy row; x follows the hover, clamped on-screen.
+    const rowTop = this.spawnRowBounds ? this.spawnRowBounds.y - this.spawnRowBounds.height / 2 : LOGICAL_SIZE.height - 120;
+    const x = Phaser.Math.Clamp(anchorX, w / 2 + 6, LOGICAL_SIZE.width - w / 2 - 6);
+    this.battleTooltipContainer.setPosition(x, rowTop - 6);
     this.battleTooltipContainer.setVisible(true);
   }
 
@@ -1363,8 +1399,8 @@ export default class GameScene extends Phaser.Scene {
   // just whatever it was at spawn time.
   setupEntityHoverTooltip(shape, entity) {
     shape.setInteractive({ useHandCursor: true });
-    shape.on('pointerover', () => this.showBattleTooltip(entity.config, { hp: entity.hp, maxHp: entity.config.hp }));
-    shape.on('pointerout', () => this.hideBattleTooltip());
+    shape.on('pointerover', (p) => this.queueBattleTooltip(p, () => [entity.config, { hp: entity.hp, maxHp: entity.config.hp }]));
+    shape.on('pointerout', () => this.cancelBattleTooltip());
   }
 
   createSpawnButtons() {
@@ -1470,8 +1506,11 @@ export default class GameScene extends Phaser.Scene {
       // cost text above use) so the preview reflects this unit's real
       // current level/evolution — the same stats trySpawnUnit will
       // actually deploy, not always its base-level numbers.
-      rect.on('pointerover', () => this.showBattleTooltip(getEffectiveUnitConfig(key)));
-      rect.on('pointerout', () => this.hideBattleTooltip());
+      rect.on('pointerover', (p) => this.queueBattleTooltip(p, () => [getEffectiveUnitConfig(key), null]));
+      rect.on('pointerout', () => this.cancelBattleTooltip());
+      // Touch: long-press shows it (pointerover fires on touch-down too);
+      // lifting the finger hides it.
+      rect.on('pointerup', (p) => { if (p.wasTouch) this.cancelBattleTooltip(); });
 
       this.spawnButtons.push({ key, config, rect, icon, costText, cooldownOverlay });
     }
@@ -4388,6 +4427,7 @@ export default class GameScene extends Phaser.Scene {
   // `nextStage` (winStage only) adds a third "Next Stage" button (bible
   // §A.10.5) alongside the always-present Restart/Menu pair.
   showEndScreen(lines, nextStage = null) {
+    this.cancelBattleTooltip(); // never cover the results
     this.gameOverText.setText(lines.join('\n'));
     this.gameOverBackdrop.setVisible(true);
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
@@ -4482,6 +4522,7 @@ export default class GameScene extends Phaser.Scene {
   // player watches the payout resolve before being invited to move on,
   // instead of everything landing in one static block at once.
   playVictorySequence(result, nextStage) {
+    this.cancelBattleTooltip();
     if (this.mode !== 'dojo') this.updateBattleItemButtons(); // grey out now that isGameOver is true
 
     const { width, height } = LOGICAL_SIZE;

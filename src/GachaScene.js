@@ -213,7 +213,7 @@ export default class GachaScene extends Phaser.Scene {
     // GRID_AREA_H can't silently drift out of sync with each other.
     drawBcPanel(this, width / 2, RESULTS_PANEL_Y, width - 64, RESULTS_PANEL_H);
     this.messageText = this.add
-      .text(width / 2, RESULTS_PANEL_Y, 'Pull for 9 new Axies! 11x guarantees a unit.', {
+      .text(width / 2, RESULTS_PANEL_Y, 'Pull for 9 new Axies!', {
         fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
       })
       .setOrigin(0.5);

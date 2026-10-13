@@ -558,7 +558,7 @@ export const UNIT_CONFIG = {
     characterName: 'Bard',
     role: 'bard',
     unlockRequirement: { gacha: true },
-    cost: 1200,
+    cost: 950, // Round 2 balance: was 1200 (user decision)
     hp: 700,
     damage: 220,
     attackSpeed: 8.1,
@@ -594,7 +594,7 @@ export const UNIT_CONFIG = {
     moveSpeed: 50,
     radius: 26,
     range: 26,
-    rechargeMs: 30000,
+    rechargeMs: 22000, // Round 2 balance: was 30000 (user decision)
     knockbackCount: 2,
     knockbackDistance: 8,
     knockbackType: 'normal',
@@ -623,7 +623,7 @@ export const UNIT_CONFIG = {
     moveSpeed: 55,
     radius: 24,
     range: 30,
-    rechargeMs: 32000,
+    rechargeMs: 23000, // Round 2 balance: was 32000 (user decision)
     knockbackCount: 3,
     knockbackDistance: 10,
     knockbackType: 'normal',
