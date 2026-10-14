@@ -612,6 +612,7 @@ export default class GameScene extends Phaser.Scene {
     // Just this stage's backdrop (was every background in the game).
     preloadBattleBackground(this, this.pendingMode === 'dojo' ? 'plant' : getStageBattleBackgroundId(this.pendingStage?.id));
     preloadAttackVfx(this);
+    if (!this.textures.exists('fx_secret_bag')) this.load.image('fx_secret_bag', '/vfx/secret_bag.png');
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
     if (!this.textures.exists(TOWER_ENEMY_SPRITE_KEY)) this.load.image(TOWER_ENEMY_SPRITE_KEY, '/sprites/structures/tower_enemy.png');
     for (const { key, file } of Object.values(STATUS_ICON_TEXTURE)) {
@@ -2117,7 +2118,9 @@ export default class GameScene extends Phaser.Scene {
     // everything down to the floor on its own.
     const recharge = Math.max(
       MIN_RECHARGE_MS,
-      (effectiveConfig.rechargeMs - this.rechargeReductionMs) * (1 - getBonusPercent('redeployPercent') / 100),
+      // Capped at 60%: treasure bonuses sum across sets, and with 84 sets an
+      // uncapped total could reach 100%+ (zero or negative recharge).
+      (effectiveConfig.rechargeMs - this.rechargeReductionMs) * (1 - Math.min(60, getBonusPercent('redeployPercent')) / 100),
     );
 
     const finalConfig = {

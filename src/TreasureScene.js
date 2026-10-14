@@ -117,6 +117,20 @@ export default class TreasureScene extends Phaser.Scene {
 
     this.pageText = this.add.text(width / 2, pagerY, '', { fontFamily: FONT, fontSize: '12px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
 
+    // Saga jumps (84 sets = 42 pages): each saga is 12 sets = 6 pages.
+    const pagesPerSaga = 12 / SETS_PER_PAGE;
+    const jump = (delta) => {
+      const totalPages = Math.ceil(getTreasureSummary().length / SETS_PER_PAGE);
+      const sagaIdx = Math.floor(this.page / pagesPerSaga) + delta;
+      const next = Phaser.Math.Clamp(sagaIdx * pagesPerSaga, 0, totalPages - 1);
+      if (next !== this.page) {
+        this.page = next;
+        this.refresh();
+      }
+    };
+    createBcButton(this, width / 2 - 190, pagerY, 90, 28, '<< Saga', () => jump(-1), { fill: 0x6a5acd, highlight: 0x8f83e0, textColor: '#ffffff', fontSize: 11 });
+    createBcButton(this, width / 2 + 190, pagerY, 90, 28, 'Saga >>', () => jump(1), { fill: 0x6a5acd, highlight: 0x8f83e0, textColor: '#ffffff', fontSize: 11 });
+
     this.refresh();
   }
 
@@ -129,7 +143,8 @@ export default class TreasureScene extends Phaser.Scene {
 
     pageEntries.forEach((entry, index) => this.renderSet(entry, 66 + index * ROW_SPACING));
 
-    this.pageText.setText(`Page ${this.page + 1}/${totalPages}`);
+    const sagaNum = Math.floor((this.page * SETS_PER_PAGE) / 12) + 1;
+    this.pageText.setText(`Saga ${sagaNum} · ${this.page + 1}/${totalPages}`);
   }
 
   renderSet(entry, y) {

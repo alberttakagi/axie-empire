@@ -54,6 +54,7 @@ export default class HomeScene extends Phaser.Scene {
     const party = {};
     for (const key of this.getExpeditionParty()) party[key] = UNIT_CONFIG[key];
     preloadSpriteRoster(this, party, true);
+    if (!this.textures.exists('fx_secret_bag')) this.load.image('fx_secret_bag', '/vfx/secret_bag.png');
   }
 
   create() {
@@ -241,7 +242,7 @@ export default class HomeScene extends Phaser.Scene {
   // Expedition (Expedition.js). Three states, each its own little scene
   // inside the popup: idle (pick a trip), away (your party runs along a
   // scrolling trail with a progress bar), ready (party waits beside a
-  // bouncing treasure chest that bursts open on Collect). The per-second
+  // bouncing loot bag that bursts open on Collect). The per-second
   // tick only updates the countdown/progress; the animated stage is
   // rebuilt only when the state changes.
   getExpeditionParty() {
@@ -373,23 +374,23 @@ export default class HomeScene extends Phaser.Scene {
           this.tweens.add({ targets: star, alpha: 0.2, duration: 600 + Math.random() * 900, yoyo: true, repeat: -1 });
         }
         party.forEach((key, i) => addPartyMember(key, cx - 120 + i * 50, 'idleanim', 52));
-        // Treasure chest (drawn, no art needed): body + lid that pops open.
+        // Loot bag that bursts with sparkles on Collect.
         const chestX = cx + 110;
         const groundY = stripY + stripH / 2 - 28;
-        const body = addStage(this.add.rectangle(chestX, groundY - 14, 56, 30, 0x8d5524).setStrokeStyle(3, 0x3e2310));
-        const band = addStage(this.add.rectangle(chestX, groundY - 14, 56, 6, 0xffc93c));
-        const lid = addStage(this.add.rectangle(chestX, groundY - 33, 60, 14, 0xa0652d).setStrokeStyle(3, 0x3e2310));
+        // Origins 'Secret Bag' loot art.
+        const bag = addStage(this.add.image(chestX, groundY - 26, 'fx_secret_bag').setDisplaySize(84, 54));
         const glow = addStage(this.add.circle(chestX, groundY - 20, 42, 0xfff3a0, 0.25));
         this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.08, duration: 800, yoyo: true, repeat: -1 });
-        this.tweens.add({ targets: [body, band, lid], y: '-=6', duration: 380, yoyo: true, repeat: -1, ease: 'Quad.out' });
+        this.tweens.add({ targets: bag, y: '-=6', duration: 380, yoyo: true, repeat: -1, ease: 'Quad.out' });
         addStage(this.add.text(cx, stripY - stripH / 2 + 16, 'Your party is back with loot!', { fontFamily: FONT, fontSize: '12px', color: '#ffffff' }).setOrigin(0.5));
         addStage(createBcButton(this, cx, cy + 82, 170, 54, 'Collect!', () => {
           const lines = collectExpedition();
           if (!lines) return;
           playSfxFile('/audio/sfx/buff.wav', { gain: 0.6 });
           this.refreshXpBadge?.();
-          this.tweens.killTweensOf([body, band, lid]);
-          this.tweens.add({ targets: lid, y: lid.y - 26, angle: -35, duration: 260, ease: 'Back.out' });
+          this.tweens.killTweensOf(bag);
+          const s0 = bag.scaleX;
+          this.tweens.add({ targets: bag, scaleX: s0 * 1.35, scaleY: s0 * 0.7, duration: 120, yoyo: true, onComplete: () => this.tweens.add({ targets: bag, alpha: 0.35, duration: 400 }) });
           for (let k = 0; k < 18; k++) {
             const sp = this.add.circle(chestX, groundY - 26, 3, [0xffd54f, 0xffffff, 0x81d4fa][k % 3]).setDepth(5000);
             const ang = Phaser.Math.DegToRad(-160 + Math.random() * 140);
