@@ -8,6 +8,7 @@ import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { installBattleTwists } from './BattleTwists.js';
 import { installBattleFx, SAGA_BATTLE_MUSIC } from './BattleFx.js';
 import { showTipOnce, resetTipState } from './Tips.js';
+import { logEvent } from './Playtest.js';
 import { ATTACK_ANIM_META } from './ATTACK_ANIM_META.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
@@ -1018,6 +1019,12 @@ export default class GameScene extends Phaser.Scene {
     this.showStageModifierBanner();
     this.initBattleTwists();
     resetTipState(this);
+    // Playtest log: one battle_start, and exactly one battle_end (win, loss,
+    // or quit if the scene shuts down first).
+    this.battleStartedAt = Date.now();
+    this.battleEndLogged = false;
+    logEvent('battle_start', { stage: this.mode === 'dojo' ? 'dojo' : this.stage?.id, units: Object.keys(this.unitCooldowns || {}) });
+    this.events.once('shutdown', () => this.logBattleEnd('quit'));
     this.specialMeterMax = SPECIAL_METER_MAX;
     this.initCannonGlow();
     this.startFrameStreaming();
@@ -4492,6 +4499,7 @@ export default class GameScene extends Phaser.Scene {
     playMusic(DEFEAT_MUSIC_URL);
     if (this.cannonGlow) this.cannonGlow.setAlpha(0);
     this.playDefeatFx();
+    this.logBattleEnd('loss');
 
     const finalScore = this.getScore();
     // A loss can still raise a stage's best score; it never marks it cleared.
@@ -4514,10 +4522,23 @@ export default class GameScene extends Phaser.Scene {
     this.showEndScreen(lines);
   }
 
+  logBattleEnd(result) {
+    if (this.battleEndLogged || !this.battleStartedAt) return;
+    this.battleEndLogged = true;
+    logEvent('battle_end', {
+      stage: this.mode === 'dojo' ? 'dojo' : this.stage?.id,
+      name: this.mode === 'dojo' ? 'Sparring Grounds' : this.stage?.displayName,
+      result,
+      seconds: Math.round((Date.now() - this.battleStartedAt) / 1000),
+      baseHpPct: this.baseMaxHp ? Math.round((100 * Math.max(0, this.baseHp)) / this.baseMaxHp) : null,
+    });
+  }
+
   // The only win trigger: destroying the enemy base (see damageEnemyBase).
   winStage() {
     this.isGameOver = true;
     addLifetimeStat('battlesWon');
+    this.logBattleEnd('win');
     playMusic(VICTORY_MUSIC_URL);
     if (this.cannonGlow) this.cannonGlow.setAlpha(0);
     this.playVictoryFx();

@@ -4,6 +4,7 @@ import { BC, FONT, createBackButton, createBcButton, createTitlePill, createReso
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { playSfxFile, playCoinSfx } from './Audio.js';
 import { spendGems } from './Economy.js';
+import { logEvent } from './Playtest.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 import {
   AXIE_CLASSES, PART_TYPES, PART_VALUES, COLOR_COUNT, CLASS_INFO,
@@ -262,6 +263,7 @@ export default class AxieLabScene extends Phaser.Scene {
       return;
     }
     saveLabGenome(this.genome);
+    logEvent('lab_save', { first: isFirst, body: this.genome.bodyClass });
     this.saved = JSON.parse(JSON.stringify(this.genome));
     this.refreshGems();
     playCoinSfx();

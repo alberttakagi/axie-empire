@@ -16,7 +16,8 @@ import MissionsScene from './MissionsScene.js';
 import MarketScene from './MarketScene.js';
 import AxieLabScene from './AxieLabScene.js';
 import './Account.js'; // save monitor + account session resume
-import './LabUnit.js'; // applies the saved Axie Lab design to UNIT_CONFIG.lab
+import './LabUnit.js';
+import { logEvent, logSessionStart } from './Playtest.js'; // applies the saved Axie Lab design to UNIT_CONFIG.lab
 import { applyDevUnlock } from './DevMode.js';
 
 // Visit this game's URL with `?devunlock` once (either locally or on the
@@ -179,6 +180,7 @@ const game = new Phaser.Game({
 
 // Dev-server only: handle for browser-driven debugging/verification.
 if (import.meta.env.DEV) window.__game = game;
+logSessionStart();
 
 // Screen transitions: every scene.start() dips the canvas and fades it back
 // in. Done on the canvas element (CSS), so it covers every camera at once
@@ -195,6 +197,7 @@ Phaser.Scenes.ScenePlugin.prototype.start = function startWithFade(...args) {
       canvas.style.opacity = '1';
     }));
   }
+  if (typeof args[0] === 'string') logEvent('screen', { scene: args[0] });
   return originalSceneStart.apply(this, args);
 };
 // Dev-only balance simulator (window.runBalanceSim) — never in production builds.

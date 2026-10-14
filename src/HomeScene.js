@@ -14,6 +14,7 @@ import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { addHomeWanderers } from './HomeWanderers.js';
 import { countDailyClaimables } from './Economy.js';
 import { ensureLabTextures } from './LabUnit.js';
+import { reportText, clearPlaytestLog } from './Playtest.js';
 import { cloudSync, accountsAvailable, accountProviderLabel, exportSaveFile, importSaveFile } from './Account.js';
 import { loadStageProgress } from './StageProgress.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
@@ -592,9 +593,42 @@ export default class HomeScene extends Phaser.Scene {
       const err = await importSaveFile();
       if (err) status.setText(err);
     }, { fontSize: 12, fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a' }));
-    objects.push(this.add.text(width / 2, height / 2 + 104, 'Importing replaces the progress on this device.', {
+    objects.push(this.add.text(width / 2, height / 2 + 92, 'Importing replaces the progress on this device.', {
       fontFamily: FONT, fontSize: '9px', color: '#7a5c1e',
     }).setOrigin(0.5));
+    objects.push(createBcButton(this, width / 2, height / 2 + 122, 200, 30, 'Playtest report', () => {
+      close();
+      this.showPlaytestReport();
+    }, { fontSize: 11, fill: 0xcfc6ae, highlight: 0xe6dfc9, textColor: BC.inkHex }));
+    objects.forEach((o) => o.setDepth?.(100)); // above HUD badges (depth 10-20)
+  }
+
+  // Playtest Report (Playtest.js): what testers did, ready to paste into
+  // the jam thread as "what we noticed" evidence.
+  showPlaytestReport() {
+    const { width, height } = LOGICAL_SIZE;
+    const objects = [];
+    const close = () => objects.forEach((o) => o.destroy());
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.8).setInteractive());
+    objects.push(drawBcPanel(this, width / 2, height / 2, 600, 360));
+    objects.push(this.add.text(width / 2, height / 2 - 160, 'Playtest Report', { fontFamily: FONT, fontSize: '17px', color: BC.inkHex }).setOrigin(0.5));
+    objects.push(createBcCircleButton(this, width / 2 + 292, height / 2 - 172, 14, '✕', () => close(), { fill: BC.gold }));
+    const text = reportText();
+    const body = this.add.text(width / 2 - 280, height / 2 - 138, text, {
+      fontFamily: FONT, fontSize: '10px', color: BC.inkHex, wordWrap: { width: 560 }, lineSpacing: 4,
+    });
+    objects.push(body);
+    const note = this.add.text(width / 2, height / 2 + 150, '', { fontFamily: FONT, fontSize: '10px', color: '#2f7d3a' }).setOrigin(0.5);
+    objects.push(note);
+    objects.push(createBcButton(this, width / 2 - 80, height / 2 + 122, 140, 30, 'Copy report', () => {
+      navigator.clipboard?.writeText(text).then(() => note.setText('Copied — paste it into your playtest notes.'), () => note.setText('Copy failed — select the text manually.'));
+    }, { fontSize: 11 }));
+    objects.push(createBcButton(this, width / 2 + 80, height / 2 + 122, 140, 30, 'Reset log', () => {
+      clearPlaytestLog();
+      body.setText(reportText());
+      note.setText('Log cleared — start a fresh playtest.');
+    }, { fontSize: 11, fill: 0xcfc6ae, highlight: 0xe6dfc9, textColor: BC.inkHex }));
+    objects.forEach((o) => o.setDepth?.(100)); // above HUD badges (depth 10-20)
   }
 
   // Same SFX/BGM volume controls as GameScene's/TitleScene's own Options

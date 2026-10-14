@@ -4,6 +4,7 @@ import { BC, FONT, createBackButton, createBcButton, createTitlePill, createReso
 import { loadPlayerProgress } from './PlayerProgress.js';
 import { getEnergyState, getMaxEnergy } from './Energy.js';
 import { playCoinSfx } from './Audio.js';
+import { logEvent } from './Playtest.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 import {
   LOGIN_CALENDAR, DAILY_ALL_BONUS, MARKET_OFFERS,
@@ -175,6 +176,7 @@ export default class MarketScene extends Phaser.Scene {
   buy(id, deal = false) {
     const result = buyOffer(id, { deal });
     if (result.ok) {
+      logEvent('market', { offer: result.offer.id, deal });
       playCoinSfx();
       this.say(`Bought ${result.offer.name}!`);
     } else {

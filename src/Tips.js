@@ -1,5 +1,6 @@
 import { FONT, BC } from './UITheme.js';
 import { LOGICAL_SIZE } from './RenderConfig.js';
+import { logEvent } from './Playtest.js';
 
 // First-time tips: each mechanic explains itself once, the first time a
 // player actually meets it in battle (not all up front in the tutorial).
@@ -46,6 +47,7 @@ export function showTipOnce(scene, id) {
   scene.tipQueue ||= [];
   if (scene.tipQueue.includes(id) || scene.activeTipId === id) return;
   markSeen(id);
+  logEvent('tip', { id });
   scene.tipQueue.push(id);
   if (!scene.activeTip) showNext(scene);
 }

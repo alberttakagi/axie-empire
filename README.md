@@ -33,7 +33,10 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
 - **Supported devices:**
   - Desktop Chrome, Edge, Safari and Firefox.
   - iOS Safari and Android Chrome, in landscape.
-- **Data:** progress is currently saved in the browser. Account sign-in with cloud save is in progress (see Known issues).
+- **Data:**
+  - Progress is saved in the browser as one versioned save.
+  - **Menu → Account & Save** exports or imports it as a file.
+  - The account-linked cloud sync is built and tested, and waits on the Sky Mavis Account / backend credentials (see Known issues).
 
 ## Game loop
 
@@ -115,9 +118,21 @@ Format: *what we noticed → what we decided → what happened*.
 
 *More notes will be added after the Oct 24 playtest round.*
 
+**How we collect them:**
+- The game keeps a local playtest log: sessions, battles with result and length, quits, gacha pulls, Market buys, Lab designs, and Gem flow by source.
+- **Menu → Account & Save → Playtest report** summarizes it, including the hardest stages by fails.
+- **Copy report** puts the summary on the clipboard for the jam thread.
+
 ## Known issues
 
-- **Account sign-in and cloud save** (Sky Mavis Account, with email as a fallback) are not in yet. Progress lives in browser storage, so clearing site data resets it.
+- **The real sign-in provider isn't connected yet.** The account rules are implemented and unit-tested in `src/CloudSync.js` against a mock backend:
+  - Guest progress migrates on first sign-in.
+  - Returning players get their save restored.
+  - Switching accounts never mixes saves.
+  - Signing out clears the device.
+  - Outages give retryable errors and don't bypass sign-in.
+
+  Connecting Sky Mavis Account or Supabase is one adapter. Until then, progress lives in browser storage; use Export save to back it up.
 - **The Axie Lab needs a connection to Axie's CDN.** If it can't be reached, the Lab shows a retry message and the Lab Axie falls back to placeholder art.
 - **Long fights on low-end phones:** heavy Saga 6–7 battles can drop frames.
 
@@ -145,6 +160,8 @@ Format: *what we noticed → what we decided → what happened*.
   - Lunacia Market (daily login, daily missions, Gem exchanges, Daily Deal, Gem ledger).
   - First-time battle tips and the home screen's "Next" goal pointer.
   - Axie Lab: design your own Axie, rendered live by the Axie Mixer; its parts set its stats and signature move.
+  - Real attack animations: every Axie (and its evolved form, and the Lab Axie) plays its full Spine attack clip, timed so the blow lands on the hit. QA contact sheet: `docs/qa/attack_alignment.jpg`.
+  - Account-ready save system (export/import, save-status chip, cloud-sync rules), a playtest log and report, pooled damage numbers, and MP3 music (6 MB smaller).
 
 ---
 

@@ -13,6 +13,7 @@ import {
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 import { playGachaChargeSfx, playGachaRevealSfx, playSfxFile } from './Audio.js';
+import { logEvent } from './Playtest.js';
 import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, addUnitIcon } from './SpriteIcon.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { isUnitOwned } from './UnitCollection.js';
@@ -349,6 +350,7 @@ export default class GachaScene extends Phaser.Scene {
       this.messageText.setText('Not enough Gems!');
       return;
     }
+    logEvent('gacha', { count, newAxies: result.rewards.filter((r) => r.type === 'unit' && r.isNew).length });
     this.startRevealSequence(result.rewards);
   }
 
