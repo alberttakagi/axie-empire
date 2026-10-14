@@ -173,5 +173,23 @@ const game = new Phaser.Game({
 
 // Dev-server only: handle for browser-driven debugging/verification.
 if (import.meta.env.DEV) window.__game = game;
+
+// Screen transitions: every scene.start() dips the canvas and fades it back
+// in. Done on the canvas element (CSS), so it covers every camera at once
+// (GameScene's world + UI cameras) and never blocks input or delays the
+// scene switch itself.
+const originalSceneStart = Phaser.Scenes.ScenePlugin.prototype.start;
+Phaser.Scenes.ScenePlugin.prototype.start = function startWithFade(...args) {
+  const canvas = this.game.canvas;
+  if (canvas) {
+    canvas.style.transition = 'none';
+    canvas.style.opacity = '0.15';
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      canvas.style.transition = 'opacity 260ms ease-out';
+      canvas.style.opacity = '1';
+    }));
+  }
+  return originalSceneStart.apply(this, args);
+};
 // Dev-only balance simulator (window.runBalanceSim) — never in production builds.
 if (import.meta.env.DEV) import('./dev/BalanceSim.js');

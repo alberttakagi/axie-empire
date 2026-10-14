@@ -465,8 +465,13 @@ export default class GachaScene extends Phaser.Scene {
     const reward = rewards[index];
     this.playDrumRoll(placeholders[index], reward, () => {
       placeholders[index].destroy();
-      this.revealSlot(layout[index], reward);
-      this.time.delayedCall(REVEAL_GAP_MS, () => this.revealNext(rewards, layout, placeholders, index + 1));
+      const next = () => {
+        this.revealSlot(layout[index], reward);
+        this.time.delayedCall(REVEAL_GAP_MS, () => this.revealNext(rewards, layout, placeholders, index + 1));
+      };
+      // A brand-new gacha Axie (Rare or better) gets its own full-screen moment first.
+      if (reward.type === 'unit' && reward.isNew && reward.unitRarity !== 'Lineage') this.showBigReveal(reward, next);
+      else next();
     });
   }
 
@@ -650,6 +655,61 @@ export default class GachaScene extends Phaser.Scene {
       this.tweens.add({ targets: xpText, scale: 1.08, duration: 420, yoyo: true, repeat: -1, ease: 'Sine.easeInOut' });
     }
     return objects;
+  }
+
+  // Full-screen spotlight for a new Axie: dark-out, spinning rays in the
+  // rarity color, the Axie dropping in at large size (animated idle), its
+  // name and rarity, then tap (or 2.6s) to continue the sequence.
+  showBigReveal(reward, onDone) {
+    const { width, height } = LOGICAL_SIZE;
+    const unit = UNIT_CONFIG[reward.unitId];
+    const style = UNIT_RARITY_STYLE[reward.unitRarity] || UNIT_RARITY_STYLE.Rare;
+    const layer = this.add.container(0, 0).setDepth(2500);
+    this.fxContainer.setDepth(2600); // sparkles above the spotlight
+    const shade = this.add.rectangle(width / 2, height / 2, width, height, 0x0b0616, 0.92).setInteractive();
+    layer.add(shade);
+    const rays = this.add.graphics({ x: width / 2, y: height / 2 - 10 });
+    for (let k = 0; k < 16; k++) {
+      const a = (k / 16) * Math.PI * 2;
+      rays.fillStyle(style.color, k % 2 ? 0.1 : 0.22);
+      rays.slice(0, 0, 360, a, a + Math.PI / 18, false).fillPath();
+    }
+    rays.setBlendMode(Phaser.BlendModes.ADD).setScale(0.2);
+    layer.add(rays);
+    this.tweens.add({ targets: rays, scale: 1, duration: 500, ease: 'Back.out' });
+    this.tweens.add({ targets: rays, angle: 360, duration: 14000, repeat: -1 });
+    const halo = this.add.circle(width / 2, height / 2 - 10, 70, style.color, 0.35).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(halo);
+    this.tweens.add({ targets: halo, scale: 1.25, alpha: 0.15, duration: 700, yoyo: true, repeat: -1 });
+
+    const icon = addUnitIcon(this, width / 2, -80, unit, 150, true, false, true) || this.add.image(width / 2, -80, `gacha_unit_${reward.unitId}`);
+    layer.add(icon);
+    this.tweens.add({
+      targets: icon, y: height / 2 - 14, duration: 520, ease: 'Bounce.out',
+      onComplete: () => {
+        this.cameras.main.shake(160, 0.006);
+        this.sparkleBurst(width / 2, height / 2 + 30, style.color, 18);
+      },
+    });
+
+    const tag = this.add.text(width / 2, height / 2 - 112, `NEW ${style.label}!`, { fontFamily: FONT, fontSize: '16px', color: colorIntToHex(style.color), stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5).setAlpha(0);
+    const name = this.add.text(width / 2, height / 2 + 82, unit.characterName, { fontFamily: FONT, fontSize: '30px', color: '#ffffff', stroke: '#000000', strokeThickness: 6 }).setOrigin(0.5).setScale(0.3).setAlpha(0);
+    const hint = this.add.text(width / 2, height - 26, 'Tap to continue', { fontFamily: FONT, fontSize: '11px', color: '#cdb8ff' }).setOrigin(0.5).setAlpha(0);
+    layer.add([tag, name, hint]);
+    this.tweens.add({ targets: tag, alpha: 1, delay: 450, duration: 250 });
+    this.tweens.add({ targets: name, alpha: 1, scale: 1, delay: 560, duration: 320, ease: 'Back.out' });
+    this.tweens.add({ targets: hint, alpha: 1, delay: 1100, duration: 300 });
+    playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.7 });
+
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      this.fxContainer.setDepth(2000);
+      this.tweens.add({ targets: layer, alpha: 0, duration: 220, onComplete: () => { layer.destroy(true); onDone(); } });
+    };
+    this.time.delayedCall(700, () => shade.once('pointerup', finish));
+    this.time.delayedCall(3200, finish);
   }
 
   sparkleBurst(x, y, color, count) {

@@ -396,7 +396,14 @@ const STATUS_DODGE_COLOR = 0xffffff; // a brief white flash — rare and outrank
 // setting hitFlashMs, or is dodged entirely, setting dodgeMs instead — see
 // applyResolvedDamage/tryDodge), so this only matters for whichever
 // leftover frame both happen to still be counting down together.
-const HIT_FLASH_COLOR = 0xffffff;
+// Was 0xffffff — but a white tint is the identity on a textured sprite, so
+// hits on sprite-art entities never visibly flashed. A hot pink-red reads
+// as "struck" without whiting out the baked-in outline/shadow.
+const HIT_FLASH_COLOR = 0xff7a7a;
+// Juice (sprite-scale only, never gameplay position): defenders squash on
+// impact, attackers stretch forward on the strike frame.
+const HIT_SQUASH_MS = 120;
+const ATTACK_LUNGE_MS = 170;
 const HIT_FLASH_DURATION_MS = 100;
 
 // Status-effect ICONS (distinct from the tint above): unlike the tint,
@@ -3332,7 +3339,38 @@ export default class GameScene extends Phaser.Scene {
     const poseMaxDim = Math.max(sprite.width, sprite.height);
     const growth = poseMaxDim / sprite.idleMaxDim;
     const cappedGrowth = Math.min(growth, MAX_POSE_SCALE_GROWTH);
-    sprite.setScale((sprite.baseTargetSize * cappedGrowth) / poseMaxDim);
+    sprite.poseScale = (sprite.baseTargetSize * cappedGrowth) / poseMaxDim;
+    sprite.setScale(sprite.poseScale);
+  }
+
+  // Squash/lunge scale on top of the pose scale (see HIT_SQUASH_MS).
+  applySpriteJuice(entity, deltaMs) {
+    const sprite = entity.spriteImage;
+    if (!sprite) return;
+    if (!sprite.poseScale) sprite.poseScale = sprite.scaleY;
+    let sx = 1;
+    let sy = 1;
+    if (entity.squashMs > 0) {
+      entity.squashMs = Math.max(0, entity.squashMs - deltaMs);
+      const t = entity.squashMs / HIT_SQUASH_MS;
+      sx *= 1 + 0.14 * t;
+      sy *= 1 - 0.12 * t;
+    }
+    if (entity.attackPhase === 'windup' && !(entity.lungeMs > 0)) {
+      // Anticipation: a slight crouch while winding up the swing.
+      sx *= 1.05;
+      sy *= 0.94;
+    }
+    if (entity.lungeMs > 0) {
+      entity.lungeMs = Math.max(0, entity.lungeMs - deltaMs);
+      const t = Math.sin(Math.PI * (1 - entity.lungeMs / ATTACK_LUNGE_MS));
+      sx *= 1 + 0.16 * t;
+      sy *= 1 - 0.07 * t;
+    }
+    if (sx !== 1 || sy !== 1 || entity.juiced) {
+      sprite.setScale(sprite.poseScale * sx, sprite.poseScale * sy);
+      entity.juiced = sx !== 1 || sy !== 1;
+    }
   }
 
   // A single static "moving" pose read as barely different from idle for
@@ -3585,6 +3623,8 @@ export default class GameScene extends Phaser.Scene {
       this.resolveKnockback(attacker, entity);
       this.applyStatusEffect(attacker, entity);
       entity.hitFlashMs = HIT_FLASH_DURATION_MS;
+      entity.squashMs = HIT_SQUASH_MS;
+      if (attacker.spriteImage && attacker.hp > 0) attacker.lungeMs = ATTACK_LUNGE_MS;
       showDamageNumber(this, entity.shape.x, entity.shape.y, appliedToHp, { isCrit });
       if (isCrit) playCritSfx();
       else playHitSfx();
@@ -3849,6 +3889,7 @@ export default class GameScene extends Phaser.Scene {
     }
     if (entity.dodgeMs > 0) entity.dodgeMs = Math.max(0, entity.dodgeMs - deltaMs);
     if (entity.hitFlashMs > 0) entity.hitFlashMs = Math.max(0, entity.hitFlashMs - deltaMs);
+    this.applySpriteJuice(entity, deltaMs);
 
     // Runs before the warp early-return below so a warping entity's icons
     // get hidden too (updateStatusIcons checks warpMs itself) instead of

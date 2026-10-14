@@ -11,6 +11,7 @@ import {
 } from './Audio.js';
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
+import { addHomeWanderers } from './HomeWanderers.js';
 import { getMissionsWithStatus } from './Missions.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { loadLoadout } from './Loadout.js';
@@ -82,6 +83,7 @@ export default class HomeScene extends Phaser.Scene {
     // invisible). See Backdrop.js / UITheme.js's own drawWoodFrame comment.
     addBackground(this, 'gauntletArena');
     drawWoodFrame(this, width, height);
+    addHomeWanderers(this);
 
     // User-provided theme (replaces the Origins Asset Kit's own
     // PvE/Music/home.wav). playMusic is a no-op if it's already the active
