@@ -107,10 +107,12 @@ const methods = {
   slowMo(factor = 0.35, realMs = 750) {
     this.tweens.timeScale = factor;
     this.anims.globalTimeScale = factor;
+    // Always restore, even if the player already left the battle: the
+    // anims time scale is game-global and would otherwise slow every other
+    // screen's animations until the next battle.
     setTimeout(() => {
-      if (!this.sys || !this.sys.isActive()) return;
-      this.tweens.timeScale = 1;
       this.anims.globalTimeScale = 1;
+      if (this.tweens) this.tweens.timeScale = 1;
     }, realMs);
   },
 
@@ -159,11 +161,11 @@ const methods = {
 // Per-saga battle themes (unused kit tracks now in rotation).
 export const SAGA_BATTLE_MUSIC = {
   saga1: '/audio/bgm_battle.mp3',
-  saga2: '/audio/bgm_pve1.wav',
-  saga3: '/audio/bgm_pve2.wav',
+  saga2: '/audio/bgm_pve1.mp3',
+  saga3: '/audio/bgm_pve2.mp3',
   saga4: '/audio/bgm_forest_theme.mp3',
   saga5: '/audio/bgm_arctic_theme.mp3',
-  saga6: '/audio/bgm_pve3.wav',
+  saga6: '/audio/bgm_pve3.mp3',
   saga7: '/audio/bgm_battle.mp3',
 };
 

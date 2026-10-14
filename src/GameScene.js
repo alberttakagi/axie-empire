@@ -312,7 +312,7 @@ const STATUS_SFX_FILE = {
 // winStage/endGame below). One track for every saga/Dojo now rather than
 // one per saga; the boss track is untouched.
 const BATTLE_MUSIC_URL = '/audio/bgm_battle.mp3';
-const BOSS_MUSIC_URL = '/audio/bgm_boss.wav';
+const BOSS_MUSIC_URL = '/audio/bgm_boss.mp3';
 const VICTORY_MUSIC_URL = '/audio/bgm_victory.mp3';
 const DEFEAT_MUSIC_URL = '/audio/bgm_defeat.mp3';
 
