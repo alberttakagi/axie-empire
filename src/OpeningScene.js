@@ -32,15 +32,20 @@ const END_HOLD_MS = 500; // pause once the text fully clears the top fade, befor
 // retelling of Axie Infinity's actual lore — later passes that leaned into
 // the real "Tales of Lunacia" material (Atia, moon shards, etc.) were a
 // deviation from that, not an improvement on it.
+// Round 2: rewritten from the Axie lore docs (inspiration only, no
+// spoilers) at the user's request: still light in tone, but hinting at
+// a deeper mystery so players get curious about the lore.
 const STORY_LINES = [
-  'Long ago, the Empire of Axies flourished in peace, its lineages thriving from coast to coast.',
-  'Then, without warning, the Chimeras came — twisted, hungry things from far beyond the borders.',
-  'Village after village fell silent. The Empire’s armies were never built for a war like this one.',
-  'But deep in the old bloodlines, a strength remained: small, round, and utterly relentless.',
-  'One by one, the Axies rose to answer the call.',
-  'Their weapons were humble. Their numbers, endless. Their spirit, unbreakable.',
-  'This is the story of that stand — stage by stage, chapter by chapter — until the Empire stands again.',
-  'The battle for the Empire of Axies begins now.',
+  "Long ago, two gods painted the stars, and one small corner of the sky became Lunacia.",
+  "Under its glowing moon, the Axies built a home of lotus ponds, cozy dens and lantern-lit shrines.",
+  "It grew into an Empire. A small one, sure. But a very proud one.",
+  "The old shrines still hum with secrets nobody remembers writing down.",
+  "Then came the itching. The bad dreams. The voices in the dark.",
+  "The Chimera have crawled out of the Nightmarescape, and they've brought friends.",
+  "Slimes ooze over the meadows. Wolves prowl the woods. The forest itself is getting grumpy.",
+  "And somewhere beyond the hills, something big is howling at the moon.",
+  "Why now? What do the Chimera want with our shrines? The stones aren't saying.",
+  "Gather your Axies. Hold the gate. The Empire is counting on you!",
 ];
 
 export default class OpeningScene extends Phaser.Scene {

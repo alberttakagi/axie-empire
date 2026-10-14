@@ -27,20 +27,30 @@
 export const SAGA_CONFIG = [
   {
     id: 'saga1',
-    displayName: 'Saga 1: Empire of Axies',
-    description: 'The real 48-stage campaign — every Basic-tier lineage unlocks here, ending with Kaoru-kun.',
+    displayName: 'Saga 1: Moonwood Rising',
+    description: 'The lotus blooms, the wolves howl, and the Empire digs in its tiny heels.',
     color: 0x3388cc,
   },
   {
     id: 'saga2',
-    displayName: 'Saga 2: Empire of Axies, Chapter 2',
-    description: 'The same 48 battlefields again, every enemy at a real 150% strength.',
+    displayName: 'Saga 2: Tides of the Serpent\'s Maw',
+    description: 'From lagoon to gearworks, something hungry is stirring beneath the waves.',
     color: 0xcc8833,
   },
   {
     id: 'saga3',
-    displayName: 'Saga 3: Empire of Axies, Chapter 3',
-    description: 'The same 48 battlefields a third time, at the campaign’s real 400% enemy strength.',
+    displayName: 'Saga 3: Whispers of the Forgotten Temple',
+    description: 'Old stones remember. The Chimera would rather they didn\'t.',
     color: 0x993388,
   },
 ];
+
+// Lore-inspired chapter names (Round 2): each saga's 48 stages are six
+// 8-stage chapters (matches Backdrop.js's chapter backgrounds).
+export const CHAPTER_NAMES = ["Lotus Meadows", "Wildfang Thicket", "Amberleaf Valley", "Duskglow Marches", "Shimmering Shells", "Shrine of the Lotus Moon", "Lunid Lagoon", "Buccaneer Beach", "Harvest Moon Wilds", "Mysticland Rifts", "Nightmarescape Edge", "Clockwork Bastion", "The Forgotten Temple", "Sky Foundry", "Prism Hollows", "Silverthorne Woods", "Garuda Grove", "Nirvana Heights"];
+
+export function getStageChapterName(stageId) {
+  const num = parseInt(String(stageId).replace('stage', ''), 10);
+  if (!Number.isFinite(num) || num < 1) return null;
+  return CHAPTER_NAMES[Math.floor((num - 1) / 8)] ?? null;
+}

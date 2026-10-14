@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { getStageChapterName } from './SAGA_CONFIG.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
@@ -371,7 +372,9 @@ export default class StageSelectScene extends Phaser.Scene {
       // hand-drawn map's own place-names use. Offsets grown alongside the
       // bigger radius/font above so labels keep clear of the node itself.
       const labelUp = this.isLabelAboveNode(localIndex);
-      const labelY = isCurrent ? y - radius - 46 : y + (labelUp ? -radius - 16 : radius + 16);
+      // Current node: label goes BELOW it — Tripp's marker stands above the
+      // current node and used to cover its name and best score.
+      const labelY = isCurrent ? y + radius + 12 : y + (labelUp ? -radius - 16 : radius + 16);
       nodeObjects.push(
         this.add
           .text(x, labelY, `${localIndex + 1}. ${stage.displayName}`, {
@@ -379,9 +382,11 @@ export default class StageSelectScene extends Phaser.Scene {
             color: isUnlocked ? '#ffffff' : '#aaaaaa',
             align: 'center',
             stroke: '#000000', strokeThickness: 3,
-            wordWrap: { width: NODE_SPACING_X + 20 },
+            // Labels alternate above/below, so each has ~2 node gaps of room;
+            // lore names are longer than the old prefecture names.
+            wordWrap: { width: NODE_SPACING_X * 2 - 20 },
           })
-          .setOrigin(0.5, labelUp || isCurrent ? 1 : 0),
+          .setOrigin(0.5, labelUp && !isCurrent ? 1 : 0),
       );
 
       // The current node gets an always-visible little callout card
@@ -391,7 +396,7 @@ export default class StageSelectScene extends Phaser.Scene {
         const statusLabel = isCleared ? `Best: ${stageProgress.bestScore}` : `Cost: ${stage.energyCost} Energy`;
         nodeObjects.push(
           this.add
-            .text(x, y - radius - 26, statusLabel, { fontFamily: FONT, fontSize: '12px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
+            .text(x, y + radius + 50, statusLabel, { fontFamily: FONT, fontSize: '12px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
             .setOrigin(0.5, 1),
         );
       }
@@ -771,7 +776,7 @@ export default class StageSelectScene extends Phaser.Scene {
     );
     objects.push(
       this.add
-        .text(width / 2, panelY - panelHeight / 2 + 52, `${stage.difficulty}  ·  Cost: ${stage.energyCost} Energy`, {
+        .text(width / 2, panelY - panelHeight / 2 + 52, `${getStageChapterName(stage.id) ?? ''}  ·  ${stage.difficulty}  ·  Cost: ${stage.energyCost} Energy`, {
           fontFamily: FONT, fontSize: '12px', color: '#7a5c1e',
         })
         .setOrigin(0.5),

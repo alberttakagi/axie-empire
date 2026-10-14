@@ -123,7 +123,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage1',
     saga: 'saga1',
-    displayName: 'Nagasaki',
+    displayName: 'Sprout Path',
     difficulty: 'Easy',
     baseXp: 1000,
     energyCost: 5,
@@ -143,7 +143,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage2',
     saga: 'saga1',
-    displayName: 'Saga',
+    displayName: 'Lotus Pond Gate',
     difficulty: 'Easy',
     baseXp: 1300,
     energyCost: 5,
@@ -163,7 +163,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage3',
     saga: 'saga1',
-    displayName: 'Kagoshima',
+    displayName: 'Petal Hollow',
     difficulty: 'Easy',
     baseXp: 1600,
     energyCost: 8,
@@ -183,7 +183,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage4',
     saga: 'saga1',
-    displayName: 'Kumamoto',
+    displayName: 'Mossy Burrow',
     difficulty: 'Easy',
     baseXp: 1900,
     energyCost: 8,
@@ -204,7 +204,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage5',
     saga: 'saga1',
-    displayName: 'Miyazaki',
+    displayName: 'Dewdrop Ridge',
     difficulty: 'Easy',
     baseXp: 2200,
     energyCost: 10,
@@ -225,7 +225,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage6',
     saga: 'saga1',
-    displayName: 'Oita',
+    displayName: 'Bloomshade Trail',
     difficulty: 'Easy',
     baseXp: 2500,
     energyCost: 10,
@@ -246,7 +246,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage7',
     saga: 'saga1',
-    displayName: 'Fukuoka',
+    displayName: 'Sapling Square',
     difficulty: 'Boss',
     baseXp: 2800,
     energyCost: 16,
@@ -268,7 +268,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage8',
     saga: 'saga1',
-    displayName: 'Kochi',
+    displayName: 'Moonwood Thicket',
     difficulty: 'Easy',
     baseXp: 3100,
     energyCost: 12,
@@ -289,7 +289,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage9',
     saga: 'saga1',
-    displayName: 'Ehime',
+    displayName: 'Clawmark Crossing',
     difficulty: 'Easy',
     baseXp: 3400,
     energyCost: 12,
@@ -311,7 +311,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage10',
     saga: 'saga1',
-    displayName: 'Tokushima',
+    displayName: 'Fuzzy Den',
     difficulty: 'Boss',
     baseXp: 3700,
     energyCost: 14,
@@ -333,7 +333,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage11',
     saga: 'saga1',
-    displayName: 'Kagawa',
+    displayName: 'Howlback Hills',
     difficulty: 'Easy',
     baseXp: 4000,
     energyCost: 18,
@@ -356,7 +356,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage12',
     saga: 'saga1',
-    displayName: 'Yamaguchi',
+    displayName: 'Paw Print Pass',
     difficulty: 'Easy',
     baseXp: 4300,
     energyCost: 20,
@@ -379,7 +379,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage13',
     saga: 'saga1',
-    displayName: 'Hiroshima',
+    displayName: 'Thornbristle Glen',
     difficulty: 'Easy',
     baseXp: 4600,
     energyCost: 18,
@@ -403,7 +403,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage14',
     saga: 'saga1',
-    displayName: 'Shimane',
+    displayName: 'Wildfang Clearing',
     difficulty: 'Normal',
     baseXp: 4900,
     energyCost: 20,
@@ -426,7 +426,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage15',
     saga: 'saga1',
-    displayName: 'Okayama',
+    displayName: 'Grumblewood',
     difficulty: 'Normal',
     baseXp: 5200,
     energyCost: 24,
@@ -451,7 +451,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage16',
     saga: 'saga1',
-    displayName: 'Tottori',
+    displayName: 'Den Mother\'s Rest',
     difficulty: 'Boss',
     baseXp: 5500,
     energyCost: 26,
@@ -474,7 +474,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage17',
     saga: 'saga1',
-    displayName: 'Hyogo',
+    displayName: 'Leafpile Lane',
     difficulty: 'Normal',
     baseXp: 5800,
     energyCost: 20,
@@ -500,7 +500,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage18',
     saga: 'saga1',
-    displayName: 'Wakayama',
+    displayName: 'Acorn Alley',
     difficulty: 'Normal',
     baseXp: 6100,
     energyCost: 24,
@@ -527,7 +527,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage19',
     saga: 'saga1',
-    displayName: 'Osaka',
+    displayName: 'Crunchy Creek',
     difficulty: 'Normal',
     baseXp: 6400,
     energyCost: 28,
@@ -551,7 +551,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage20',
     saga: 'saga1',
-    displayName: 'Kyoto',
+    displayName: 'Maple Lantern Way',
     difficulty: 'Normal',
     baseXp: 6700,
     energyCost: 30,
@@ -575,7 +575,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage21',
     saga: 'saga1',
-    displayName: 'Nara',
+    displayName: 'Harvest Hollow',
     difficulty: 'Normal',
     baseXp: 7000,
     energyCost: 24,
@@ -600,7 +600,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage22',
     saga: 'saga1',
-    displayName: 'Mie',
+    displayName: 'Pumpkin Patch Post',
     difficulty: 'Normal',
     baseXp: 7300,
     energyCost: 28,
@@ -625,7 +625,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage23',
     saga: 'saga1',
-    displayName: 'Shiga',
+    displayName: 'Russet Rise',
     difficulty: 'Boss',
     baseXp: 7600,
     energyCost: 32,
@@ -646,7 +646,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage24',
     saga: 'saga1',
-    displayName: 'Fukui',
+    displayName: 'Amberleaf Gate',
     difficulty: 'Normal',
     baseXp: 7900,
     energyCost: 40,
@@ -671,7 +671,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage25',
     saga: 'saga1',
-    displayName: 'Ishikawa',
+    displayName: 'Twilight Steps',
     difficulty: 'Normal',
     baseXp: 8200,
     energyCost: 25,
@@ -694,7 +694,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage26',
     saga: 'saga1',
-    displayName: 'Aichi',
+    displayName: 'Firefly Fen',
     difficulty: 'Normal',
     baseXp: 8500,
     energyCost: 30,
@@ -719,7 +719,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage27',
     saga: 'saga1',
-    displayName: 'Gifu',
+    displayName: 'Last Light Ridge',
     difficulty: 'Normal',
     baseXp: 8800,
     energyCost: 32,
@@ -743,7 +743,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage28',
     saga: 'saga1',
-    displayName: 'Toyama',
+    displayName: 'Lantern Ditch',
     difficulty: 'Normal',
     baseXp: 9100,
     energyCost: 36,
@@ -769,7 +769,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage29',
     saga: 'saga1',
-    displayName: 'Shizuoka',
+    displayName: 'Noctid Flutter',
     difficulty: 'Boss',
     baseXp: 9400,
     energyCost: 40,
@@ -793,7 +793,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage30',
     saga: 'saga1',
-    displayName: 'Yamanashi',
+    displayName: 'Gloaming Bridge',
     difficulty: 'Normal',
     baseXp: 9700,
     energyCost: 24,
@@ -819,7 +819,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage31',
     saga: 'saga1',
-    displayName: 'Nagano',
+    displayName: 'The Purple Hour',
     difficulty: 'Normal',
     baseXp: 10000,
     energyCost: 26,
@@ -841,7 +841,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage32',
     saga: 'saga1',
-    displayName: 'Niigata',
+    displayName: 'Starfall Watch',
     difficulty: 'Normal',
     baseXp: 10300,
     energyCost: 30,
@@ -865,7 +865,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage33',
     saga: 'saga1',
-    displayName: 'Kanagawa',
+    displayName: 'Shellshift Grotto',
     difficulty: 'Normal',
     baseXp: 10600,
     energyCost: 35,
@@ -893,7 +893,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage34',
     saga: 'saga1',
-    displayName: 'Chiba',
+    displayName: 'Crystal Cocoon',
     difficulty: 'Normal',
     baseXp: 10900,
     energyCost: 28,
@@ -924,7 +924,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage35',
     saga: 'saga1',
-    displayName: 'Tokyo',
+    displayName: 'Morphling Pools',
     difficulty: 'Boss',
     baseXp: 11200,
     energyCost: 30,
@@ -947,7 +947,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage36',
     saga: 'saga1',
-    displayName: 'Saitama',
+    displayName: 'Glimmer Caves',
     difficulty: 'Normal',
     baseXp: 11500,
     energyCost: 40,
@@ -974,7 +974,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage37',
     saga: 'saga1',
-    displayName: 'Gunma',
+    displayName: 'Prism Burrow',
     difficulty: 'Hard',
     baseXp: 11800,
     energyCost: 30,
@@ -1001,7 +1001,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage38',
     saga: 'saga1',
-    displayName: 'Tochigi',
+    displayName: 'Molting Hollow',
     difficulty: 'Boss',
     baseXp: 12100,
     energyCost: 35,
@@ -1029,7 +1029,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage39',
     saga: 'saga1',
-    displayName: 'Ibaraki',
+    displayName: 'Lumask Hollow',
     difficulty: 'Normal',
     baseXp: 12400,
     energyCost: 40,
@@ -1056,7 +1056,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage40',
     saga: 'saga1',
-    displayName: 'Fukushima',
+    displayName: 'Radiant Rift',
     difficulty: 'Normal',
     baseXp: 12700,
     energyCost: 30,
@@ -1084,7 +1084,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage41',
     saga: 'saga1',
-    displayName: 'Miyagi',
+    displayName: 'Mossy Shrine Steps',
     difficulty: 'Boss',
     baseXp: 13000,
     energyCost: 32,
@@ -1106,7 +1106,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage42',
     saga: 'saga1',
-    displayName: 'Yamagata',
+    displayName: 'Pot Golem Plaza',
     difficulty: 'Hard',
     baseXp: 13300,
     energyCost: 35,
@@ -1135,7 +1135,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage43',
     saga: 'saga1',
-    displayName: 'Iwate',
+    displayName: 'Sapidae Stones',
     difficulty: 'Normal',
     baseXp: 13600,
     energyCost: 30,
@@ -1163,7 +1163,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage44',
     saga: 'saga1',
-    displayName: 'Akita',
+    displayName: 'Lantern Altar',
     difficulty: 'Boss',
     baseXp: 13900,
     energyCost: 32,
@@ -1185,7 +1185,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage45',
     saga: 'saga1',
-    displayName: 'Aomori',
+    displayName: 'Glyph Gallery',
     difficulty: 'Hard',
     baseXp: 14200,
     energyCost: 40,
@@ -1209,7 +1209,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage46',
     saga: 'saga1',
-    displayName: 'Hokkaido',
+    displayName: 'Moon Pool Shrine',
     difficulty: 'Normal',
     baseXp: 14500,
     energyCost: 50,
@@ -1233,7 +1233,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage47',
     saga: 'saga1',
-    displayName: 'Okinawa',
+    displayName: 'Elder Bell Tower',
     difficulty: 'Hard',
     baseXp: 14800,
     energyCost: 50,
@@ -1259,7 +1259,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage48',
     saga: 'saga1',
-    displayName: 'Iriomote Island',
+    displayName: 'Moonwood Coliseum',
     difficulty: 'Boss',
     baseXp: 15100,
     energyCost: 50,
@@ -1296,7 +1296,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage49',
     saga: 'saga2',
-    displayName: 'Nagasaki',
+    displayName: 'Bubble Shoals',
     difficulty: 'Easy',
     baseXp: 1000,
     energyCost: 5,
@@ -1316,7 +1316,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage50',
     saga: 'saga2',
-    displayName: 'Saga',
+    displayName: 'Tidepool Trot',
     difficulty: 'Easy',
     baseXp: 1300,
     energyCost: 5,
@@ -1336,7 +1336,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage51',
     saga: 'saga2',
-    displayName: 'Kagoshima',
+    displayName: 'Coral Commons',
     difficulty: 'Easy',
     baseXp: 1600,
     energyCost: 8,
@@ -1356,7 +1356,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage52',
     saga: 'saga2',
-    displayName: 'Kumamoto',
+    displayName: 'Kelpwood Shallows',
     difficulty: 'Easy',
     baseXp: 1900,
     energyCost: 8,
@@ -1377,7 +1377,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage53',
     saga: 'saga2',
-    displayName: 'Miyazaki',
+    displayName: 'Snorkel Reef',
     difficulty: 'Easy',
     baseXp: 2200,
     energyCost: 10,
@@ -1398,7 +1398,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage54',
     saga: 'saga2',
-    displayName: 'Oita',
+    displayName: 'Pearl Drift',
     difficulty: 'Easy',
     baseXp: 2500,
     energyCost: 10,
@@ -1419,7 +1419,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage55',
     saga: 'saga2',
-    displayName: 'Fukuoka',
+    displayName: 'Lagoon Lighthouse',
     difficulty: 'Boss',
     baseXp: 2800,
     energyCost: 16,
@@ -1441,7 +1441,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage56',
     saga: 'saga2',
-    displayName: 'Kochi',
+    displayName: 'Splashback Cove',
     difficulty: 'Easy',
     baseXp: 3100,
     energyCost: 12,
@@ -1462,7 +1462,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage57',
     saga: 'saga2',
-    displayName: 'Ehime',
+    displayName: 'Sandcastle Siege',
     difficulty: 'Easy',
     baseXp: 3400,
     energyCost: 12,
@@ -1484,7 +1484,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage58',
     saga: 'saga2',
-    displayName: 'Tokushima',
+    displayName: 'Plank Walk',
     difficulty: 'Boss',
     baseXp: 3700,
     energyCost: 14,
@@ -1506,7 +1506,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage59',
     saga: 'saga2',
-    displayName: 'Kagawa',
+    displayName: 'Coconut Battery',
     difficulty: 'Easy',
     baseXp: 4000,
     energyCost: 18,
@@ -1529,7 +1529,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage60',
     saga: 'saga2',
-    displayName: 'Yamaguchi',
+    displayName: 'Galleon Gangway',
     difficulty: 'Easy',
     baseXp: 4300,
     energyCost: 20,
@@ -1552,7 +1552,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage61',
     saga: 'saga2',
-    displayName: 'Hiroshima',
+    displayName: 'Crow\'s Nest Clash',
     difficulty: 'Easy',
     baseXp: 4600,
     energyCost: 18,
@@ -1576,7 +1576,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage62',
     saga: 'saga2',
-    displayName: 'Shimane',
+    displayName: 'Treasure Dunes',
     difficulty: 'Normal',
     baseXp: 4900,
     energyCost: 20,
@@ -1599,7 +1599,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage63',
     saga: 'saga2',
-    displayName: 'Okayama',
+    displayName: 'Shellfin Harbor',
     difficulty: 'Normal',
     baseXp: 5200,
     energyCost: 24,
@@ -1624,7 +1624,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage64',
     saga: 'saga2',
-    displayName: 'Tottori',
+    displayName: 'Cannonball Bay',
     difficulty: 'Boss',
     baseXp: 5500,
     energyCost: 26,
@@ -1647,7 +1647,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage65',
     saga: 'saga2',
-    displayName: 'Hyogo',
+    displayName: 'Gourd Grove',
     difficulty: 'Normal',
     baseXp: 5800,
     energyCost: 20,
@@ -1673,7 +1673,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage66',
     saga: 'saga2',
-    displayName: 'Wakayama',
+    displayName: 'Cider Mill Run',
     difficulty: 'Normal',
     baseXp: 6100,
     energyCost: 24,
@@ -1700,7 +1700,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage67',
     saga: 'saga2',
-    displayName: 'Osaka',
+    displayName: 'Windfall Orchard',
     difficulty: 'Normal',
     baseXp: 6400,
     energyCost: 28,
@@ -1724,7 +1724,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage68',
     saga: 'saga2',
-    displayName: 'Kyoto',
+    displayName: 'Scarecrow Field',
     difficulty: 'Normal',
     baseXp: 6700,
     energyCost: 30,
@@ -1748,7 +1748,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage69',
     saga: 'saga2',
-    displayName: 'Nara',
+    displayName: 'Goldleaf Ford',
     difficulty: 'Normal',
     baseXp: 7000,
     energyCost: 24,
@@ -1773,7 +1773,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage70',
     saga: 'saga2',
-    displayName: 'Mie',
+    displayName: 'Bramble Bend',
     difficulty: 'Normal',
     baseXp: 7300,
     energyCost: 28,
@@ -1798,7 +1798,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage71',
     saga: 'saga2',
-    displayName: 'Shiga',
+    displayName: 'Chestnut Crossing',
     difficulty: 'Boss',
     baseXp: 7600,
     energyCost: 32,
@@ -1819,7 +1819,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage72',
     saga: 'saga2',
-    displayName: 'Fukui',
+    displayName: 'Hearthsmoke Hill',
     difficulty: 'Normal',
     baseXp: 7900,
     energyCost: 40,
@@ -1844,7 +1844,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage73',
     saga: 'saga2',
-    displayName: 'Ishikawa',
+    displayName: 'Dreamshard Drift',
     difficulty: 'Normal',
     baseXp: 8200,
     energyCost: 25,
@@ -1867,7 +1867,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage74',
     saga: 'saga2',
-    displayName: 'Aichi',
+    displayName: 'Wobbling Wilds',
     difficulty: 'Normal',
     baseXp: 8500,
     energyCost: 30,
@@ -1892,7 +1892,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage75',
     saga: 'saga2',
-    displayName: 'Gifu',
+    displayName: 'Mirrormoss Cave',
     difficulty: 'Normal',
     baseXp: 8800,
     energyCost: 32,
@@ -1916,7 +1916,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage76',
     saga: 'saga2',
-    displayName: 'Toyama',
+    displayName: 'Topsy Turf',
     difficulty: 'Normal',
     baseXp: 9100,
     energyCost: 36,
@@ -1942,7 +1942,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage77',
     saga: 'saga2',
-    displayName: 'Shizuoka',
+    displayName: 'Spiral Thicket',
     difficulty: 'Boss',
     baseXp: 9400,
     energyCost: 40,
@@ -1966,7 +1966,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage78',
     saga: 'saga2',
-    displayName: 'Yamanashi',
+    displayName: 'Echo Hollow',
     difficulty: 'Normal',
     baseXp: 9700,
     energyCost: 24,
@@ -1992,7 +1992,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage79',
     saga: 'saga2',
-    displayName: 'Nagano',
+    displayName: 'Glowcap Gorge',
     difficulty: 'Normal',
     baseXp: 10000,
     energyCost: 26,
@@ -2014,7 +2014,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage80',
     saga: 'saga2',
-    displayName: 'Niigata',
+    displayName: 'Rift of Riddles',
     difficulty: 'Normal',
     baseXp: 10300,
     energyCost: 30,
@@ -2038,7 +2038,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage81',
     saga: 'saga2',
-    displayName: 'Kanagawa',
+    displayName: 'Shadowfern Path',
     difficulty: 'Normal',
     baseXp: 10600,
     energyCost: 35,
@@ -2066,7 +2066,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage82',
     saga: 'saga2',
-    displayName: 'Chiba',
+    displayName: 'Doomstone Dunes',
     difficulty: 'Normal',
     baseXp: 10900,
     energyCost: 28,
@@ -2097,7 +2097,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage83',
     saga: 'saga2',
-    displayName: 'Tokyo',
+    displayName: 'Whispering Ditch',
     difficulty: 'Boss',
     baseXp: 11200,
     energyCost: 30,
@@ -2120,7 +2120,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage84',
     saga: 'saga2',
-    displayName: 'Saitama',
+    displayName: 'Dark Flame Ridge',
     difficulty: 'Normal',
     baseXp: 11500,
     energyCost: 40,
@@ -2147,7 +2147,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage85',
     saga: 'saga2',
-    displayName: 'Gunma',
+    displayName: 'Moonless Mire',
     difficulty: 'Hard',
     baseXp: 11800,
     energyCost: 30,
@@ -2174,7 +2174,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage86',
     saga: 'saga2',
-    displayName: 'Tochigi',
+    displayName: 'Hexlight Crossing',
     difficulty: 'Boss',
     baseXp: 12100,
     energyCost: 35,
@@ -2202,7 +2202,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage87',
     saga: 'saga2',
-    displayName: 'Ibaraki',
+    displayName: 'Itchy Nightfall',
     difficulty: 'Normal',
     baseXp: 12400,
     energyCost: 40,
@@ -2229,7 +2229,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage88',
     saga: 'saga2',
-    displayName: 'Fukushima',
+    displayName: 'Gloomwatch Gate',
     difficulty: 'Normal',
     baseXp: 12700,
     energyCost: 30,
@@ -2257,7 +2257,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage89',
     saga: 'saga2',
-    displayName: 'Miyagi',
+    displayName: 'Gearworks Gate',
     difficulty: 'Boss',
     baseXp: 13000,
     energyCost: 32,
@@ -2279,7 +2279,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage90',
     saga: 'saga2',
-    displayName: 'Yamagata',
+    displayName: 'Steam Vent Alley',
     difficulty: 'Hard',
     baseXp: 13300,
     energyCost: 35,
@@ -2308,7 +2308,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage91',
     saga: 'saga2',
-    displayName: 'Iwate',
+    displayName: 'Cog Crawl',
     difficulty: 'Normal',
     baseXp: 13600,
     energyCost: 30,
@@ -2336,7 +2336,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage92',
     saga: 'saga2',
-    displayName: 'Akita',
+    displayName: 'Bolt Bridge',
     difficulty: 'Boss',
     baseXp: 13900,
     energyCost: 32,
@@ -2358,7 +2358,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage93',
     saga: 'saga2',
-    displayName: 'Aomori',
+    displayName: 'Rivet Ridge',
     difficulty: 'Hard',
     baseXp: 14200,
     energyCost: 40,
@@ -2382,7 +2382,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage94',
     saga: 'saga2',
-    displayName: 'Hokkaido',
+    displayName: 'Piston Plaza',
     difficulty: 'Normal',
     baseXp: 14500,
     energyCost: 50,
@@ -2406,7 +2406,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage95',
     saga: 'saga2',
-    displayName: 'Okinawa',
+    displayName: 'Tinker Tower',
     difficulty: 'Hard',
     baseXp: 14800,
     energyCost: 50,
@@ -2433,7 +2433,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage96',
     saga: 'saga2',
-    displayName: 'Iriomote Island',
+    displayName: 'Serpent\'s Maw Arena',
     difficulty: 'Boss',
     baseXp: 15100,
     energyCost: 50,
@@ -2461,7 +2461,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage97',
     saga: 'saga3',
-    displayName: 'Nagasaki',
+    displayName: 'Vinewrapped Arch',
     difficulty: 'Easy',
     baseXp: 1000,
     energyCost: 5,
@@ -2481,7 +2481,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage98',
     saga: 'saga3',
-    displayName: 'Saga',
+    displayName: 'Relic Rubble',
     difficulty: 'Easy',
     baseXp: 1300,
     energyCost: 5,
@@ -2501,7 +2501,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage99',
     saga: 'saga3',
-    displayName: 'Kagoshima',
+    displayName: 'Whisper Hall',
     difficulty: 'Easy',
     baseXp: 1600,
     energyCost: 8,
@@ -2521,7 +2521,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage100',
     saga: 'saga3',
-    displayName: 'Kumamoto',
+    displayName: 'Old Journal Nook',
     difficulty: 'Easy',
     baseXp: 1900,
     energyCost: 8,
@@ -2542,7 +2542,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage101',
     saga: 'saga3',
-    displayName: 'Miyazaki',
+    displayName: 'Statue Garden',
     difficulty: 'Easy',
     baseXp: 2200,
     energyCost: 10,
@@ -2563,7 +2563,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage102',
     saga: 'saga3',
-    displayName: 'Oita',
+    displayName: 'Sunstone Court',
     difficulty: 'Easy',
     baseXp: 2500,
     energyCost: 10,
@@ -2584,7 +2584,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage103',
     saga: 'saga3',
-    displayName: 'Fukuoka',
+    displayName: 'Lost Glyph Vault',
     difficulty: 'Boss',
     baseXp: 2800,
     energyCost: 16,
@@ -2606,7 +2606,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage104',
     saga: 'saga3',
-    displayName: 'Kochi',
+    displayName: 'Temple Heartroom',
     difficulty: 'Easy',
     baseXp: 3100,
     energyCost: 12,
@@ -2627,7 +2627,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage105',
     saga: 'saga3',
-    displayName: 'Ehime',
+    displayName: 'Cloudgear Dock',
     difficulty: 'Easy',
     baseXp: 3400,
     energyCost: 12,
@@ -2649,7 +2649,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage106',
     saga: 'saga3',
-    displayName: 'Tokushima',
+    displayName: 'Sunforge Works',
     difficulty: 'Boss',
     baseXp: 3700,
     energyCost: 14,
@@ -2671,7 +2671,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage107',
     saga: 'saga3',
-    displayName: 'Kagawa',
+    displayName: 'Brass Balloon Port',
     difficulty: 'Easy',
     baseXp: 4000,
     energyCost: 18,
@@ -2694,7 +2694,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage108',
     saga: 'saga3',
-    displayName: 'Yamaguchi',
+    displayName: 'Aether Engine',
     difficulty: 'Easy',
     baseXp: 4300,
     energyCost: 20,
@@ -2717,7 +2717,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage109',
     saga: 'saga3',
-    displayName: 'Hiroshima',
+    displayName: 'Skyrail Junction',
     difficulty: 'Easy',
     baseXp: 4600,
     energyCost: 18,
@@ -2741,7 +2741,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage110',
     saga: 'saga3',
-    displayName: 'Shimane',
+    displayName: 'Helios Furnace',
     difficulty: 'Normal',
     baseXp: 4900,
     energyCost: 20,
@@ -2764,7 +2764,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage111',
     saga: 'saga3',
-    displayName: 'Okayama',
+    displayName: 'Crankshaft Keep',
     difficulty: 'Normal',
     baseXp: 5200,
     energyCost: 24,
@@ -2789,7 +2789,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage112',
     saga: 'saga3',
-    displayName: 'Tottori',
+    displayName: 'Solaria Spire',
     difficulty: 'Boss',
     baseXp: 5500,
     energyCost: 26,
@@ -2812,7 +2812,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage113',
     saga: 'saga3',
-    displayName: 'Hyogo',
+    displayName: 'Crystal Choir',
     difficulty: 'Normal',
     baseXp: 5800,
     energyCost: 20,
@@ -2838,7 +2838,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage114',
     saga: 'saga3',
-    displayName: 'Wakayama',
+    displayName: 'Shiftshell Shore',
     difficulty: 'Normal',
     baseXp: 6100,
     energyCost: 24,
@@ -2865,7 +2865,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage115',
     saga: 'saga3',
-    displayName: 'Osaka',
+    displayName: 'Iridescent Isle',
     difficulty: 'Normal',
     baseXp: 6400,
     energyCost: 28,
@@ -2889,7 +2889,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage116',
     saga: 'saga3',
-    displayName: 'Kyoto',
+    displayName: 'Lightbend Lane',
     difficulty: 'Normal',
     baseXp: 6700,
     energyCost: 30,
@@ -2913,7 +2913,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage117',
     saga: 'saga3',
-    displayName: 'Nara',
+    displayName: 'Opal Undercroft',
     difficulty: 'Normal',
     baseXp: 7000,
     energyCost: 24,
@@ -2938,7 +2938,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage118',
     saga: 'saga3',
-    displayName: 'Mie',
+    displayName: 'Dazzle Den',
     difficulty: 'Normal',
     baseXp: 7300,
     energyCost: 28,
@@ -2963,7 +2963,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage119',
     saga: 'saga3',
-    displayName: 'Shiga',
+    displayName: 'Kaleido Chasm',
     difficulty: 'Boss',
     baseXp: 7600,
     energyCost: 32,
@@ -2984,7 +2984,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage120',
     saga: 'saga3',
-    displayName: 'Fukui',
+    displayName: 'Gleaming Gauntlet',
     difficulty: 'Normal',
     baseXp: 7900,
     energyCost: 40,
@@ -3009,7 +3009,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage121',
     saga: 'saga3',
-    displayName: 'Ishikawa',
+    displayName: 'Silverthorne Path',
     difficulty: 'Normal',
     baseXp: 8200,
     energyCost: 25,
@@ -3032,7 +3032,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage122',
     saga: 'saga3',
-    displayName: 'Aichi',
+    displayName: 'Falling Leaf Fort',
     difficulty: 'Normal',
     baseXp: 8500,
     energyCost: 30,
@@ -3057,7 +3057,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage123',
     saga: 'saga3',
-    displayName: 'Gifu',
+    displayName: 'Ember Orchard',
     difficulty: 'Normal',
     baseXp: 8800,
     energyCost: 32,
@@ -3081,7 +3081,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage124',
     saga: 'saga3',
-    displayName: 'Toyama',
+    displayName: 'Copper Canopy',
     difficulty: 'Normal',
     baseXp: 9100,
     energyCost: 36,
@@ -3107,7 +3107,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage125',
     saga: 'saga3',
-    displayName: 'Shizuoka',
+    displayName: 'Owl Hoot Hollow',
     difficulty: 'Boss',
     baseXp: 9400,
     energyCost: 40,
@@ -3131,7 +3131,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage126',
     saga: 'saga3',
-    displayName: 'Yamanashi',
+    displayName: 'Rustling Ravine',
     difficulty: 'Normal',
     baseXp: 9700,
     energyCost: 24,
@@ -3157,7 +3157,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage127',
     saga: 'saga3',
-    displayName: 'Nagano',
+    displayName: 'Bonfire Bluff',
     difficulty: 'Normal',
     baseXp: 10000,
     energyCost: 26,
@@ -3179,7 +3179,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage128',
     saga: 'saga3',
-    displayName: 'Niigata',
+    displayName: 'Hollow Oak Hold',
     difficulty: 'Normal',
     baseXp: 10300,
     energyCost: 30,
@@ -3203,7 +3203,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage129',
     saga: 'saga3',
-    displayName: 'Kanagawa',
+    displayName: 'Feather Fall',
     difficulty: 'Normal',
     baseXp: 10600,
     energyCost: 35,
@@ -3231,7 +3231,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage130',
     saga: 'saga3',
-    displayName: 'Chiba',
+    displayName: 'Great Nest Ridge',
     difficulty: 'Normal',
     baseXp: 10900,
     energyCost: 28,
@@ -3262,7 +3262,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage131',
     saga: 'saga3',
-    displayName: 'Tokyo',
+    displayName: 'Talon Trail',
     difficulty: 'Boss',
     baseXp: 11200,
     energyCost: 30,
@@ -3285,7 +3285,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage132',
     saga: 'saga3',
-    displayName: 'Saitama',
+    displayName: 'Giant\'s Perch',
     difficulty: 'Normal',
     baseXp: 11500,
     energyCost: 40,
@@ -3312,7 +3312,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage133',
     saga: 'saga3',
-    displayName: 'Gunma',
+    displayName: 'Skywatch Stump',
     difficulty: 'Hard',
     baseXp: 11800,
     energyCost: 30,
@@ -3339,7 +3339,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage134',
     saga: 'saga3',
-    displayName: 'Tochigi',
+    displayName: 'Roar Rock',
     difficulty: 'Boss',
     baseXp: 12100,
     energyCost: 35,
@@ -3367,7 +3367,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage135',
     saga: 'saga3',
-    displayName: 'Ibaraki',
+    displayName: 'Wingshadow Woods',
     difficulty: 'Normal',
     baseXp: 12400,
     energyCost: 40,
@@ -3394,7 +3394,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage136',
     saga: 'saga3',
-    displayName: 'Fukushima',
+    displayName: 'Grove Guardian Gate',
     difficulty: 'Normal',
     baseXp: 12700,
     energyCost: 30,
@@ -3422,7 +3422,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage137',
     saga: 'saga3',
-    displayName: 'Miyagi',
+    displayName: 'Dreamstair',
     difficulty: 'Boss',
     baseXp: 13000,
     energyCost: 32,
@@ -3444,7 +3444,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage138',
     saga: 'saga3',
-    displayName: 'Yamagata',
+    displayName: 'Fading Mist Peak',
     difficulty: 'Hard',
     baseXp: 13300,
     energyCost: 35,
@@ -3473,7 +3473,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage139',
     saga: 'saga3',
-    displayName: 'Iwate',
+    displayName: 'Starlit Spiral',
     difficulty: 'Normal',
     baseXp: 13600,
     energyCost: 30,
@@ -3501,7 +3501,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage140',
     saga: 'saga3',
-    displayName: 'Akita',
+    displayName: 'Wishing Crater',
     difficulty: 'Boss',
     baseXp: 13900,
     energyCost: 32,
@@ -3523,7 +3523,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage141',
     saga: 'saga3',
-    displayName: 'Aomori',
+    displayName: 'Lunar Bloom Terrace',
     difficulty: 'Hard',
     baseXp: 14200,
     energyCost: 40,
@@ -3547,7 +3547,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage142',
     saga: 'saga3',
-    displayName: 'Hokkaido',
+    displayName: 'Hex Mist Pass',
     difficulty: 'Normal',
     baseXp: 14500,
     energyCost: 50,
@@ -3571,7 +3571,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage143',
     saga: 'saga3',
-    displayName: 'Okinawa',
+    displayName: 'Cosmic Cradle',
     difficulty: 'Hard',
     baseXp: 14800,
     energyCost: 50,
@@ -3598,7 +3598,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage144',
     saga: 'saga3',
-    displayName: 'Iriomote Island',
+    displayName: 'Howling Moon Coliseum',
     difficulty: 'Boss',
     baseXp: 15100,
     energyCost: 50,
