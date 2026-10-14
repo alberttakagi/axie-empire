@@ -14,6 +14,8 @@ import GachaScene from './GachaScene.js';
 import CatalogScene from './CatalogScene.js';
 import MissionsScene from './MissionsScene.js';
 import MarketScene from './MarketScene.js';
+import AxieLabScene from './AxieLabScene.js';
+import './LabUnit.js'; // applies the saved Axie Lab design to UNIT_CONFIG.lab
 import { applyDevUnlock } from './DevMode.js';
 
 // Visit this game's URL with `?devunlock` once (either locally or on the
@@ -170,6 +172,7 @@ const game = new Phaser.Game({
     CatalogScene,
     MissionsScene,
     MarketScene,
+    AxieLabScene,
   ],
 });
 

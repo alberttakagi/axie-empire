@@ -66,6 +66,8 @@ function spriteSetEntries(prefix, id, evolvedTag, sprite) {
 
 function queueEntry(scene, [key, url, kind]) {
   if (scene.textures.exists(key)) return false;
+  // Live Mixer frames (Axie Lab) have no file to fetch — see LabUnit.js.
+  if (url.includes('mixer:')) return false;
   if (kind === 'atlas') scene.load.multiatlas(key, url, ATLAS_DIR);
   else scene.load.image(key, url);
   return true;

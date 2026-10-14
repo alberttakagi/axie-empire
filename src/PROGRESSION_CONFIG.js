@@ -424,3 +424,6 @@ export const PROGRESSION_CONFIG = {
     ],
   },
 };
+
+// Axie Lab unit — progresses like a Super Rare (see UNIT_CONFIG.lab).
+PROGRESSION_CONFIG.lab = { ...PROGRESSION_CONFIG.rouge };

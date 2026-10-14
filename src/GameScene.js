@@ -608,7 +608,8 @@ export default class GameScene extends Phaser.Scene {
       ...spriteKeysForRoster(enemyRoster, false),
     ]);
     for (const key of this.textures.getTextureKeys()) {
-      if ((key.startsWith('unit_') || key.startsWith('enemy_')) && !neededKeys.has(key)) {
+      // unit_lab_* are live Mixer renders (LabUnit.js) — can't be re-fetched, keep them.
+      if ((key.startsWith('unit_') || key.startsWith('enemy_')) && !key.startsWith('unit_lab_') && !neededKeys.has(key)) {
         this.textures.remove(key);
       }
     }

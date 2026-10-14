@@ -51,17 +51,25 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
 
 ## Axie Core fit
 
-- **The cast:**
-  - Every unit is an Axie, rendered from Axie Spine skeletons (Origins asset kit) and the 9 gacha Axies.
+- **Axie Lab, using the live Axie Mixer:**
+  - Players design their own Axie by choosing a body class, a color and all six parts (each part with its own class and style).
+  - The official `@axieinfinity/mixer` (v1.4.9) renders it **live in the browser**, with PixiJS and pixi-spine and part art streamed from Axie's CDN.
+  - The same live frames are used in battle.
+- **The parts decide how it fights.** These rules live in `src/AxieGenome.js` and are covered by unit tests:
+  - **Body class:** sets the base stats (HP / Speed / Skill / Morale, Origins-style) and which enemy attribute it's strong against.
+  - **Each part:** adds its own class's stat bonus.
+  - **Back, Horn, Mouth and Tail:** the majority class among them picks the signature move. Ties go to the body class.
+    - Beast: Savage Strike (crit).
+    - Aquatic: Riptide (slow).
+    - Plant: Bulwark (HP, resists knockback).
+    - Bird: Gale Wave (lane wave).
+    - Bug: Sap (weaken).
+    - Reptile: Venom Surge (delayed burst).
+  - **Purity:** +3% HP and damage for each part that matches the body class.
+- **The rest of the cast:**
+  - The roster Axies are rendered from Axie Spine skeletons (the Origins asset kit and the Mixer).
   - Enemies are Chimeras and corrupted beasts from Axie lore, ending with the Werewolf.
-- **Identity matters in combat:**
-  - Each Axie has a role (tank, swarm, ranged, wave, surge, support).
-  - Classes give attribute advantages (`strongVs` / `massiveVs`).
-  - Status effects, and per-character attack sounds and effects.
-- **The world:**
-  - Sagas, chapters and stage names come from public Lunacia lore, including Blood Moon Coliseum.
-  - The story is Axies defending their empire from the Chimera invasion.
-- **Planned:** live Axie rendering through the approved `@axieinfinity/mixer`, so body parts and classes visibly drive stats.
+- **The world:** sagas, chapters and stage names come from public Lunacia lore.
 
 ## Mock economy
 
@@ -81,6 +89,7 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
 - **Sinks:**
   - Gacha: 50 Gems per pull, 500 Gems for 11. The first pull is free and guarantees a new Axie.
   - Continues.
+  - Axie Lab redesigns: 100 Gems; the first design is free.
   - Lunacia Market exchanges:
     - Energy: Snack 20 Gems, Full Refill 60.
     - Training Scroll (5,000 XP): 40.
@@ -109,7 +118,7 @@ Format: *what we noticed → what we decided → what happened*.
 ## Known issues
 
 - **Account sign-in and cloud save** (Sky Mavis Account, with email as a fallback) are not in yet. Progress lives in browser storage, so clearing site data resets it.
-- **Live Mixer rendering** is not integrated yet; units use pre-rendered Spine frames.
+- **The Axie Lab needs a connection to Axie's CDN.** If it can't be reached, the Lab shows a retry message and the Lab Axie falls back to placeholder art.
 - **Long fights on low-end phones:** heavy Saga 6–7 battles can drop frames.
 
 ## Asset provenance and disclosures
@@ -135,6 +144,7 @@ Format: *what we noticed → what we decided → what happened*.
   - Game-feel pass: special-move effects, the cannon sweep, tower crumble and slow motion, per-saga music, hit and attack motion, scene transitions, and wandering Axies on the home screen.
   - Lunacia Market (daily login, daily missions, Gem exchanges, Daily Deal, Gem ledger).
   - First-time battle tips and the home screen's "Next" goal pointer.
+  - Axie Lab: design your own Axie, rendered live by the Axie Mixer; its parts set its stats and signature move.
 
 ---
 

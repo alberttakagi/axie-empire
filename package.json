@@ -13,6 +13,9 @@
     "vite": "^8.2.2"
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "@axieinfinity/mixer": "1.4.9",
+    "phaser": "^3.90.0",
+    "pixi-spine": "4.0.3",
+    "pixi.js": "7.2.4"
   }
 }

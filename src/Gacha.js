@@ -36,7 +36,7 @@ const UNIT_TIERS = {
 };
 function gachaUnitsOfRarity(rarity) {
   if (rarity === 'Lineage') {
-    return Object.keys(UNIT_CONFIG).filter((k) => !UNIT_CONFIG[k].unlockRequirement?.gacha && isUnitUnlocked(k));
+    return Object.keys(UNIT_CONFIG).filter((k) => !UNIT_CONFIG[k].unlockRequirement?.gacha && !UNIT_CONFIG[k].unlockRequirement?.lab && isUnitUnlocked(k));
   }
   return Object.keys(UNIT_CONFIG).filter(
     (k) => UNIT_CONFIG[k].unlockRequirement?.gacha && PROGRESSION_CONFIG[k]?.rarity === rarity,

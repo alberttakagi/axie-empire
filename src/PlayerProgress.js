@@ -86,6 +86,14 @@ export function isUnitUnlocked(unitType) {
   if (requirement === null || requirement === undefined) return true;
 
   if (requirement.gacha) return isUnitOwned(unitType);
+  // Axie Lab: unlocked once the player has designed their Axie (LabUnit.js).
+  if (requirement.lab) {
+    try {
+      return !!localStorage.getItem('axieEmpireLabGenome');
+    } catch {
+      return false;
+    }
+  }
 
   if (requirement.unitEvolved) {
     const config = PROGRESSION_CONFIG[requirement.unitEvolved];

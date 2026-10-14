@@ -13,6 +13,7 @@ import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { addHomeWanderers } from './HomeWanderers.js';
 import { countDailyClaimables } from './Economy.js';
+import { ensureLabTextures } from './LabUnit.js';
 import { loadStageProgress } from './StageProgress.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { hasFirstFreePull } from './Gacha.js';
@@ -88,6 +89,7 @@ export default class HomeScene extends Phaser.Scene {
     addBackground(this, 'gauntletArena');
     drawWoodFrame(this, width, height);
     addHomeWanderers(this);
+    ensureLabTextures(this.game); // warm the live Mixer render of the player's Lab Axie
 
     // User-provided theme (replaces the Origins Asset Kit's own
     // PvE/Music/home.wav). playMusic is a no-op if it's already the active
@@ -241,6 +243,7 @@ export default class HomeScene extends Phaser.Scene {
       { label: 'Missions', x: 230, glyph: '📋', action: () => this.scene.start('MissionsScene') },
       { label: 'Market', x: 470, glyph: '🛒', action: () => this.scene.start('MarketScene') },
       { label: 'Gacha', x: 560, glyph: '🎰', action: () => this.scene.start('GachaScene') },
+      { label: 'Axie Lab', x: 740, glyph: '🧬', action: () => this.scene.start('AxieLabScene') },
       { label: 'Treasure', x: 650, glyph: '🏆', action: () => this.scene.start('TreasureScene') },
     ];
 
