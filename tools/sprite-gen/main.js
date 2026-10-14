@@ -1187,3 +1187,62 @@ window.renderChimeraSetAndSave = async function renderChimeraSetAndSave(base, ch
 };
 
 window.__dbg = { loadStarterSkeletonData, renderStarterFrameRaw, computeAlphaBounds, cropDataUrlToBounds, app };
+
+// Round 2: full attack sequences, aligned to the SHIPPED idle still.
+// Everything renders on STARTER_SEQ_CANVAS (spine anchor at x,y, scale 0.4
+// — the same scale every shipped still used), and every crop is alpha box
+// + 6px margin (the shipped convention). So we can say exactly where the
+// spine anchor sits inside the idle still AND inside the attack frames;
+// the game uses that to place attack frames at the idle's scale and foot
+// position (see GameScene's attack-sequence code / ATTACK_ANIM_META.js).
+// `idlePose` matches how the shipped idle still was sampled (t=0.016).
+window.renderAttackSequenceAligned = async function renderAttackSequenceAligned(baseFilename, axieId, animationName) {
+  const skeletonData = await loadStarterSkeletonData(axieId);
+  const M = 6;
+  const idleRaw = await renderStarterFrameRaw(skeletonData, 'action/idle/normal', 0);
+  const idleB = await computeAlphaBounds(idleRaw);
+  const anim = skeletonData.animations.find((a) => a.name === animationName);
+  if (!anim) throw new Error(`${axieId} has no ${animationName}`);
+  const fractions = frameSampleFractions(anim.duration);
+  const raws = [];
+  for (const t of fractions) raws.push(await renderStarterFrameRaw(skeletonData, animationName, t));
+  // The clip's last sampled frame should flow back into idle; include one
+  // extra end pose so the swing finishes rather than snapping.
+  raws.push(await renderStarterFrameRaw(skeletonData, animationName, 0.999));
+  app.renderer.resize(RAW_CANVAS_SIZE, RAW_CANVAS_SIZE);
+  const B = unionBounds(await Promise.all(raws.map((f) => computeAlphaBounds(f))));
+  const cropped = await Promise.all(raws.map((f) => cropDataUrlToBounds(f, B, M)));
+  await saveFrameSequence(baseFilename, cropped);
+  const ax = STARTER_SEQ_CANVAS.x;
+  const ay = STARTER_SEQ_CANVAS.y;
+  const clampMin = (v) => Math.max(0, v - M);
+  return {
+    frames: cropped.length,
+    durationMs: Math.round(anim.duration * 1000),
+    // anchor position inside the attack frames / inside the idle still
+    anchor: { x: ax - clampMin(B.minX), y: ay - clampMin(B.minY) },
+    size: { w: Math.min(STARTER_SEQ_CANVAS.width - 1, B.maxX + M) - clampMin(B.minX) + 1, h: Math.min(STARTER_SEQ_CANVAS.height - 1, B.maxY + M) - clampMin(B.minY) + 1 },
+    idleAnchor: { x: ax - clampMin(idleB.minX), y: ay - clampMin(idleB.minY) },
+    idleSize: { w: idleB.maxX + M - clampMin(idleB.minX) + 1, h: idleB.maxY + M - clampMin(idleB.minY) + 1 },
+    clipped: B.minX <= 2 || B.minY <= 2 || B.maxX >= STARTER_SEQ_CANVAS.width - 3 || B.maxY >= STARTER_SEQ_CANVAS.height - 3,
+  };
+};
+
+// Where the spine anchor sits inside the shipped idle-sequence frames
+// (union crop + 6px, same as renderStarterSequenceAndSave), in render px.
+window.idleSequenceAnchor = async function idleSequenceAnchor(axieId) {
+  const skeletonData = await loadStarterSkeletonData(axieId);
+  const anim = skeletonData.animations.find((a) => a.name === 'action/idle/normal');
+  const raws = [];
+  for (const t of frameSampleFractions(anim.duration)) raws.push(await renderStarterFrameRaw(skeletonData, 'action/idle/normal', t));
+  app.renderer.resize(RAW_CANVAS_SIZE, RAW_CANVAS_SIZE);
+  const B = unionBounds(await Promise.all(raws.map((f) => computeAlphaBounds(f))));
+  const M = 6;
+  const x0 = Math.max(0, B.minX - M);
+  const y0 = Math.max(0, B.minY - M);
+  return {
+    frames: raws.length,
+    anchor: { x: STARTER_SEQ_CANVAS.x - x0, y: STARTER_SEQ_CANVAS.y - y0 },
+    size: { w: Math.min(STARTER_SEQ_CANVAS.width - 1, B.maxX + M) - x0 + 1, h: Math.min(STARTER_SEQ_CANVAS.height - 1, B.maxY + M) - y0 + 1 },
+  };
+};

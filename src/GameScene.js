@@ -8,6 +8,7 @@ import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { installBattleTwists } from './BattleTwists.js';
 import { installBattleFx, SAGA_BATTLE_MUSIC } from './BattleFx.js';
 import { showTipOnce, resetTipState } from './Tips.js';
+import { ATTACK_ANIM_META } from './ATTACK_ANIM_META.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -2331,6 +2332,7 @@ export default class GameScene extends Phaser.Scene {
     // Sprites up to FOOT_ANCHOR_HEIGHT keep the original centered framing.
     const overflow = sprite.displayHeight - FOOT_ANCHOR_HEIGHT;
     if (overflow > 0) sprite.setOrigin(0.5, 0.5 + overflow / 2 / sprite.displayHeight);
+    sprite.baseOriginY = sprite.originY; // restored after an attack sequence moves the origin
   }
 
   // Stage mode: fixed script — no randomness, no tier-based auto-scaling.
@@ -2475,7 +2477,7 @@ export default class GameScene extends Phaser.Scene {
     const rosters = this.pendingFrameRosters;
     if (!rosters) return;
     this.pendingFrameRosters = null;
-    loadSpriteRosterFramesInBackground(this, rosters.loadoutRoster, true);
+    loadSpriteRosterFramesInBackground(this, rosters.loadoutRoster, true, undefined, { battle: true });
     loadSpriteRosterFramesInBackground(this, rosters.enemyRoster, false);
   }
 
@@ -3264,7 +3266,9 @@ export default class GameScene extends Phaser.Scene {
   // — see UNIT_CONFIG.js's `sprite` field) are silently no-ops here.
   updateEntityPoses(deltaMs) {
     for (const unit of this.playerUnits) {
+      this.trackAttackAnim(unit, deltaMs);
       this.setEntityPose(unit, this.getDesiredPose(unit));
+      this.updateAttackAnimFrame(unit);
       this.updateRunCycle(unit, deltaMs);
       this.updateIdleCycle(unit, deltaMs);
       this.updateAttackLunge(unit);
@@ -3288,6 +3292,7 @@ export default class GameScene extends Phaser.Scene {
   getDesiredPose(entity) {
     if (entity.hp <= 0) return entity.currentPose;
     if (entity.knockbackMs > 0) return 'hit';
+    if (entity.attackAnim) return 'attack'; // full swing plays through into the backswing
     if (entity.attackPhase === 'windup') return 'attack';
     if (entity.isMoving && entity.config.sprite?.run) return 'run';
     return 'idle';
@@ -3313,9 +3318,18 @@ export default class GameScene extends Phaser.Scene {
   // Dryad Mage's attack pose balloon the whole sprite.
   setEntityPose(entity, pose) {
     if (!entity.spriteImage || entity.currentPose === pose) return;
+    const sprite = entity.spriteImage;
+    if (entity.currentPose === 'attack' && sprite.attackSequenceOn) {
+      sprite.setOrigin(0.5, sprite.baseOriginY ?? 0.5);
+      sprite.attackSequenceOn = false;
+    }
     entity.currentPose = pose;
     const prefix = entity.isPlayerSide ? 'unit' : 'enemy';
     const evolvedTag = entity.isEvolved && entity.config.sprite.evolved ? '_evolved' : '';
+    if (pose === 'attack' && entity.attackAnim && this.textures.exists(entity.attackAnim.atlas)) {
+      this.applyAttackSequenceFrame(entity, 0);
+      return;
+    }
     if (pose === 'run') {
       entity.runFrame = 0;
       entity.runCycleMs = 0;
@@ -3332,6 +3346,66 @@ export default class GameScene extends Phaser.Scene {
       entity.spriteImage.setTexture(`${prefix}_${entity.config.id}${evolvedTag}_${pose}`, '__BASE');
     }
     this.rescaleForCurrentTexture(entity.spriteImage);
+  }
+
+  // ---- Full attack sequences (ATTACK_ANIM_META.js, rendered from the
+  // Axies' real Spine attack clips) ----
+  // A swing starts when the windup starts, and plays at whatever rate puts
+  // the clip's impact frame exactly on the hit (end of the windup), then
+  // finishes out over the backswing. Frames are placed at the idle's own
+  // scale with the origin shifted so the Axie's body anchor stays put —
+  // no pop or slide between idle and attack.
+  trackAttackAnim(entity, deltaMs) {
+    const phase = entity.attackPhase;
+    const started = phase === 'windup' && entity.prevAttackPhase !== 'windup';
+    entity.prevAttackPhase = phase;
+    if (entity.knockbackMs > 0 || entity.hp <= 0) {
+      entity.attackAnim = null;
+      return;
+    }
+    if (started && entity.spriteImage) {
+      const evolved = entity.isEvolved && entity.config.sprite.evolved;
+      const meta = ATTACK_ANIM_META[`${entity.config.id}${evolved ? '_evolved' : ''}`];
+      if (meta && entity.isPlayerSide) {
+        const windupMs = Math.max(80, entity.config.foreswingMs);
+        const rate = Phaser.Math.Clamp((meta.impact * meta.durationMs) / windupMs, 0.6, 3);
+        entity.attackAnim = {
+          meta, rate, t: 0,
+          atlas: `unit_${entity.config.id}${evolved ? '_evolved' : ''}_attackanim`,
+        };
+      }
+      return;
+    }
+    if (entity.attackAnim) {
+      entity.attackAnim.t += deltaMs * entity.attackAnim.rate;
+      if (entity.attackAnim.t >= entity.attackAnim.meta.durationMs) entity.attackAnim = null;
+    }
+  }
+
+  updateAttackAnimFrame(entity) {
+    const a = entity.attackAnim;
+    if (!a || entity.currentPose !== 'attack' || !entity.spriteImage?.attackSequenceOn) return;
+    const frame = Math.min(a.meta.frames - 1, Math.floor((a.t / a.meta.durationMs) * a.meta.frames));
+    if (frame !== a.frame) this.applyAttackSequenceFrame(entity, frame);
+  }
+
+  applyAttackSequenceFrame(entity, frame) {
+    const sprite = entity.spriteImage;
+    const a = entity.attackAnim;
+    a.frame = frame;
+    sprite.setTexture(a.atlas, String(frame));
+    if (!sprite.attackSequenceOn) {
+      const m = a.meta;
+      // Keep the body anchor where the idle shows it (see ATTACK_ANIM_META.js).
+      const oy = sprite.baseOriginY ?? 0.5;
+      sprite.setOrigin(
+        (m.anchor.x - (m.idleAnchor.x - 0.5 * m.idleSize.w)) / m.size.w,
+        (m.anchor.y - (m.idleAnchor.y - oy * m.idleSize.h)) / m.size.h,
+      );
+      sprite.poseScale = sprite.baseTargetSize / sprite.idleMaxDim;
+      sprite.setScale(sprite.poseScale);
+      sprite.attackSequenceOn = true;
+    }
   }
 
   // Clamps how far a pose swap (see setEntityPose) can grow the sprite

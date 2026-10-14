@@ -1,4 +1,4 @@
-"""Pack every run/idleanim frame sequence in public/sprites/{units,enemies}
+"""Pack every run/idleanim/attackanim frame sequence in public/sprites/{units,enemies}
 into a Phaser multiatlas (TexturePacker JSON-array format, 2048px pages,
 alpha-trimmed with spriteSourceSize so on-screen placement is unchanged).
 
@@ -18,7 +18,7 @@ os.makedirs(OUT, exist_ok=True)
 groups = defaultdict(dict)
 for d in ('units', 'enemies'):
     for f in glob.glob(f'public/sprites/{d}/*.png'):
-        m = re.match(r'(.+)_(run|idleanim)_(\d+)\.png$', os.path.basename(f))
+        m = re.match(r'(.+)_(run|idleanim|attackanim)_(\d+)\.png$', os.path.basename(f))
         if m:
             groups[f'{m.group(1)}_{m.group(2)}'][int(m.group(3))] = f
 

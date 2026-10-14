@@ -29,7 +29,9 @@
 // only units and every enemy except sniper/Dryad Ranger (no move clip in
 // its source skeleton) have `run`.
 const CORE_POSES = ['idle', 'attack', 'hit'];
-const FRAME_FIELDS = ['run', 'idleAnim'];
+const FRAME_FIELDS = ['run', 'idleAnim', 'attackAnim'];
+// Menus never show attack swings — only battles stream attackAnim atlases.
+const MENU_FRAME_FIELDS = ['run', 'idleAnim'];
 
 // Every {key, path} pair one sprite set (a roster entry's base art, or its
 // `_evolved` variant) contributes — CORE_POSES always, FRAME_FIELDS only
@@ -50,9 +52,9 @@ export function sequenceAtlasKey(prefix, id, evolvedTag, field) {
   return `${prefix}_${id}${evolvedTag}_${field.toLowerCase()}`;
 }
 
-function spriteSetEntries(prefix, id, evolvedTag, sprite) {
+function spriteSetEntries(prefix, id, evolvedTag, sprite, fields = FRAME_FIELDS) {
   const entries = CORE_POSES.map((pose) => [`${prefix}_${id}${evolvedTag}_${pose}`, sprite[pose], 'image']);
-  for (const field of FRAME_FIELDS) {
+  for (const field of fields) {
     if (!sprite[field]?.length) continue;
     const key = sequenceAtlasKey(prefix, id, evolvedTag, field);
     // URL from the art's own path, not the id: several ENEMY_CONFIG roles
@@ -75,13 +77,13 @@ function queueEntry(scene, [key, url, kind]) {
 
 // Every {key, path} pair preloadSpriteRoster(scene, roster, isPlayerSide)
 // would ever queue for this roster.
-function spriteRosterEntries(roster, isPlayerSide = true) {
+function spriteRosterEntries(roster, isPlayerSide = true, fields = FRAME_FIELDS) {
   const prefix = isPlayerSide ? 'unit' : 'enemy';
   const entries = [];
   for (const config of Object.values(roster)) {
     if (!config.sprite) continue;
-    entries.push(...spriteSetEntries(prefix, config.id, '', config.sprite));
-    if (config.sprite.evolved) entries.push(...spriteSetEntries(prefix, config.id, '_evolved', config.sprite.evolved));
+    entries.push(...spriteSetEntries(prefix, config.id, '', config.sprite, fields));
+    if (config.sprite.evolved) entries.push(...spriteSetEntries(prefix, config.id, '_evolved', config.sprite.evolved, fields));
   }
   return entries;
 }
@@ -109,9 +111,9 @@ export function preloadSpriteRosterStills(scene, roster, isPlayerSide = true) {
 // fires once they're all cached (immediately if nothing was missing), so a
 // screen can re-render its icons as animated. Icons drawn before then fall
 // back to the still idle pose (see addUnitIcon).
-export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide = true, onComplete = () => {}) {
+export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide = true, onComplete = () => {}, { battle = false } = {}) {
   let queued = 0;
-  for (const entry of spriteRosterEntries(roster, isPlayerSide)) {
+  for (const entry of spriteRosterEntries(roster, isPlayerSide, battle ? FRAME_FIELDS : MENU_FRAME_FIELDS)) {
     if (queueEntry(scene, entry)) queued += 1;
   }
   if (!queued) {
@@ -125,7 +127,7 @@ export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide =
 }
 
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
-  for (const entry of spriteRosterEntries(roster, isPlayerSide)) queueEntry(scene, entry);
+  for (const entry of spriteRosterEntries(roster, isPlayerSide, MENU_FRAME_FIELDS)) queueEntry(scene, entry);
 }
 
 // idleAnimated's cycle (see addUnitIcon) steps the icon's texture through
