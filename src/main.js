@@ -15,6 +15,7 @@ import CatalogScene from './CatalogScene.js';
 import MissionsScene from './MissionsScene.js';
 import MarketScene from './MarketScene.js';
 import AxieLabScene from './AxieLabScene.js';
+import './Account.js'; // save monitor + account session resume
 import './LabUnit.js'; // applies the saved Axie Lab design to UNIT_CONFIG.lab
 import { applyDevUnlock } from './DevMode.js';
 

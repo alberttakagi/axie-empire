@@ -14,6 +14,7 @@ import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { addHomeWanderers } from './HomeWanderers.js';
 import { countDailyClaimables } from './Economy.js';
 import { ensureLabTextures } from './LabUnit.js';
+import { cloudSync, accountsAvailable, accountProviderLabel, exportSaveFile, importSaveFile } from './Account.js';
 import { loadStageProgress } from './StageProgress.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { hasFirstFreePull } from './Gacha.js';
@@ -106,6 +107,7 @@ export default class HomeScene extends Phaser.Scene {
     this.createSecondaryIcons();
 
     this.createNextGoal();
+    this.createSaveChip();
 
     this.messageText = this.add
       .text(width / 2, height - 26, '', { fontFamily: FONT, fontSize: '13px', color: '#ffdd33', stroke: '#000000', strokeThickness: 3 })
@@ -200,6 +202,24 @@ export default class HomeScene extends Phaser.Scene {
   // left, under the primary buttons; Gacha/storage sit right, in their own
   // group) — rather than Gacha/Treasure floating as isolated buttons with
   // no visual relationship to anything else on the screen.
+  // Tiny save-status chip (top center): guest / saving / saved / failed.
+  // Tapping it opens Account & Save.
+  createSaveChip() {
+    const { width } = LOGICAL_SIZE;
+    const chip = this.add.text(width / 2, 14, '', {
+      fontFamily: FONT, fontSize: '10px', color: '#ffffff', backgroundColor: '#00000088', padding: { x: 6, y: 2 },
+    }).setOrigin(0.5, 0).setDepth(20).setInteractive({ useHandCursor: true });
+    chip.on('pointerup', () => this.showAccountPopup());
+    const ICON = { local: '💾 Guest save', saving: '☁ Saving…', saved: '☁ Saved', error: '⚠ Save problem — tap' };
+    const COLOR = { local: '#ffffff', saving: '#bfe3ff', saved: '#7dff9a', error: '#ffb3a7' };
+    const unsub = cloudSync.onStatus((st) => {
+      if (!chip.active) return;
+      chip.setText(cloudSync.user && st.state === 'saved' ? `☁ Saved · ${cloudSync.user.name}` : ICON[st.state] || ICON.local);
+      chip.setColor(COLOR[st.state] || '#ffffff');
+    });
+    this.events.once('shutdown', unsub);
+  }
+
   // "What should I do next?" — one short pointer, picked by priority, in
   // the gap between the left and right icon groups.
   getNextGoal() {
@@ -223,9 +243,11 @@ export default class HomeScene extends Phaser.Scene {
     const y = height - 62;
     const text = this.add.text(x, y, goal.text, {
       fontFamily: FONT, fontSize: '11px', color: '#3a2600', align: 'center', wordWrap: { width: 150 },
-    }).setOrigin(0.5).setDepth(6);
-    const pill = this.add.rectangle(x, y, 164, text.height + 16, BC.gold, 0.95).setStrokeStyle(2, BC.ink).setDepth(5);
-    const arrow = this.add.text(x, y - pill.height / 2 - 8, '▼ NEXT', { fontFamily: FONT, fontSize: '9px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(6);
+    }).setOrigin(0.5);
+    const pill = this.add.rectangle(x, y, 164, text.height + 16, BC.gold, 0.95).setStrokeStyle(2, BC.ink);
+    const arrow = this.add.text(x, y - pill.height / 2 - 8, '▼ NEXT', { fontFamily: FONT, fontSize: '9px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    text.setDepth(0);
+    this.children.moveAbove(text, pill);
     this.tweens.add({ targets: [pill, text], scale: 1.04, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     if (goal.action) pill.setInteractive({ useHandCursor: true }).on('pointerup', goal.action);
     this.nextGoalParts = [pill, text, arrow];
@@ -473,7 +495,7 @@ export default class HomeScene extends Phaser.Scene {
     objects.push(overlay);
 
     const panelWidth = 300;
-    const panelHeight = 250;
+    const panelHeight = 300;
     const panel = drawBcPanel(this, width / 2, height / 2, panelWidth, panelHeight);
     objects.push(panel);
 
@@ -494,7 +516,7 @@ export default class HomeScene extends Phaser.Scene {
     ];
     guideButtons.forEach((guide, index) => {
       const bx = width / 2 + (index === 0 ? -76 : 76);
-      const by = height / 2 - 6;
+      const by = height / 2 - 30;
       const btn = createBcButton(this, bx, by, 130, 74, guide.label, () => {
         this.scene.start('CatalogScene', { rosterType: guide.rosterType });
       }, { fontSize: 13 });
@@ -506,14 +528,73 @@ export default class HomeScene extends Phaser.Scene {
     // structure the reference game itself uses rather than a floating
     // audio toggle loose on the hub screen.
     objects.push(
-      createBcButton(this, width / 2, height / 2 + 74, 268, 40, 'Settings', () => {
+      createBcButton(this, width / 2, height / 2 + 44, 268, 40, 'Settings', () => {
         closePopup();
         this.showSettingsPopup();
       }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 14 }),
     );
 
+    objects.push(
+      createBcButton(this, width / 2, height / 2 + 94, 268, 40, 'Account & Save', () => {
+        closePopup();
+        this.showAccountPopup();
+      }, { fontSize: 14 }),
+    );
+
     const closePopup = () => objects.forEach((obj) => obj.destroy());
     overlay.on('pointerdown', closePopup);
+  }
+
+  // Account & Save: why an account matters, sign in/out, and save
+  // backup/restore. Account flows live in CloudSync.js; this is just UI.
+  showAccountPopup() {
+    const { width, height } = LOGICAL_SIZE;
+    const objects = [];
+    const close = () => objects.forEach((o) => o.destroy());
+    objects.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.75).setInteractive());
+    objects.push(drawBcPanel(this, width / 2, height / 2, 380, 300));
+    objects.push(this.add.text(width / 2, height / 2 - 126, 'Account & Save', { fontFamily: FONT, fontSize: '18px', color: BC.inkHex }).setOrigin(0.5));
+    objects.push(createBcCircleButton(this, width / 2 + 182, height / 2 - 142, 14, '✕', () => close(), { fill: BC.gold }));
+    const user = cloudSync.user;
+    objects.push(this.add.text(width / 2, height / 2 - 92, user ? `Signed in as ${user.name}` : 'Playing as guest', {
+      fontFamily: FONT, fontSize: '14px', color: user ? '#2f7d3a' : '#7a5c1e',
+    }).setOrigin(0.5));
+    const status = this.add.text(width / 2, height / 2 - 58, '', {
+      fontFamily: FONT, fontSize: '11px', color: BC.inkHex, align: 'center', wordWrap: { width: 340 },
+    }).setOrigin(0.5);
+    objects.push(status);
+    const unsub = cloudSync.onStatus((s) => status.active && status.setText(
+      user || s.state !== 'local' ? s.message : 'An account keeps your Axies, stages and gems safe across devices. Without one, progress lives only in this browser.',
+    ));
+    objects.push({ destroy: unsub });
+
+    if (accountsAvailable) {
+      objects.push(createBcButton(this, width / 2, height / 2 - 6, 300, 40, user ? 'Sign out' : `Sign in with ${accountProviderLabel}`, async () => {
+        try {
+          if (user) await cloudSync.signOut();
+          else await cloudSync.signIn({ id: 'tester', name: 'Tester' });
+          close();
+          this.scene.restart();
+        } catch {
+          // status line already explains the failure
+        }
+      }, { fontSize: 13 }));
+    } else {
+      objects.push(this.add.text(width / 2, height / 2 - 6, 'Sky Mavis Account sign-in is coming soon.', {
+        fontFamily: FONT, fontSize: '12px', color: '#5a5a5a',
+      }).setOrigin(0.5));
+    }
+    objects.push(createBcButton(this, width / 2 - 78, height / 2 + 52, 146, 38, 'Export save', () => {
+      exportSaveFile();
+      status.setText('Save file downloaded — keep it somewhere safe.');
+    }, { fontSize: 12, fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a' }));
+    objects.push(createBcButton(this, width / 2 + 78, height / 2 + 52, 146, 38, 'Import save', async () => {
+      const err = await importSaveFile();
+      if (err) status.setText(err);
+    }, { fontSize: 12, fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a' }));
+    objects.push(this.add.text(width / 2, height / 2 + 104, 'Importing replaces the progress on this device.', {
+      fontFamily: FONT, fontSize: '9px', color: '#7a5c1e',
+    }).setOrigin(0.5));
   }
 
   // Same SFX/BGM volume controls as GameScene's/TitleScene's own Options
