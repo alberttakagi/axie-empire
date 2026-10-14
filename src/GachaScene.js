@@ -13,6 +13,9 @@ import {
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
 import { playGachaChargeSfx, playGachaRevealSfx, playSfxFile } from './Audio.js';
+import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, addUnitIcon } from './SpriteIcon.js';
+import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
+import { isUnitOwned } from './UnitCollection.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
 // The bible's §A.10.7 Gacha screen — adapted per Gacha.js's scope note
@@ -99,6 +102,22 @@ const GRID_TOP = RESULTS_PANEL_Y - RESULTS_PANEL_H / 2 + 15;
 // tuning.
 const GRID_AREA_H = RESULTS_PANEL_Y + RESULTS_PANEL_H / 2 - 15 - GRID_TOP;
 
+// Featured banner lineup, left→right: Rares on the wings, Super Rares
+// inside, the two Ubers center stage on the raised dais.
+const SHOWCASE_ORDER = ['ena', 'venoki', 'rouge', 'machito', 'hope', 'shufen', 'bard', 'pomodoro', 'bing'];
+const UNIT_RARITY_STYLE = {
+  Rare: { color: 0x4aa3ff, label: 'RARE', size: 54 },
+  'Super Rare': { color: 0xb98cff, label: 'SUPER RARE', size: 62 },
+  'Uber Rare': { color: 0xffd700, label: 'UBER', size: 80 },
+};
+const RATES_LINE = 'UBER 0.5%   ·   SUPER RARE 2.5%   ·   RARE 9%   ·   LINEAGE 12%   ·   items 76%';
+
+function gachaUnitRoster() {
+  const roster = {};
+  for (const k of SHOWCASE_ORDER) roster[k] = UNIT_CONFIG[k];
+  return roster;
+}
+
 function colorIntToHex(int) {
   return `#${int.toString(16).padStart(6, '0')}`;
 }
@@ -154,6 +173,7 @@ export default class GachaScene extends Phaser.Scene {
     this.load.image('gacha_growth_charm', 'gacha/growth_charm.png');
     this.load.image('gacha_energy', 'gacha/energy_refill.png');
     // Portraits for the gacha-only units (unit drops show their own art).
+    preloadSpriteRosterStills(this, gachaUnitRoster(), true);
     for (const [key, unit] of Object.entries(UNIT_CONFIG)) {
       if (!this.textures.exists(`gacha_unit_${key}`)) {
         this.load.image(`gacha_unit_${key}`, unit.sprite.idle);
@@ -194,9 +214,17 @@ export default class GachaScene extends Phaser.Scene {
     // Narrowed so it sits between the title pill and the Gem badge
     // (full-width, it covered the 'Gacha' title).
     drawBcPanel(this, width / 2, BANNER_Y, 360, BANNER_H, { fill: 0x2a1f3d });
-    this.add
-      .text(width / 2, BANNER_Y, 'Axie Gacha', { fontFamily: FONT, fontSize: '17px', color: '#ffd27f' })
+    const bannerTitle = this.add
+      .text(width / 2, BANNER_Y - 8, 'LUNACIAN SUMMONS', { fontFamily: FONT, fontSize: '18px', color: '#ffd27f', stroke: '#1a0f2a', strokeThickness: 4 })
       .setOrigin(0.5);
+    this.add
+      .text(width / 2, BANNER_Y + 14, 'Nine Axies answer the call', { fontFamily: FONT, fontSize: '10px', color: '#cdb8ff' })
+      .setOrigin(0.5);
+    // Shimmer sweep across the title.
+    const shine = this.add.rectangle(width / 2 - 200, BANNER_Y - 8, 18, 30, 0xffffff, 0.35).setAngle(20).setBlendMode(Phaser.BlendModes.ADD);
+    const titleMask = bannerTitle.createBitmapMask();
+    shine.setMask(titleMask);
+    this.tweens.add({ targets: shine, x: width / 2 + 200, duration: 1100, repeat: -1, repeatDelay: 2200, ease: 'Sine.inOut' });
 
     // First visit: the single-roll button is a free, guaranteed-new-Axie pull.
     const freeFirst = hasFirstFreePull();
@@ -220,16 +248,84 @@ export default class GachaScene extends Phaser.Scene {
     // (bottom-left, y≈390-442 by default). Centered on RESULTS_PANEL_Y/H
     // (see those constants) so this and getSlotLayout's own GRID_TOP/
     // GRID_AREA_H can't silently drift out of sync with each other.
-    drawBcPanel(this, width / 2, RESULTS_PANEL_Y, width - 64, RESULTS_PANEL_H);
+    drawBcPanel(this, width / 2, RESULTS_PANEL_Y, width - 64, RESULTS_PANEL_H, { fill: 0x1b1330 });
+    this.showcase = this.add.container(0, 0);
+    this.buildShowcase();
+    loadSpriteRosterFramesInBackground(this, gachaUnitRoster(), true, () => this.buildShowcase());
     this.messageText = this.add
-      .text(width / 2, RESULTS_PANEL_Y, 'Pull for 9 new Axies — duplicates raise level caps!', {
-        fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
+      .text(width / 2, RESULTS_PANEL_Y + RESULTS_PANEL_H / 2 - 30, '', {
+        fontFamily: FONT, fontSize: '13px', color: '#ffd27f', align: 'center', stroke: '#000000', strokeThickness: 3,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5).setDepth(2100);
     this.resultsContainer = this.add.container(0, 0);
     this.fxContainer = this.add.container(0, 0).setDepth(2000);
 
     this.refreshGems();
+  }
+
+  // The idle banner: the featured Axies on a curved dais, animated, with
+  // rarity glows, light rays behind the Ubers, floating motes, and the
+  // published rates. Rebuilt once idle atlases finish streaming in.
+  buildShowcase() {
+    const c = this.showcase;
+    c.removeAll(true);
+    const { width } = LOGICAL_SIZE;
+    const top = RESULTS_PANEL_Y - RESULTS_PANEL_H / 2;
+    const cx = width / 2;
+
+    // Rotating rays behind center stage.
+    const rays = this.add.graphics({ x: cx, y: top + 110 });
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      rays.fillStyle(0xffe58a, k % 2 ? 0.05 : 0.09);
+      rays.slice(0, 0, 220, a, a + Math.PI / 14, false).fillPath();
+    }
+    rays.setBlendMode(Phaser.BlendModes.ADD);
+    const clip = this.make.graphics({ add: false });
+    clip.fillStyle(0xffffff).fillRoundedRect(36, top + 4, width - 72, RESULTS_PANEL_H - 8, 16);
+    rays.setMask(clip.createGeometryMask());
+    this.tweens.add({ targets: rays, angle: 360, duration: 30000, repeat: -1 });
+    c.add(rays);
+
+    // Floating motes.
+    for (let k = 0; k < 18; k++) {
+      const mote = this.add.circle(cx - 340 + Math.random() * 680, top + 40 + Math.random() * 160, 1.5 + Math.random() * 1.5, k % 3 ? 0xcdb8ff : 0xffe58a, 0.7);
+      c.add(mote);
+      this.tweens.add({ targets: mote, y: mote.y - 30, alpha: 0, duration: 2500 + Math.random() * 2500, repeat: -1, delay: Math.random() * 2500 });
+    }
+
+    const spacing = 78;
+    SHOWCASE_ORDER.forEach((key, i) => {
+      const unit = UNIT_CONFIG[key];
+      const style = UNIT_RARITY_STYLE[PROGRESSION_CONFIG[key].rarity];
+      const off = i - (SHOWCASE_ORDER.length - 1) / 2;
+      const x = cx + off * spacing;
+      const footY = top + 150 - (4 - Math.min(4, Math.abs(off))) * 9; // dais rises toward the center
+      const pad = this.add.ellipse(x, footY, style.size * 0.95, 14, style.color, 0.35).setStrokeStyle(2, style.color, 0.9);
+      this.tweens.add({ targets: pad, alpha: 0.6, scaleX: 1.08, duration: 1200 + i * 90, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      c.add(pad);
+      const icon = addUnitIcon(this, x, footY - style.size / 2 + 4, unit, style.size, true, false, true);
+      if (icon) {
+        c.add(icon);
+        this.tweens.add({ targets: icon, y: icon.y - 3, duration: 900 + i * 70, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      }
+      const name = this.add.text(x, footY + 12, unit.characterName, { fontFamily: FONT, fontSize: '10px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5, 0);
+      const tag = this.add.text(x, footY + 25, style.label, { fontFamily: FONT, fontSize: '8px', color: colorIntToHex(style.color), stroke: '#000000', strokeThickness: 2 }).setOrigin(0.5, 0);
+      c.add([name, tag]);
+      if (isUnitOwned(key)) {
+        const owned = this.add.text(x + style.size / 2 - 6, footY - style.size + 6, '✓', { fontFamily: FONT, fontSize: '12px', color: '#7dff9a', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+        c.add(owned);
+      }
+    });
+
+    const rates = this.add.text(cx, top + RESULTS_PANEL_H - 22, RATES_LINE, { fontFamily: FONT, fontSize: '9px', color: '#a996d6' }).setOrigin(0.5);
+    const hint = this.add.text(cx, top + 14, 'Duplicates raise level caps', { fontFamily: FONT, fontSize: '10px', color: '#ffd27f' }).setOrigin(0.5);
+    c.add([rates, hint]);
+  }
+
+  setShowcaseVisible(visible) {
+    this.tweens.killTweensOf(this.showcase);
+    this.tweens.add({ targets: this.showcase, alpha: visible ? 1 : 0.08, duration: 300 });
   }
 
   createRollButton(x, label, onRoll, opts = {}) {
@@ -321,13 +417,16 @@ export default class GachaScene extends Phaser.Scene {
     this.fxContainer.removeAll(true);
     this.setRollButtonsEnabled(false);
     this.messageText.setText('');
+    this.setShowcaseVisible(false);
 
     const layout = getSlotLayout(width, rewards.length);
     const placeholders = layout.map(({ x, y, w, h }) => {
       const holder = this.add.container(x, y);
-      const bg = this.add.rectangle(0, 0, w, h, 0x1a1a1a, 0.55).setStrokeStyle(2, BC.ink);
-      const mark = this.add.text(0, 0, '?', { fontFamily: FONT, fontSize: `${Math.round(Math.min(w, h) * 0.4)}px`, color: '#6a6a6a' }).setOrigin(0.5);
-      holder.add([bg, mark]);
+      const bg = this.add.rectangle(0, 0, w, h, 0x2a1f3d, 0.9).setStrokeStyle(2, 0x6a55a0);
+      const mark = this.add.text(0, 0, '?', { fontFamily: FONT, fontSize: `${Math.round(Math.min(w, h) * 0.4)}px`, color: '#8f7cc7' }).setOrigin(0.5);
+      const rune = this.add.circle(0, 0, Math.min(w, h) * 0.36).setStrokeStyle(2, 0x8f7cc7, 0.6);
+      this.tweens.add({ targets: rune, scale: 1.15, alpha: 0.3, duration: 600, yoyo: true, repeat: -1 });
+      holder.add([bg, mark, rune]);
       this.resultsContainer.add(holder);
       return holder;
     });
@@ -351,8 +450,17 @@ export default class GachaScene extends Phaser.Scene {
   revealNext(rewards, layout, placeholders, index) {
     if (index >= rewards.length) {
       this.setRollButtonsEnabled(true);
+      this.messageText.setText('Tap to return to the banner');
+      this.time.delayedCall(250, () => this.input.once('pointerup', () => {
+        if (this.revealing) return;
+        this.resultsContainer.removeAll(true);
+        this.messageText.setText('');
+        this.setShowcaseVisible(true);
+      }));
+      this.revealing = false;
       return;
     }
+    this.revealing = true;
 
     const reward = rewards[index];
     this.playDrumRoll(placeholders[index], reward, () => {
