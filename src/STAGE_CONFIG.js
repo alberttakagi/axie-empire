@@ -3598,7 +3598,7 @@ export const STAGE_CONFIG = [
   {
     id: 'stage144',
     saga: 'saga3',
-    displayName: 'Howling Moon Coliseum',
+    displayName: 'Blood Moon Coliseum',
     difficulty: 'Boss',
     baseXp: 15100,
     energyCost: 50,
