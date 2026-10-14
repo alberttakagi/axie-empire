@@ -2,7 +2,9 @@
 // hand-tuned layouts (pacing, castle HP, field caps, boss timing), with:
 //   - enemies swapped for same-role cousins, rotating per saga, so each
 //     saga leans on a different slice of the roster (incl. the new designs)
-//   - its own strength multiplier (saga3 is 4x; these climb from there)
+//   - its own strength multiplier (saga3 is 4x; these climb from there —
+//     tuned with src/dev/BalanceSim.js so later sagas keep pace with how
+//     fast players grow: 5 / 7.5 / 10.5 / 14)
 //   - a finale where the Werewolf is the final boss, opened by a
 //     saga-specific elite instead of always Daddy Bear.
 // Names live in SAGA_EXPANSION_NAMES.js (lore-inspired copy).
@@ -10,9 +12,9 @@ import { EXPANSION_STAGE_NAMES } from './SAGA_EXPANSION_NAMES.js';
 
 export const EXPANSION_SAGAS = [
   { id: 'saga4', strength: 5, elite: 'colossus' }, // Mommy Bear
-  { id: 'saga5', strength: 6.5, elite: 'ikkaku' }, // Treant Brawler
-  { id: 'saga6', strength: 8, elite: 'gagagaga' }, // Elder Aquatic Wolf
-  { id: 'saga7', strength: 10, elite: 'titan' }, // Daddy Bear returns for the last stand
+  { id: 'saga5', strength: 7.5, elite: 'ikkaku' }, // Treant Brawler
+  { id: 'saga6', strength: 10.5, elite: 'gagagaga' }, // Elder Aquatic Wolf
+  { id: 'saga7', strength: 14, elite: 'titan' }, // Daddy Bear returns for the last stand
 ];
 
 // Same-role cousin groups; saga N maps each enemy N steps along its group.

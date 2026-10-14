@@ -170,3 +170,5 @@ const game = new Phaser.Game({
 
 // Dev-server only: handle for browser-driven debugging/verification.
 if (import.meta.env.DEV) window.__game = game;
+// Dev-only balance simulator (window.runBalanceSim) — never in production builds.
+if (import.meta.env.DEV) import('./dev/BalanceSim.js');
