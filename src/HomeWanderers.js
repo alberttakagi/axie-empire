@@ -16,7 +16,7 @@ function frameNames(scene, key) {
 }
 
 export function addHomeWanderers(scene) {
-  const keys = Phaser.Utils.Array.Shuffle(Object.keys(UNIT_CONFIG).filter((k) => isUnitUnlocked(k) && UNIT_CONFIG[k].sprite?.run)).slice(0, COUNT);
+  const keys = Phaser.Utils.Array.Shuffle(Object.keys(UNIT_CONFIG).filter((k) => k !== 'lab' && isUnitUnlocked(k) && UNIT_CONFIG[k].sprite?.run)).slice(0, COUNT);
   if (!keys.length) return;
   // Created now (right after the backdrop/frame) so it sits under every
   // menu button in draw order even though the sprites arrive later.

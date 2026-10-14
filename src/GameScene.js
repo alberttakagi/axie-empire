@@ -2485,7 +2485,7 @@ export default class GameScene extends Phaser.Scene {
     if (!rosters) return;
     this.pendingFrameRosters = null;
     loadSpriteRosterFramesInBackground(this, rosters.loadoutRoster, true, undefined, { battle: true });
-    loadSpriteRosterFramesInBackground(this, rosters.enemyRoster, false);
+    loadSpriteRosterFramesInBackground(this, rosters.enemyRoster, false, undefined, { battle: true });
   }
 
   // Fog of War gimmick: a soft wall of mist over the enemy half of the
@@ -3281,7 +3281,9 @@ export default class GameScene extends Phaser.Scene {
       this.updateAttackLunge(unit);
     }
     for (const enemy of this.enemies) {
+      this.trackAttackAnim(enemy, deltaMs);
       this.setEntityPose(enemy, this.getDesiredPose(enemy));
+      this.updateAttackAnimFrame(enemy);
       this.updateRunCycle(enemy, deltaMs);
       this.updateIdleCycle(enemy, deltaMs);
       this.updateAttackLunge(enemy);
@@ -3371,14 +3373,16 @@ export default class GameScene extends Phaser.Scene {
       return;
     }
     if (started && entity.spriteImage) {
-      const evolved = entity.isEvolved && entity.config.sprite.evolved;
-      const meta = ATTACK_ANIM_META[`${entity.config.id}${evolved ? '_evolved' : ''}`];
-      if (meta && entity.isPlayerSide) {
+      const evolved = entity.isPlayerSide && entity.isEvolved && entity.config.sprite.evolved;
+      const artId = this.enemyArtId(entity);
+      const metaKey = entity.isPlayerSide ? `${entity.config.id}${evolved ? '_evolved' : ''}` : `enemy_${artId}`;
+      const meta = ATTACK_ANIM_META[metaKey];
+      if (meta) {
         const windupMs = Math.max(80, entity.config.foreswingMs);
         const rate = Phaser.Math.Clamp((meta.impact * meta.durationMs) / windupMs, 0.6, 3);
         entity.attackAnim = {
           meta, rate, t: 0,
-          atlas: `unit_${entity.config.id}${evolved ? '_evolved' : ''}_attackanim`,
+          atlas: entity.isPlayerSide ? `unit_${entity.config.id}${evolved ? '_evolved' : ''}_attackanim` : `enemy_${entity.config.id}_attackanim`,
         };
       }
       return;
@@ -3387,6 +3391,14 @@ export default class GameScene extends Phaser.Scene {
       entity.attackAnim.t += deltaMs * entity.attackAnim.rate;
       if (entity.attackAnim.t >= entity.attackAnim.meta.durationMs) entity.attackAnim = null;
     }
+  }
+
+  // Enemies that reuse another enemy's art (variants pointing at its sprite
+  // files) share that enemy's attack clip too.
+  enemyArtId(entity) {
+    const path = entity.config.sprite?.idle || '';
+    const m = path.match(/enemy_([a-z0-9]+)_idle\.png$/);
+    return m ? m[1] : entity.config.id;
   }
 
   updateAttackAnimFrame(entity) {

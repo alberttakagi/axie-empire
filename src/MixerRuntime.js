@@ -184,13 +184,36 @@ export async function renderGenomeFrames(genome) {
 
 // Registers frames as Phaser textures under the shipped-unit key scheme.
 // Replaces any previous textures for this id (e.g. after a re-design).
+// Game objects (in any running scene) currently showing texture `key`, so
+// they can be re-pointed instead of left holding a destroyed texture.
+function usersOf(game, key) {
+  const found = [];
+  const walk = (list) => {
+    for (const o of list) {
+      if (o.texture?.key === key) found.push([o, o.frame?.name]);
+      if (o.list) walk(o.list);
+    }
+  };
+  for (const scene of game?.scene?.getScenes(true) || []) walk(scene.children.list);
+  return found;
+}
+
+function replaceTexture(textureManager, key, create) {
+  const users = usersOf(textureManager.game, key);
+  if (textureManager.exists(key)) textureManager.remove(key);
+  const tex = create();
+  for (const [obj, frame] of users) {
+    if (!obj.active) continue;
+    obj.setTexture(key, tex.has(String(frame)) ? frame : (tex.has('0') ? '0' : '__BASE'));
+  }
+  return tex;
+}
+
 export function registerFramesAsTextures(textureManager, id, frames) {
   const single = (key, canvas) => {
-    if (textureManager.exists(key)) textureManager.remove(key);
-    textureManager.addCanvas(key, canvas);
+    replaceTexture(textureManager, key, () => textureManager.addCanvas(key, canvas));
   };
   const strip = (key, list) => {
-    if (textureManager.exists(key)) textureManager.remove(key);
     const w = list[0].width;
     const h = list[0].height;
     const sheet = document.createElement('canvas');
@@ -198,8 +221,11 @@ export function registerFramesAsTextures(textureManager, id, frames) {
     sheet.height = h;
     const ctx = sheet.getContext('2d');
     list.forEach((c, i) => ctx.drawImage(c, i * w, 0));
-    const tex = textureManager.addCanvas(key, sheet);
-    list.forEach((_, i) => tex.add(String(i), 0, i * w, 0, w, h));
+    replaceTexture(textureManager, key, () => {
+      const tex = textureManager.addCanvas(key, sheet);
+      list.forEach((_, i) => tex.add(String(i), 0, i * w, 0, w, h));
+      return tex;
+    });
   };
   single(`unit_${id}_idle`, frames.idle[0]);
   single(`unit_${id}_attack`, frames.attack);

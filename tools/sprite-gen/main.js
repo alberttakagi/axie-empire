@@ -1246,3 +1246,49 @@ window.idleSequenceAnchor = async function idleSequenceAnchor(axieId) {
     size: { w: Math.min(STARTER_SEQ_CANVAS.width - 1, B.maxX + M) - x0 + 1, h: Math.min(STARTER_SEQ_CANVAS.height - 1, B.maxY + M) - y0 + 1 },
   };
 };
+
+// Round 2: chimera attack sequences + a matching idle probe, rendered with
+// ONE shared framing so the game can register attack frames against the
+// shipped idle art (tools/import_enemy_attack_anims.py). Returns the crop
+// origin of both so a common canvas point can be located in each.
+window.chimeraIdleAndAttack = async function chimeraIdleAndAttack(base, chimeraFolder, attackAnim) {
+  const skeletonData = await loadChimeraSkeletonData(chimeraFolder);
+  const idleName = skeletonData.animations.find((a) => a.name === 'action/idle/normal') ? 'action/idle/normal' : skeletonData.animations.find((a) => /idle/.test(a.name))?.name;
+  const anim = attackAnim && skeletonData.animations.find((a) => a.name === attackAnim);
+  const fractions = anim ? frameSampleFractions(anim.duration) : [];
+  let framing = DEFAULT_CHIMERA_FRAMING;
+  const renderAll = async () => {
+    const idle = await renderChimeraFrameRawClean(skeletonData, idleName, 0, framing);
+    const atk = [];
+    for (const t of fractions) atk.push(await renderChimeraFrameRawClean(skeletonData, anim.name, t, framing));
+    return { idle, atk };
+  };
+  let r = await renderAll();
+  let allB = unionBounds(await Promise.all([r.idle, ...r.atk].map((f) => computeAlphaBounds(f))));
+  if (touchesCanvasEdge(allB)) {
+    const probe = fractions.filter((_, i) => i % 4 === 0);
+    framing = await measureNaturalFraming(skeletonData, anim ? anim.name : idleName, probe.length ? probe : [0]);
+    r = await renderAll();
+  }
+  const M = 6;
+  const idleB = await computeAlphaBounds(r.idle);
+  const idleCrop = await cropDataUrlToBounds(r.idle, idleB, M);
+  await saveFrameSequence(`${base}_probeidle`, [idleCrop]);
+  let atkB = null;
+  if (r.atk.length) {
+    atkB = unionBounds(await Promise.all(r.atk.map((f) => computeAlphaBounds(f))));
+    const cropped = await Promise.all(r.atk.map((f) => cropDataUrlToBounds(f, atkB, M)));
+    await saveFrameSequence(`${base}_attackanim`, cropped);
+  }
+  const o = (b) => ({ x: Math.max(0, b.minX - M), y: Math.max(0, b.minY - M) });
+  return {
+    folder: chimeraFolder, anim: anim?.name || null, frames: r.atk.length,
+    durationMs: anim ? Math.round(anim.duration * 1000) : 0,
+    idleOrigin: o(idleB), attackOrigin: atkB ? o(atkB) : null, edge: touchesCanvasEdge(allB),
+  };
+};
+
+window.listChimeraAttackAnims = async function listChimeraAttackAnims(folder) {
+  const sd = await loadChimeraSkeletonData(folder);
+  return sd.animations.filter((a) => /attack/.test(a.name)).map((a) => `${a.name}:${a.duration.toFixed(2)}`);
+};

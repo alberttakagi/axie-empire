@@ -188,7 +188,7 @@ logSessionStart();
 // scene switch itself.
 const originalSceneStart = Phaser.Scenes.ScenePlugin.prototype.start;
 Phaser.Scenes.ScenePlugin.prototype.start = function startWithFade(...args) {
-  const canvas = this.game.canvas;
+  const canvas = (this.game || this.systems?.game)?.canvas;
   if (canvas) {
     canvas.style.transition = 'none';
     canvas.style.opacity = '0.15';
