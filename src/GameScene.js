@@ -5,6 +5,7 @@ import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, spriteKe
 import { addAmbientFx } from './AmbientFx.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { installBattleTwists } from './BattleTwists.js';
+import { installBattleFx, SAGA_BATTLE_MUSIC } from './BattleFx.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -1002,6 +1003,8 @@ export default class GameScene extends Phaser.Scene {
     this.setupZoomControls();
     this.showStageModifierBanner();
     this.initBattleTwists();
+    this.specialMeterMax = SPECIAL_METER_MAX;
+    this.initCannonGlow();
     this.startFrameStreaming();
 
     // 戦闘開始！！ transition, other half (guide Chapter 10's transition
@@ -1056,7 +1059,7 @@ export default class GameScene extends Phaser.Scene {
     // so it doesn't need its own walkthrough).
     if (this.mode !== 'dojo' && !hasCompletedTutorial()) this.showBattleTutorial();
 
-    playMusic(BATTLE_MUSIC_URL);
+    playMusic(this.battleMusicUrl());
     // Warm the boss/victory/defeat tracks' decoded-buffer cache right now,
     // in the background, rather than only starting to fetch+decode them at
     // the exact moment one is needed — e.g. the defeat stinger firing the
@@ -2378,13 +2381,17 @@ export default class GameScene extends Phaser.Scene {
   // already playing is a no-op) and keeps decoding/playing even while
   // muted/Off (at zero gain), so there's no separate "retry once volume
   // allows it" case to handle here the way a Phaser Sound object needed.
+  battleMusicUrl() {
+    return (this.mode !== 'dojo' && SAGA_BATTLE_MUSIC[this.stage?.saga]) || BATTLE_MUSIC_URL;
+  }
+
   updateBossMusic() {
     const shouldPlay = this.aliveBossCount > 0 && !this.isGameOver;
     if (shouldPlay && !this.isBossMusicPlaying) {
       playMusic(BOSS_MUSIC_URL);
       this.isBossMusicPlaying = true;
     } else if (!shouldPlay && this.isBossMusicPlaying) {
-      playMusic(BATTLE_MUSIC_URL);
+      playMusic(this.battleMusicUrl());
       this.isBossMusicPlaying = false;
     }
   }
@@ -2754,6 +2761,7 @@ export default class GameScene extends Phaser.Scene {
 
   update(time, deltaMs) {
     if (this.isGameOver || this.isPaused) return;
+    this.updateCannonGlow(time);
 
     // Hit-stop: a few real milliseconds where the simulation holds still on
     // a crit/kill so the impact reads (classic fighting-game "weight").
@@ -3629,6 +3637,7 @@ export default class GameScene extends Phaser.Scene {
       const candidates = targetPool.filter(
         (entity) => entity.hp > 0 && Math.abs(entity.shape.x - originX) <= surge.radius,
       );
+      this.fxSurge(originX, surge.radius);
       for (const entity of candidates) {
         this.applyResolvedDamage(attacker, entity, damage);
       }
@@ -3674,6 +3683,7 @@ export default class GameScene extends Phaser.Scene {
         return delta >= 0 && delta <= wave.radius;
       })
       .sort((a, b) => Math.abs(a.shape.x - originX) - Math.abs(b.shape.x - originX));
+    this.fxWave(attacker, wave.radius, direction);
 
     for (const entity of candidates) {
       if (entity.config.waveImmune) break; // shields itself AND blocks the sweep beyond it
@@ -3758,6 +3768,7 @@ export default class GameScene extends Phaser.Scene {
     // replacement. Played once per successful proc, same point the effect
     // itself gets applied below.
     const statusSfxFile = STATUS_SFX_FILE[status.type];
+    this.fxStatus(defender, status.type);
     if (statusSfxFile) playSfxFile(`/audio/sfx/${statusSfxFile}`, { gain: 0.6, minIntervalMs: 200, group: 'status', maxVoices: 2 });
 
     switch (status.type) {
@@ -4355,6 +4366,8 @@ export default class GameScene extends Phaser.Scene {
   endGame() {
     this.isGameOver = true;
     playMusic(DEFEAT_MUSIC_URL);
+    if (this.cannonGlow) this.cannonGlow.setAlpha(0);
+    this.playDefeatFx();
 
     const finalScore = this.getScore();
     // A loss can still raise a stage's best score; it never marks it cleared.
@@ -4381,6 +4394,8 @@ export default class GameScene extends Phaser.Scene {
   winStage() {
     this.isGameOver = true;
     playMusic(VICTORY_MUSIC_URL);
+    if (this.cannonGlow) this.cannonGlow.setAlpha(0);
+    this.playVictoryFx();
 
     const finalScore = this.getScore();
     // Read both the clear count AND whether this stage was EVER cleared
@@ -4728,3 +4743,4 @@ export default class GameScene extends Phaser.Scene {
 
 // Round 2 battle twists (enrage, elites, cannon chest, rally, weather).
 installBattleTwists(GameScene.prototype);
+installBattleFx(GameScene.prototype);

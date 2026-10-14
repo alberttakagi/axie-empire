@@ -99,6 +99,7 @@ const methods = {
     this.uiCamera.ignore([ring, tag]);
     this.tweens.add({ targets: ring, scaleX: 1.25, alpha: 0.2, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.twistAuras.push({ enemy, ring, tag });
+    playSfxFile('/audio/sfx/hex.wav', { gain: 0.45, group: 'elite', maxVoices: 1, minIntervalMs: 600 });
   },
 
   updateEliteAuras(deltaMs) {
@@ -149,6 +150,7 @@ const methods = {
     this.tweens.add({ targets: chestImg, angle: { from: -6, to: 6 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.08, duration: 700, yoyo: true, repeat: -1 });
     this.chest = { x, parts, ageMs: 0 };
+    playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.5 });
   },
 
   checkCannonChest(blastCenterX, blastHalfWidth) {
@@ -266,9 +268,11 @@ const methods = {
         lifespan: 1400, frequency: 12, quantity: 2, alpha: { start: 0.8, end: 0.3 },
       }).setDepth(951);
       objs.push(rain);
+      playSfxFile('/audio/sfx/bubble.wav', { gain: 0.5 });
       this.twistBanner('RAIN FRONT — everyone moves slower', '#bfe3ff');
     } else {
       this.sunbeamMs = WEATHER_DURATION_MS;
+      playSfxFile('/audio/sfx/shield.wav', { gain: 0.5 });
       objs.push(this.add.rectangle(width / 2, height / 2, width, height, 0xfff1a8, 0.14).setDepth(950).setBlendMode(Phaser.BlendModes.ADD));
       for (let k = 0; k < 4; k++) {
         const beam = this.add.rectangle(width * (0.15 + k * 0.25), height / 2 - 40, 60, height * 1.4, 0xfff6c8, 0.12)
