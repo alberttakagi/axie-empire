@@ -660,6 +660,9 @@ export default class GameScene extends Phaser.Scene {
   }
 
   create(data) {
+    // Victory slow-mo (BattleFx.slowMo) is global for anims; never carry it over.
+    this.anims.globalTimeScale = 1;
+    this.tweens.timeScale = 1;
     const { width, height } = LOGICAL_SIZE;
 
     // Sparring Grounds (bible §A.6.4's Catclaw Dojo) — a free, timed,
@@ -4067,6 +4070,7 @@ export default class GameScene extends Phaser.Scene {
       .setOrigin(0, 0.5)
       .setBlendMode(Phaser.BlendModes.ADD);
     this.uiCamera.ignore(beam); // world object (see setupZoomControls) — zooms/pans with the battlefield
+    this.fxCannonSweep(originX, originY, lastBlastFarEdge);
 
     this.tweens.add({
       targets: beam,

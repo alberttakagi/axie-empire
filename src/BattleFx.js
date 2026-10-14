@@ -80,6 +80,38 @@ const methods = {
     this.cannonGlow.setAlpha((ready ? 0.28 : 0.12) + pulse * (ready ? 0.22 : 0.08));
   },
 
+  // Rune Cannon sweep: a charge-in ring at the muzzle, then a bright orb
+  // racing down the beam with a trail of sparks.
+  fxCannonSweep(originX, originY, farX) {
+    const ring = this.add.circle(originX, originY, 34, 0xffe58a, 0).setStrokeStyle(3, 0xfff3a0, 0.9).setDepth(6);
+    const orb = this.add.circle(originX, originY, 10, 0xffffff, 1).setDepth(7).setBlendMode(Phaser.BlendModes.ADD);
+    this.uiCamera.ignore([ring, orb]);
+    this.tweens.add({ targets: ring, scale: 0.2, duration: 160, ease: 'Quad.in', onComplete: () => ring.destroy() });
+    this.tweens.add({
+      targets: orb, x: farX, scale: 1.8, delay: 120, duration: 360, ease: 'Cubic.in',
+      onUpdate: () => {
+        if (Math.random() < 0.6) {
+          const spark = this.add.circle(orb.x, orb.y + (Math.random() - 0.5) * 14, 3, 0xfff3a0, 0.9).setDepth(6);
+          this.uiCamera.ignore(spark);
+          this.tweens.add({ targets: spark, alpha: 0, y: spark.y + 12, duration: 300, onComplete: () => spark.destroy() });
+        }
+      },
+      onComplete: () => this.tweens.add({ targets: orb, alpha: 0, scale: 3, duration: 160, onComplete: () => orb.destroy() }),
+    });
+  },
+
+  // Brief slow motion on the decisive moment (tweens + sprite anims only;
+  // combat has already stopped, so no gameplay timing is affected).
+  slowMo(factor = 0.35, realMs = 750) {
+    this.tweens.timeScale = factor;
+    this.anims.globalTimeScale = factor;
+    setTimeout(() => {
+      if (!this.sys || !this.sys.isActive()) return;
+      this.tweens.timeScale = 1;
+      this.anims.globalTimeScale = 1;
+    }, realMs);
+  },
+
   // ---- Victory / defeat ----
   crumbleTower(tower) {
     if (!tower || !tower.active) return;
@@ -99,6 +131,7 @@ const methods = {
     const flash = this.add.rectangle(width / 2, height / 2, width, height, 0xffffff, 0.7).setDepth(4000);
     this.cameras.main.ignore(flash);
     this.tweens.add({ targets: flash, alpha: 0, duration: 450, onComplete: () => flash.destroy() });
+    this.slowMo();
     this.crumbleTower(this.enemyBase);
     playSfxFile('/audio/sfx/bubble_bomb.wav', { gain: 0.7 });
     // Surviving Axies hop for joy, staggered so it reads as a crowd.
