@@ -43,11 +43,35 @@ export const SAGA_CONFIG = [
     description: 'Old stones remember. The Chimera would rather they didn\'t.',
     color: 0x993388,
   },
+  {
+    id: 'saga4',
+    displayName: 'Saga 4: Kingdom in the Clouds',
+    description: 'Above the storm, the sun-born keep a secret worth flapping for.',
+    color: 0x4fb3e8,
+  },
+  {
+    id: 'saga5',
+    displayName: 'Saga 5: Clans of the Wild Frontier',
+    description: 'Three chimera clans, one frontier, zero manners.',
+    color: 0xc2703d,
+  },
+  {
+    id: 'saga6',
+    displayName: 'Saga 6: Dreams of the Mysticlands',
+    description: 'Fall asleep, wake up fighting. Nightmares bite back.',
+    color: 0x7a4fc4,
+  },
+  {
+    id: 'saga7',
+    displayName: 'Saga 7: Legend of the Moon Pool',
+    description: 'One wish, one pool, and everybody racing for it.',
+    color: 0x2fa39a,
+  },
 ];
 
 // Lore-inspired chapter names (Round 2): each saga's 48 stages are six
 // 8-stage chapters (matches Backdrop.js's chapter backgrounds).
-export const CHAPTER_NAMES = ["Lotus Meadows", "Wildfang Thicket", "Amberleaf Valley", "Duskglow Marches", "Shimmering Shells", "Shrine of the Lotus Moon", "Lunid Lagoon", "Buccaneer Beach", "Harvest Moon Wilds", "Mysticland Rifts", "Nightmarescape Edge", "Clockwork Bastion", "The Forgotten Temple", "Sky Foundry", "Prism Hollows", "Silverthorne Woods", "Garuda Grove", "Nirvana Heights"];
+export const CHAPTER_NAMES = ["Lotus Meadows", "Wildfang Thicket", "Amberleaf Valley", "Duskglow Marches", "Shimmering Shells", "Shrine of the Lotus Moon", "Lunid Lagoon", "Buccaneer Beach", "Harvest Moon Wilds", "Mysticland Rifts", "Nightmarescape Edge", "Clockwork Bastion", "The Forgotten Temple", "Sky Foundry", "Prism Hollows", "Silverthorne Woods", "Garuda Grove", "Nirvana Heights", "Cloudcrest Heights", "Sunhand Sanctum", "Azure Crag", "Gale Kingdom Gates", "Halo Arch Cloisters", "Goldenrod Canyon", "Sunbaked Badlands", "Bonepile Barrens", "Cinderpool Wastes", "Mountain Clan Peaks", "Frostfur Tundra", "Swamp Clan Burrows", "Lullaby Grotto", "Lantern Fright Fair", "Moonbeam Dreamwood", "Slumbershell Caverns", "Snowglobe Hearth", "Nightmare Nest", "Sandsculpt Shore", "Palmshade Strand", "Beachball Boardwalk", "Sunken Moonways", "Frostwish Woods", "Moon Pool Dawn"];
 
 export function getStageChapterName(stageId) {
   const num = parseInt(String(stageId).replace('stage', ''), 10);

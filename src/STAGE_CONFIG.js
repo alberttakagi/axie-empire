@@ -1,3 +1,4 @@
+import { buildExpansionStages } from './SAGA_EXPANSION.js';
 // Stage roster: 10 curated stages. spawnScript is each stage's COMPLETE wave
 // list (no more hand-off into an endless/tier-scaled spawner once it's
 // exhausted — Endless Mode and its shared spawner were removed; every enemy
@@ -3629,8 +3630,13 @@ export const STAGE_CONFIG = [
 // in exactly those chapter-bucket terms. Applied at summon time
 // (GameScene.trySpawnUnit) on top of UNIT_CONFIG's own base cost — falls
 // back to 1.0x for a saga-less pseudo-stage (Sparring Grounds' dojo mode).
-const SAGA_COST_MULTIPLIERS = { saga1: 1.0, saga2: 1.5, saga3: 2.0 };
+// Sagas 4-7 stay at 2.0x: enemy strength already climbs there, and the
+// player's wallet/income is flat across the campaign.
+const SAGA_COST_MULTIPLIERS = { saga1: 1.0, saga2: 1.5, saga3: 2.0, saga4: 2.0, saga5: 2.0, saga6: 2.0, saga7: 2.0 };
 
 export function getStageCostMultiplier(stage) {
   return SAGA_COST_MULTIPLIERS[stage?.saga] ?? 1.0;
 }
+
+// Sagas 4-7 (Round 2): generated from Saga 1's layouts — see SAGA_EXPANSION.js.
+STAGE_CONFIG.push(...buildExpansionStages(STAGE_CONFIG.filter((stage) => stage.saga === 'saga1')));

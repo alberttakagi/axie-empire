@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { SAGA_CONFIG } from './SAGA_CONFIG.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { loadStageProgress } from './StageProgress.js';
-import { BC, FONT, createBackButton, createTitlePill, drawWoodFrame } from './UITheme.js';
+import { BC, FONT, createBackButton, createBcCircleButton, createTitlePill, drawWoodFrame } from './UITheme.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './RenderConfig.js';
 
@@ -21,6 +21,8 @@ import { LOGICAL_SIZE, LOGICAL_WIDTH, LOGICAL_HEIGHT, RENDER_SCALE } from './Ren
 
 const CARD_HEIGHT = 104;
 const CARD_GAP = 14;
+
+const SAGAS_PER_PAGE = 3;
 
 export default class SagaSelectScene extends Phaser.Scene {
   constructor() {
@@ -53,10 +55,33 @@ export default class SagaSelectScene extends Phaser.Scene {
     createTitlePill(this, 24, 26, 'Select Saga');
     createBackButton(this, () => this.scene.start('HomeScene'));
 
+    // Paged 3 sagas at a time (Round 2 expansion: 7 sagas). Opens on the
+    // page holding the newest unlocked saga.
+    this.cardContainer = this.add.container(0, 0);
+    const progress0 = loadStageProgress();
+    const lastUnlocked = SAGA_CONFIG.reduce((acc, saga, i) => (i === 0 || STAGE_CONFIG.filter((st) => st.saga === SAGA_CONFIG[i - 1].id).every((st) => progress0[st.id]?.cleared) ? i : acc), 0);
+    this.sagaPage = Math.floor(lastUnlocked / SAGAS_PER_PAGE);
+    const totalPages = Math.ceil(SAGA_CONFIG.length / SAGAS_PER_PAGE);
+    const { width: w, height: h } = LOGICAL_SIZE;
+    this.pagePrev = createBcCircleButton(this, w - 52, h / 2 - 40, 18, '▲', () => this.changeSagaPage(-1), { fontSize: 13 });
+    this.pageNext = createBcCircleButton(this, w - 52, h / 2 + 40, 18, '▼', () => this.changeSagaPage(1), { fontSize: 13 });
+    this.pageLabel = this.add.text(w - 52, h / 2, '', { fontFamily: FONT, fontSize: '11px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5);
+    this.totalSagaPages = totalPages;
+    this.renderSagaCards();
+  }
+
+  changeSagaPage(delta) {
+    const next = Phaser.Math.Clamp(this.sagaPage + delta, 0, this.totalSagaPages - 1);
+    if (next === this.sagaPage) return;
+    this.sagaPage = next;
     this.renderSagaCards();
   }
 
   renderSagaCards() {
+    this.cardContainer.removeAll(true);
+    this.pagePrev.setVisible(this.sagaPage > 0);
+    this.pageNext.setVisible(this.sagaPage < this.totalSagaPages - 1);
+    this.pageLabel.setText(this.totalSagaPages > 1 ? `${this.sagaPage + 1}/${this.totalSagaPages}` : '');
     const { width } = LOGICAL_SIZE;
     const progress = loadStageProgress();
     // User feedback: at width-64 the bottom card's left edge (x=32) sat
@@ -68,6 +93,9 @@ export default class SagaSelectScene extends Phaser.Scene {
     const startY = 66 + CARD_HEIGHT / 2;
 
     SAGA_CONFIG.forEach((saga, sagaIndex) => {
+      const slot = sagaIndex - this.sagaPage * SAGAS_PER_PAGE;
+      if (slot < 0 || slot >= SAGAS_PER_PAGE) return;
+      const add = (o) => { this.cardContainer.add(o); return o; };
       const sagaStages = STAGE_CONFIG.filter((s) => s.saga === saga.id);
       const clearedCount = sagaStages.filter((s) => progress[s.id]?.cleared).length;
 
@@ -80,9 +108,9 @@ export default class SagaSelectScene extends Phaser.Scene {
         sagaIndex === 0 ||
         STAGE_CONFIG.filter((s) => s.saga === previousSaga.id).every((s) => progress[s.id]?.cleared === true);
 
-      const y = startY + sagaIndex * (CARD_HEIGHT + CARD_GAP);
+      const y = startY + slot * (CARD_HEIGHT + CARD_GAP);
 
-      const g = this.add.graphics();
+      const g = add(this.add.graphics());
       // Drop shelf.
       g.fillStyle(BC.ink, 0.25);
       g.fillRoundedRect(startX - cardWidth / 2 + 3, y - CARD_HEIGHT / 2 + 5, cardWidth, CARD_HEIGHT, 16);
@@ -93,28 +121,28 @@ export default class SagaSelectScene extends Phaser.Scene {
       g.strokeRoundedRect(startX - cardWidth / 2, y - CARD_HEIGHT / 2, cardWidth, CARD_HEIGHT, 16);
 
       const textColor = isUnlocked ? BC.inkHex : '#aaaaaa';
-      this.add
+      add(this.add
         .text(startX, y - 30, saga.displayName, { fontFamily: FONT, fontSize: '18px', color: textColor })
-        .setOrigin(0.5);
-      this.add
+        .setOrigin(0.5));
+      add(this.add
         .text(startX, y - 2, isUnlocked ? saga.description : 'Locked', {
           fontFamily: FONT, fontSize: '11px',
           color: isUnlocked ? '#5a4a2a' : '#999999',
           align: 'center',
           wordWrap: { width: cardWidth - 40 },
         })
-        .setOrigin(0.5);
+        .setOrigin(0.5));
 
       if (isUnlocked) {
-        this.add
+        add(this.add
           .text(startX, y + 32, `Cleared ${clearedCount}/${sagaStages.length}`, { fontFamily: FONT, fontSize: '12px', color: '#b8860b' })
-          .setOrigin(0.5);
+          .setOrigin(0.5));
       } else {
-        this.add.text(startX, y + 32, '🔒', { fontFamily: FONT, fontSize: '16px', color: '#cccccc' }).setOrigin(0.5);
+        add(this.add.text(startX, y + 32, '🔒', { fontFamily: FONT, fontSize: '16px', color: '#cccccc' }).setOrigin(0.5));
       }
 
       if (isUnlocked) {
-        const hit = this.add.rectangle(startX, y, cardWidth, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true });
+        const hit = add(this.add.rectangle(startX, y, cardWidth, CARD_HEIGHT, 0x000000, 0.001).setInteractive({ useHandCursor: true }));
         hit.on('pointerdown', () => this.scene.start('StageSelectScene', { sagaId: saga.id }));
       }
     });

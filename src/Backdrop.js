@@ -26,7 +26,10 @@ export function preloadSagaBackgrounds(scene) {
 // anything else in the scene so it sits behind everything.
 export function addSagaBackground(scene, saga) {
   const { width, height } = LOGICAL_SIZE;
-  const key = SAGA_BACKGROUND_KEYS[saga] || SAGA_BACKGROUND_KEYS[DEFAULT_BACKGROUND_SAGA];
+  // Sagas 4-7 reuse the three hand-composited map scenes in rotation.
+  const n = parseInt(String(saga).replace('saga', ''), 10);
+  const fallback = Number.isFinite(n) ? `bg_saga${((n - 1) % 3) + 1}` : SAGA_BACKGROUND_KEYS[DEFAULT_BACKGROUND_SAGA];
+  const key = SAGA_BACKGROUND_KEYS[saga] || fallback;
   return scene.add.image(width / 2, height / 2, key).setDisplaySize(width, height);
 }
 
@@ -111,6 +114,10 @@ const SAGA_CHAPTER_BACKGROUNDS = [
   ['plant', 'beast', 'autumn24', 'dusk', 'metamorph2', 'temple'], // saga1
   ['aquatic', 'summerGauntlet24', 'autumn25', 'metamorph', 'dusk', 'mech'], // saga2
   ['temple', 'mech', 'metamorph2', 'autumn24', 'beast', 'metamorph'], // saga3
+  ['bird', 'dawn', 'rockyMountain', 'bird', 'dawn', 'canyon'], // saga4 Kingdom in the Clouds
+  ['canyon', 'reptile', 'reptile2', 'rockyMountain', 'winter', 'bug'], // saga5 Wild Frontier
+  ['metamorph2', 'halloween', 'dusk', 'metamorph', 'xmas', 'bug'], // saga6 Mysticlands
+  ['summer23', 'beachRank', 'beachArcade', 'aquatic', 'winter', 'dawn'], // saga7 Moon Pool
 ];
 
 export function getStageBattleBackgroundId(stageId) {

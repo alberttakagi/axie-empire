@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
-import { getStageChapterName } from './SAGA_CONFIG.js';
+import { SAGA_CONFIG, getStageChapterName } from './SAGA_CONFIG.js';
+import { EXPANSION_SAGA_INTROS } from './SAGA_EXPANSION_NAMES.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
@@ -193,6 +194,9 @@ export default class StageSelectScene extends Phaser.Scene {
     createBackButton(this, () => this.scene.start('SagaSelectScene'));
     this.createEnergyDisplay();
     this.createMapArrows();
+
+    // First visit to an expansion saga: a one-time story card.
+    this.maybeShowSagaIntro();
 
     // Returning from the Deploy popup's Formation button: reopen it.
     const reopen = data?.reopenStageId && this.sagaStages.find((st) => st.id === data.reopenStageId);
@@ -862,6 +866,27 @@ export default class StageSelectScene extends Phaser.Scene {
     const textHeight = probe.height;
     probe.destroy();
     return { lines, height: Math.max(0, textHeight - 30), textHeight };
+  }
+
+  maybeShowSagaIntro() {
+    const intro = EXPANSION_SAGA_INTROS[this.sagaId];
+    if (!intro) return;
+    const key = `axieEmpireSagaIntroSeen_${this.sagaId}`;
+    try {
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, '1');
+    } catch {
+      return;
+    }
+    const saga = SAGA_CONFIG.find((sg) => sg.id === this.sagaId);
+    const { width, height } = LOGICAL_SIZE;
+    const parts = [];
+    parts.push(this.add.rectangle(width / 2, height / 2, width, height, 0x000000, 0.7).setInteractive().setDepth(3000));
+    parts.push(drawBcPanel(this, width / 2, height / 2, 520, 220).setDepth(3001));
+    parts.push(this.add.text(width / 2, height / 2 - 70, saga?.displayName ?? '', { fontFamily: FONT, fontSize: '20px', color: BC.inkHex }).setOrigin(0.5).setDepth(3002));
+    parts.push(this.add.text(width / 2, height / 2 - 10, intro, { fontFamily: FONT, fontSize: '13px', color: '#5a4a2a', align: 'center', wordWrap: { width: 470 }, lineSpacing: 6 }).setOrigin(0.5).setDepth(3002));
+    parts.push(createBcButton(this, width / 2, height / 2 + 72, 160, 44, 'Onward!', () => parts.forEach((o) => o.destroy()), { fontSize: 15 }).setDepth(3002));
+    parts.forEach((o, i) => { if (i > 0) { o.setAlpha(0); this.tweens.add({ targets: o, alpha: 1, duration: 300, delay: 80 * i }); } });
   }
 
   hideDeployPopup() {
