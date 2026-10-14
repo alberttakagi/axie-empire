@@ -1,5 +1,6 @@
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { isValidGenome, deriveUnitStats, defaultName } from './AxieGenome.js';
+import { ATTACK_ANIM_META } from './ATTACK_ANIM_META.js';
 
 // The player's Axie Lab design: saved genome → live UNIT_CONFIG.lab stats,
 // and (via MixerRuntime, loaded lazily) live Mixer textures for battle.
@@ -59,6 +60,16 @@ export function ensureLabTextures(game) {
       // Frame counts drive GameScene's run cycle / SpriteIcon's idle loop.
       UNIT_CONFIG.lab.sprite.run = frames.run.map((_, i) => `mixer:run:${i}`);
       UNIT_CONFIG.lab.sprite.idleAnim = frames.idle.map((_, i) => `mixer:idle:${i}`);
+      if (frames.attackSeq?.length) {
+        UNIT_CONFIG.lab.sprite.attackAnim = frames.attackSeq.map((_, i) => `mixer:attack:${i}`);
+        // Every live frame shares one crop box, so the anchor is identical
+        // in idle and attack frames — the origin stays centered.
+        const size = { w: frames.idle[0].width, h: frames.idle[0].height };
+        ATTACK_ANIM_META.lab = {
+          frames: frames.attackSeq.length, durationMs: frames.attackDurationMs, impact: 0.45,
+          anchor: { x: 0, y: 0 }, size, idleAnchor: { x: 0, y: 0 }, idleSize: size,
+        };
+      }
       labTexturesFor = sig;
       return true;
     } catch (e) {

@@ -149,7 +149,7 @@ function crop(canvas, b, pad = 4) {
   return out;
 }
 
-// → { idle: [canvas], run: [canvas], attack: canvas, hit: canvas }
+// → { idle: [canvas], run: [canvas], attack: canvas, hit: canvas, attackSeq: [canvas], attackDurationMs }
 export async function renderGenomeFrames(genome) {
   const libs = await loadLibs();
   const skeletonData = await buildSkeletonData(libs, genome);
@@ -161,11 +161,12 @@ export async function renderGenomeFrames(genome) {
   const idle = sequence(libs, skeletonData, idleAnim, MAX_IDLE_FRAMES);
   const run = sequence(libs, skeletonData, runAnim, 30);
   const attack = renderPose(libs, skeletonData, attackAnim, attackAnim.duration * 0.45);
+  const attackSeq = sequence(libs, skeletonData, attackAnim, 30);
   const hit = renderPose(libs, skeletonData, hitAnim, hitAnim.duration * 0.3);
 
   // One shared box across every pose: idle/run/attack/hit stay aligned.
   let box = null;
-  for (const c of [...idle, ...run, attack, hit]) {
+  for (const c of [...idle, ...run, ...attackSeq, attack, hit]) {
     const b = alphaBounds(c);
     if (!b) continue;
     box = box ? { minX: Math.min(box.minX, b.minX), minY: Math.min(box.minY, b.minY), maxX: Math.max(box.maxX, b.maxX), maxY: Math.max(box.maxY, b.maxY) } : b;
@@ -175,6 +176,8 @@ export async function renderGenomeFrames(genome) {
     idle: idle.map((c) => crop(c, box)),
     run: run.map((c) => crop(c, box)),
     attack: crop(attack, box),
+    attackSeq: attackSeq.map((c) => crop(c, box)),
+    attackDurationMs: Math.round(attackAnim.duration * 1000),
     hit: crop(hit, box),
   };
 }
@@ -203,5 +206,6 @@ export function registerFramesAsTextures(textureManager, id, frames) {
   single(`unit_${id}_hit`, frames.hit);
   strip(`unit_${id}_idleanim`, frames.idle);
   strip(`unit_${id}_run`, frames.run);
+  if (frames.attackSeq?.length) strip(`unit_${id}_attackanim`, frames.attackSeq);
 }
 
