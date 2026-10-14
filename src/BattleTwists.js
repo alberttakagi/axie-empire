@@ -278,7 +278,11 @@ const methods = {
       }
       this.twistBanner('SUNBEAM — your Axies hit 25% harder!', '#ffe58a');
     }
-    this.cameras.main.ignore(objs);
+    // World layer (not the UI camera): the tint/rain sit over the
+    // battlefield but under the HUD, and under the cannon-target chest.
+    // Sized generously so a zoomed/panned camera never sees an edge.
+    objs.forEach((o) => { if (o.type === 'Rectangle') o.setSize(o.width * 2, o.height * 2); });
+    this.uiCamera.ignore(objs);
     this.weather = { kind, ms: WEATHER_DURATION_MS, objs };
   },
 

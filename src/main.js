@@ -40,8 +40,30 @@ if (new URLSearchParams(window.location.search).has('devunlock')) {
 // is actually created, per Phaser's own GameObjectFactory pattern) means
 // every scene gets crisp HD text for free, with no per-callsite changes.
 const originalTextFactory = Phaser.GameObjects.GameObjectFactory.prototype.text;
+//
+// Performance (Round 2, measured): every new Text ran Phaser's MeasureText,
+// which draws the font to a scratch canvas and scans its pixels to find
+// ascent/descent — at RENDER_SCALE that made ONE floating damage number
+// cost hundreds of ms in a software-rendered browser and was the single
+// biggest per-hit cost in big fights. Metrics only depend on the font, so
+// they're measured once per font string and handed to every later Text
+// via the style's `metrics` field (Phaser then skips the scan).
+const textMetricsCache = new Map();
+function fontKey(style = {}) {
+  return `${style.fontStyle || ''}|${style.fontSize || '16px'}|${style.fontFamily || 'Courier'}|${style.font || ''}`;
+}
 Phaser.GameObjects.GameObjectFactory.prototype.text = function (x, y, text, style) {
-  return originalTextFactory.call(this, x, y, text, { resolution: RENDER_SCALE, ...style });
+  const key = fontKey(style);
+  const cached = textMetricsCache.get(key);
+  const finalStyle = { resolution: RENDER_SCALE, ...style };
+  if (cached && !finalStyle.metrics) finalStyle.metrics = cached;
+  const obj = originalTextFactory.call(this, x, y, text, finalStyle);
+  // Only cache once the web font has actually loaded, so a fallback
+  // font's metrics never stick for the real one.
+  if (!cached && obj.style?.metrics && (!document.fonts || document.fonts.status === 'loaded')) {
+    textMetricsCache.set(key, { ...obj.style.metrics });
+  }
+  return obj;
 };
 
 // index.html's own CSS auto-rotates #app 90° to fake landscape on a
