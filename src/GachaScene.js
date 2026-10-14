@@ -155,7 +155,7 @@ export default class GachaScene extends Phaser.Scene {
     this.load.image('gacha_energy', 'gacha/energy_refill.png');
     // Portraits for the gacha-only units (unit drops show their own art).
     for (const [key, unit] of Object.entries(UNIT_CONFIG)) {
-      if (unit.unlockRequirement?.gacha && !this.textures.exists(`gacha_unit_${key}`)) {
+      if (!this.textures.exists(`gacha_unit_${key}`)) {
         this.load.image(`gacha_unit_${key}`, unit.sprite.idle);
       }
     }
@@ -215,7 +215,7 @@ export default class GachaScene extends Phaser.Scene {
     // GRID_AREA_H can't silently drift out of sync with each other.
     drawBcPanel(this, width / 2, RESULTS_PANEL_Y, width - 64, RESULTS_PANEL_H);
     this.messageText = this.add
-      .text(width / 2, RESULTS_PANEL_Y, 'Pull for 9 new Axies!', {
+      .text(width / 2, RESULTS_PANEL_Y, 'Pull for 9 new Axies — duplicates raise level caps!', {
         fontFamily: FONT, fontSize: '13px', color: BC.inkHex, align: 'center',
       })
       .setOrigin(0.5);
@@ -445,14 +445,14 @@ export default class GachaScene extends Phaser.Scene {
       objects.push(portrait);
       objects.push(
         this.add
-          .text(0, -h / 2 + Math.min(12, h * 0.12), reward.isNew ? 'NEW!' : reward.unitRarity, {
-            fontFamily: FONT, fontSize: fs(0.13), color: reward.isNew ? '#ff4d6d' : '#7a5c1e', stroke: '#ffffff', strokeThickness: 3,
+          .text(0, -h / 2 + Math.min(12, h * 0.12), reward.isNew ? 'NEW!' : reward.plusLevels ? `+1 LV CAP  ★${reward.plusLevels}` : reward.unitRarity === 'Lineage' ? 'Lineage' : reward.unitRarity, {
+            fontFamily: FONT, fontSize: fs(0.13), color: reward.isNew ? '#ff4d6d' : reward.plusLevels ? '#2a7ab0' : '#7a5c1e', stroke: '#ffffff', strokeThickness: 3,
           })
           .setOrigin(0.5),
       );
       objects.push(
         this.add
-          .text(0, h / 2 - Math.min(16, h * 0.2), reward.isNew ? unit.characterName : `${unit.characterName}\n+${reward.dupeXp.toLocaleString()} XP`, {
+          .text(0, h / 2 - Math.min(16, h * 0.2), reward.isNew || reward.plusLevels ? unit.characterName : `${unit.characterName}\n+${reward.dupeXp.toLocaleString()} XP`, {
             fontFamily: FONT, fontSize: fs(reward.isNew ? 0.16 : 0.11), color: BC.inkHex, align: 'center',
           })
           .setOrigin(0.5),

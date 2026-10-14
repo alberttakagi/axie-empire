@@ -12,6 +12,7 @@ import {
   tryLevelUpUnit,
   tryUseGrowthCharm,
   tryEvolveUnit,
+  getEvolutionDupesNeeded,
 } from './PlayerProgress.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { getEffectiveUnitConfig } from './UnitStats.js';
@@ -183,7 +184,7 @@ export default class UpgradeScene extends Phaser.Scene {
     );
     rowObjects.push(
       this.add
-        .text(92, y + 10, `Lv ${unitProgress.level}/${cap}    HP ${effective.hp}    DMG ${effective.damage}`, {
+        .text(92, y + 10, `Lv ${unitProgress.level}/${cap}${unitProgress.plusLevels ? `  ★${unitProgress.plusLevels}` : ''}    HP ${effective.hp}    DMG ${effective.damage}`, {
           fontFamily: FONT, fontSize: '11px',
           color: '#5a5a5a',
         })
@@ -245,14 +246,19 @@ export default class UpgradeScene extends Phaser.Scene {
     const nextEvolution = meta.evolutions[unitProgress.evolutionStage];
     if (!nextEvolution) return null;
 
-    const eligible = unitProgress.level >= nextEvolution.unlockLevel;
+    const dupesNeeded = getEvolutionDupesNeeded(type);
+    const dupesHave = unitProgress.plusLevels || 0;
+    const levelOk = unitProgress.level >= nextEvolution.unlockLevel;
+    const eligible = levelOk && dupesHave >= dupesNeeded;
     const affordable = eligible && progress.xp >= nextEvolution.xpCost && progress.evoShards >= nextEvolution.evoShardCost;
 
     return createBcButton(
       this, x, y, 130, BUTTON_HEIGHT,
       eligible
         ? `Evolve: ${nextEvolution.name}\n${nextEvolution.xpCost.toLocaleString()} XP + ${nextEvolution.evoShardCost} Shards`
-        : `Evolve: ${nextEvolution.name}\nNeeds Lv ${nextEvolution.unlockLevel}`,
+        : !levelOk
+          ? `Evolve: ${nextEvolution.name}\nNeeds Lv ${nextEvolution.unlockLevel}`
+          : `Evolve: ${nextEvolution.name}\nNeeds ${dupesNeeded} dupes (${dupesHave})`,
       () => {
         if (!eligible) return;
         if (tryEvolveUnit(type).ok) {

@@ -50,7 +50,7 @@ export function applyDevUnlock() {
   const units = {};
   for (const key of Object.keys(UNIT_CONFIG)) {
     const maxEvolutionStage = PROGRESSION_CONFIG[key]?.evolutions?.length || 0;
-    units[key] = { level: DEV_UNIT_LEVEL, extraCap: DEV_EXTRA_CAP, evolutionStage: maxEvolutionStage };
+    units[key] = { level: DEV_UNIT_LEVEL, extraCap: DEV_EXTRA_CAP, evolutionStage: maxEvolutionStage, plusLevels: 10 };
   }
 
   // Own every gacha-only unit too (see UnitCollection.js).

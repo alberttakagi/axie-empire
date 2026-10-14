@@ -215,3 +215,28 @@ test('expedition runs on real time and pays out exactly once', async () => {
   assert.equal(collectExpedition(done), null); // no double pay
   assert.equal(getExpeditionStatus(done).state, 'idle');
 });
+
+test('duplicate pulls raise level cap (max +10) and gate gacha True Form', async () => {
+  const P = await import('../src/PlayerProgress.js');
+  const before = P.getUnitLevelCap('basic');
+  assert.deepEqual(P.addPlusLevel('basic'), { ok: true, plusLevels: 1 });
+  assert.equal(P.getUnitLevelCap('basic'), before + 1);
+  for (let i = 0; i < 20; i++) P.addPlusLevel('basic');
+  assert.equal(P.getPlusLevels('basic'), P.MAX_PLUS_LEVELS);
+  assert.equal(P.addPlusLevel('basic').ok, false);
+
+  // Gacha unit: True Form needs duplicates; lineage units never do.
+  const seed = (unit, extra) => {
+    const progress = P.loadPlayerProgress();
+    progress.xp = 1e9; progress.evoShards = 99;
+    progress.units[unit] = { level: 30, extraCap: 0, evolutionStage: 1, ...extra };
+    storage.setItem('axieSkirmishPlayerProgress', JSON.stringify(progress));
+  };
+  seed('hope', { plusLevels: 1 });
+  assert.equal(P.getEvolutionDupesNeeded('hope'), P.TRUE_FORM_DUPES_BY_RARITY['Uber Rare']);
+  assert.equal(P.tryEvolveUnit('hope').reason, 'needs-dupes');
+  seed('hope', { plusLevels: 4 });
+  assert.equal(P.tryEvolveUnit('hope').ok, true);
+  seed('basic', {});
+  assert.equal(P.getEvolutionDupesNeeded('basic'), 0);
+});

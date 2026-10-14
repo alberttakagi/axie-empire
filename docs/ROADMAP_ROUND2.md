@@ -35,6 +35,8 @@ Written 2026-10-11 after a full audit. The goal is to go from "a solid Battle Ca
 
 **Unattended pass:** a code review of the whole round-2 diff found no crashes and 5 low-severity issues, all fixed (Expedition button churn, an ownership cache that survives failed storage writes, sound voices stuck while audio is suspended, Tripp's full map-run cycle, the Home XP badge refresh). 9 clipped still poses were re-rendered after automatic pose matching (`docs/qa/still_crop_fix_before_after.png`); hit poses with no confident match were left alone. Added `docs/BALANCE_REPORT.md` (suggestions only). The Deploy popup text is phone-readable and the restriction overlap is fixed. The boss card no longer stacks on the twist banner.
 
+**Duplicate cap-ups (user decision, 2026-10-14):** every duplicate gacha pull raises that unit's level cap by 1 (★, max +10; XP still pays for levels). Once a unit is maxed, further duplicates pay XP. Gacha-only units need duplicates before True Form (Rare 2 / Super Rare 3 / Uber 4). The original 10 lineages joined the pool as a 12% "Lineage" tier, which only pulls units already unlocked through the campaign. The 11x guarantee was removed.
+
 Still open from the audit: hit poses and a few enemy stills still have 3–12px of top clipping (no confident pose match). It's minor because battles mostly show the animated sequences. The fix is to re-render them with the same `STARTER_SEQ_CANVAS` approach once the pose fraction used for each still has been confirmed.
 
 ---

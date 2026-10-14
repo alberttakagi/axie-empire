@@ -18,16 +18,25 @@ import { addEnergy } from './Energy.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { PROGRESSION_CONFIG } from './PROGRESSION_CONFIG.js';
 import { addOwnedUnit } from './UnitCollection.js';
+import { addPlusLevel, isUnitUnlocked } from './PlayerProgress.js';
 
 // Round 2: the capsule now also drops real units — the gacha-only roster
 // (UNIT_CONFIG entries with unlockRequirement { gacha: true }), grouped by
 // PROGRESSION_CONFIG rarity. A duplicate converts to XP, Battle Cats-style.
+// 'Lineage' = the original 10 campaign units: pulls only ones you've
+// already unlocked through stages (the gacha never skips campaign gating),
+// and every pull is a duplicate that raises the unit's level cap.
+const LINEAGE_DUPE_XP = 1500;
 const UNIT_TIERS = {
+  'Lineage': { revealRarity: 'rare', dupeXp: LINEAGE_DUPE_XP },
   'Rare': { revealRarity: 'epic', dupeXp: 3000 },
   'Super Rare': { revealRarity: 'legendary', dupeXp: 8000 },
   'Uber Rare': { revealRarity: 'legendary', dupeXp: 20000 },
 };
 function gachaUnitsOfRarity(rarity) {
+  if (rarity === 'Lineage') {
+    return Object.keys(UNIT_CONFIG).filter((k) => !UNIT_CONFIG[k].unlockRequirement?.gacha && isUnitUnlocked(k));
+  }
   return Object.keys(UNIT_CONFIG).filter(
     (k) => UNIT_CONFIG[k].unlockRequirement?.gacha && PROGRESSION_CONFIG[k]?.rarity === rarity,
   );
@@ -51,7 +60,8 @@ const REWARD_POOL = [
   { weight: 9, type: 'unit', unitRarity: 'Rare', rarity: 'epic' },
   { weight: 2.5, type: 'unit', unitRarity: 'Super Rare', rarity: 'legendary' },
   { weight: 0.5, type: 'unit', unitRarity: 'Uber Rare', rarity: 'legendary' },
-  { weight: 29, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
+  { weight: 12, type: 'unit', unitRarity: 'Lineage', rarity: 'rare' },
+  { weight: 17, type: 'xp', amount: 1000, label: '1,000 XP', rarity: 'common' },
   { weight: 21, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' },
   // Energy (bible's real "Leadership" item is a full refill — see
   // Energy.js's addEnergy comment for why this grants a smaller partial
@@ -110,12 +120,22 @@ function resolveUnitReward(entry) {
   const candidates = gachaUnitsOfRarity(entry.unitRarity);
   if (!candidates.length) return { weight: 0, type: 'xp', amount: 3000, label: '3,000 XP', rarity: 'rare' };
   const unitId = candidates[Math.floor(Math.random() * candidates.length)];
-  const isNew = addOwnedUnit(unitId);
+  const isNew = entry.unitRarity === 'Lineage' ? false : addOwnedUnit(unitId);
   const tier = UNIT_TIERS[entry.unitRarity];
-  if (!isNew) addXp(tier.dupeXp);
+  // Duplicate: +1 level cap (Battle Cats' "+ level"); once maxed, XP instead.
+  let plusLevels = null;
+  let dupeXp = 0;
+  if (!isNew) {
+    const cap = addPlusLevel(unitId);
+    if (cap.ok) plusLevels = cap.plusLevels;
+    else {
+      dupeXp = tier.dupeXp;
+      addXp(dupeXp);
+    }
+  }
   return {
-    type: 'unit', unitId, unitRarity: entry.unitRarity, isNew,
-    dupeXp: isNew ? 0 : tier.dupeXp,
+    type: 'unit', unitId, unitRarity: entry.unitRarity, isNew, plusLevels,
+    dupeXp,
     rarity: tier.revealRarity,
     label: UNIT_CONFIG[unitId].characterName,
   };

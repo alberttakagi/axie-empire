@@ -117,7 +117,39 @@ export function getUnitLevelCap(unitType) {
   const config = PROGRESSION_CONFIG[unitType];
   const unitProgress = getUnitProgress(loadPlayerProgress(), unitType);
   const storyGateBonus = hasStoryGateCleared() ? STORY_GATE_LEVEL_CAP_BONUS : 0;
-  return config.baseLevelCap + storyGateBonus + unitProgress.extraCap;
+  return config.baseLevelCap + storyGateBonus + unitProgress.extraCap + (unitProgress.plusLevels || 0);
+}
+
+// --- Duplicate cap-ups (Round 2, Battle Cats' "+ levels") ---
+// Every duplicate gacha pull of a unit raises that unit's level cap by 1,
+// up to MAX_PLUS_LEVELS. XP still pays for the levels themselves. Gacha-
+// only units also need a few duplicates before their True Form
+// (TRUE_FORM_DUPES_BY_RARITY) — the long-term reason to keep pulling.
+export const MAX_PLUS_LEVELS = 10;
+export const TRUE_FORM_DUPES_BY_RARITY = { 'Rare': 2, 'Super Rare': 3, 'Uber Rare': 4 };
+
+export function getPlusLevels(unitType) {
+  return getUnitProgress(loadPlayerProgress(), unitType).plusLevels || 0;
+}
+
+// Returns { ok: true, plusLevels } or { ok: false, reason: 'max-plus' }.
+export function addPlusLevel(unitType) {
+  const progress = loadPlayerProgress();
+  const unitProgress = getUnitProgress(progress, unitType);
+  const current = unitProgress.plusLevels || 0;
+  if (current >= MAX_PLUS_LEVELS) return { ok: false, reason: 'max-plus' };
+  progress.units[unitType] = { ...unitProgress, plusLevels: current + 1 };
+  save(progress);
+  return { ok: true, plusLevels: current + 1 };
+}
+
+// Duplicates required before this unit's NEXT evolution (0 = none).
+export function getEvolutionDupesNeeded(unitType) {
+  const unitProgress = getUnitProgress(loadPlayerProgress(), unitType);
+  const config = PROGRESSION_CONFIG[unitType];
+  const isTrueFormNext = unitProgress.evolutionStage === config.evolutions.length - 1;
+  if (!isTrueFormNext || !UNIT_CONFIG[unitType]?.unlockRequirement?.gacha) return 0;
+  return TRUE_FORM_DUPES_BY_RARITY[config.rarity] || 0;
 }
 
 // XP cost to go from the unit's CURRENT level to the next one.
@@ -190,6 +222,7 @@ export function tryEvolveUnit(unitType) {
   // extraCap only raises the CAP a unit can be leveled TO — the real gate
   // here is the unit's actual current level.
   if (unitProgress.level < nextEvolution.unlockLevel) return { ok: false, reason: 'level-too-low' };
+  if ((unitProgress.plusLevels || 0) < getEvolutionDupesNeeded(unitType)) return { ok: false, reason: 'needs-dupes' };
   if (progress.xp < nextEvolution.xpCost) return { ok: false, reason: 'insufficient-xp' };
   if (progress.evoShards < nextEvolution.evoShardCost) return { ok: false, reason: 'insufficient-shards' };
 
