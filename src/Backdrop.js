@@ -51,15 +51,42 @@ export const BACKGROUND_KEYS = {
   metamorph2: 'bg_metamorph2',
   mech: 'bg_mech',
   temple: 'bg_temple',
+  // Round 2 additions (tools/import_backgrounds.py, full HD from the kit)
+  bird: 'bg_bird',
+  bug: 'bg_bug',
+  dawn: 'bg_dawn',
+  reptile: 'bg_reptile',
+  reptile2: 'bg_reptile2',
+  canyon: 'bg_canyon',
+  halloween: 'bg_halloween',
+  winter: 'bg_winter',
+  xmas: 'bg_xmas',
+  summer23: 'bg_summer23',
+  beachRank: 'bg_beachRank',
+  beachArcade: 'bg_beachArcade',
+  rockyMountain: 'bg_rockyMountain',
 };
 
-// Loads every background above into `scene`'s texture cache. Guarded by
-// textures.exists like preloadSagaBackgrounds, so calling this from more
-// than one scene's preload() never re-fetches an already-cached texture.
-export function preloadBackgrounds(scene) {
-  for (const key of Object.values(BACKGROUND_KEYS)) {
-    if (!scene.textures.exists(key)) scene.load.image(key, `/backgrounds/${key}.png`);
+// Only the composited arena/temple remain PNG; everything else is a
+// 1920x1080 JPEG from tools/import_backgrounds.py (sharper AND smaller).
+const PNG_BACKGROUNDS = new Set(['bg_gauntlet_arena', 'bg_temple']);
+function backgroundUrl(key) {
+  return `/backgrounds/${key}.${PNG_BACKGROUNDS.has(key) ? 'png' : 'jpg'}`;
+}
+
+// Backgrounds the menu screens use — loaded up front. Battle backgrounds
+// load per stage (preloadBattleBackground) instead of all ~25 at launch.
+const MENU_BACKGROUND_IDS = ['metamorph2', 'temple', 'metamorph', 'gauntletArena', 'mech', 'dusk', 'beast'];
+
+export function preloadBackgrounds(scene, ids = MENU_BACKGROUND_IDS) {
+  for (const id of ids) {
+    const key = BACKGROUND_KEYS[id];
+    if (key && !scene.textures.exists(key)) scene.load.image(key, backgroundUrl(key));
   }
+}
+
+export function preloadBattleBackground(scene, backgroundId) {
+  preloadBackgrounds(scene, [BACKGROUND_KEYS[backgroundId] ? backgroundId : 'plant']);
 }
 
 // Adds a full-canvas backdrop image for `backgroundId` (a BACKGROUND_KEYS

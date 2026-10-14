@@ -671,8 +671,15 @@ async function loadChimeraSkeletonData(chimeraFolder) {
   const atlas = new TextureAtlas(atlasText, (_line, callback) => callback(pageTexture.baseTexture));
   const attachmentLoader = new AtlasAttachmentLoader(atlas);
 
-  const buf = await fetch(`${basePath}/${chimeraFolder}.skel`).then((r) => r.arrayBuffer());
-  return new SkeletonBinary(attachmentLoader).readSkeletonData(new Uint8Array(buf));
+  // Most chimeras ship .skel; a few (machito, shilin) ship .json instead.
+  const skelRes = await fetch(`${basePath}/${chimeraFolder}.skel`);
+  const isBinary = skelRes.ok && !(skelRes.headers.get('content-type') || '').includes('text/html');
+  if (isBinary) {
+    const buf = await skelRes.arrayBuffer();
+    return new SkeletonBinary(attachmentLoader).readSkeletonData(new Uint8Array(buf));
+  }
+  const json = await fetch(`${basePath}/${chimeraFolder}.json`).then((r) => r.json());
+  return new SkeletonJson(attachmentLoader).readSkeletonData(json);
 }
 
 window.listChimeraAnimations = async function listChimeraAnimations(chimeraFolder) {
@@ -1140,6 +1147,43 @@ window.renderStarterStillAndSave = async function renderStarterStillAndSave(file
     body: JSON.stringify({ filename, dataUrl: cropped }),
   });
   return res.json();
+};
+
+// One-shot enemy art set (Round 2 new enemies): measures ONE framing per
+// chimera (across idle/run/attack so nothing clips) and renders every
+// still + sequence with it, so all poses share the same scale/anchor.
+// clips: { idle, attack, hit, run } animation names; stills use fractions.
+window.renderChimeraSetAndSave = async function renderChimeraSetAndSave(base, chimeraFolder, clips) {
+  const sk = await loadChimeraSkeletonData(chimeraFolder);
+  const has = (n) => sk.animations.some((a) => a.name === n);
+  const probeClips = [clips.idle, clips.run, clips.attack].filter(has);
+  const naturals = [];
+  for (const c of probeClips) naturals.push(await measureNaturalFraming(sk, c, [0.1, 0.4, 0.7]));
+  // smallest scale wins so every clip fits
+  const framing = naturals.reduce((a, b) => (b.scale < a.scale ? b : a));
+  const save = async (filename, dataUrl) =>
+    fetch('/api/save-sprite', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename, dataUrl }) }).then((r) => r.json());
+  const still = async (name, clip, frac) => {
+    const raw = await renderChimeraFrameRawClean(sk, has(clip) ? clip : clips.idle, frac, framing);
+    const b = await computeAlphaBounds(raw);
+    await save(`${base}_${name}.png`, await cropDataUrlToBounds(raw, b, 6));
+  };
+  await still('idle', clips.idle, 0.1);
+  await still('attack', clips.attack, 0.5);
+  await still('hit', clips.hit, 0.4);
+  const seq = async (field, clip) => {
+    const anim = sk.animations.find((a) => a.name === clip) || sk.animations.find((a) => a.name === clips.idle);
+    const fracs = frameSampleFractions(anim.duration);
+    const raws = [];
+    for (const t of fracs) raws.push(await renderChimeraFrameRawClean(sk, anim.name, t, framing));
+    const b = unionBounds(await Promise.all(raws.map((f) => computeAlphaBounds(f))));
+    const cropped = await Promise.all(raws.map((f) => cropDataUrlToBounds(f, b, 6)));
+    await saveFrameSequence(`${base}_${field}`, cropped);
+    return cropped.length;
+  };
+  const nIdle = await seq('idleanim', clips.idle);
+  const nRun = await seq('run', clips.run);
+  return { framing, nIdle, nRun };
 };
 
 window.__dbg = { loadStarterSkeletonData, renderStarterFrameRaw, computeAlphaBounds, cropDataUrlToBounds, app };

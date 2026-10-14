@@ -4,7 +4,7 @@ import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
 import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
 import { addAmbientFx } from './AmbientFx.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
-import { preloadBackgrounds, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
+import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
 import { MONEY_CONFIG } from './MONEY_CONFIG.js';
@@ -608,7 +608,8 @@ export default class GameScene extends Phaser.Scene {
     preloadSpriteRosterStills(this, loadoutRoster, true);
     preloadSpriteRosterStills(this, enemyRoster, false);
     this.pendingFrameRosters = { loadoutRoster, enemyRoster };
-    preloadBackgrounds(this);
+    // Just this stage's backdrop (was every background in the game).
+    preloadBattleBackground(this, this.pendingMode === 'dojo' ? 'plant' : getStageBattleBackgroundId(this.pendingStage?.id));
     preloadAttackVfx(this);
     if (!this.textures.exists(TOWER_PLAYER_SPRITE_KEY)) this.load.image(TOWER_PLAYER_SPRITE_KEY, '/sprites/structures/tower_player.png');
     if (!this.textures.exists(TOWER_ENEMY_SPRITE_KEY)) this.load.image(TOWER_ENEMY_SPRITE_KEY, '/sprites/structures/tower_enemy.png');
