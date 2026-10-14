@@ -37,6 +37,19 @@ Written 2026-10-11 after a full audit. The goal is to go from "a solid Battle Ca
 
 **Duplicate cap-ups (user decision, 2026-10-14):** every duplicate gacha pull raises that unit's level cap by 1 (★, max +10; XP still pays for levels). Once a unit is maxed, further duplicates pay XP. Gacha-only units need duplicates before True Form (Rare 2 / Super Rare 3 / Uber 4). The original 10 lineages joined the pool as a 12% "Lineage" tier, which only pulls units already unlocked through the campaign. The 11x guarantee was removed.
 
+**Lore + content expansion (2026-10-14):**
+- **Lore names:** lore-inspired names for all stages, chapters and sagas, plus a new opening crawl.
+- **Enemies:** 9 new enemy designs, so no two enemies share art.
+- **Backgrounds:** full-HD backgrounds (10 upgraded, 13 new), loaded per screen or per stage.
+- **Sagas 4-7:** 192 new stages, 336 total, each new saga with a one-time intro card.
+- **Battle twists** (`src/BattleTwists.js`):
+  - Boss Enrage below 30% HP
+  - Elite enemies with Shield, Regen or Haste auras
+  - Cannon-target treasure chests
+  - A once-per-battle Rally horn
+  - Rain or Sunbeam weather fronts
+- **Fixed:** enemy shadows that went hollow in attack poses.
+
 Still open from the audit: hit poses and a few enemy stills still have 3–12px of top clipping (no confident pose match). It's minor because battles mostly show the animated sequences. The fix is to re-render them with the same `STARTER_SEQ_CANVAS` approach once the pose fraction used for each still has been confirmed.
 
 ---

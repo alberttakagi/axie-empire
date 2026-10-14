@@ -4,6 +4,7 @@ import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
 import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, spriteKeysForRoster, addUnitIcon } from './SpriteIcon.js';
 import { addAmbientFx } from './AmbientFx.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
+import { installBattleTwists } from './BattleTwists.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -998,6 +999,7 @@ export default class GameScene extends Phaser.Scene {
     // bulk diff instead of an ignore() call at every UI helper.
     this.setupZoomControls();
     this.showStageModifierBanner();
+    this.initBattleTwists();
     this.startFrameStreaming();
 
     // 戦闘開始！！ transition, other half (guide Chapter 10's transition
@@ -2054,7 +2056,7 @@ export default class GameScene extends Phaser.Scene {
     return Math.round(config.cost * getStageCostMultiplier(this.stage));
   }
 
-  trySpawnUnit(key) {
+  trySpawnUnit(key, opts = {}) {
     if (this.isGameOver) return;
     if (this.unitCooldowns[key] > 0) return;
 
@@ -2087,7 +2089,7 @@ export default class GameScene extends Phaser.Scene {
     {
       const maxDeployed = restrictions?.maxDeployed ?? DEFAULT_MAX_DEPLOYED;
       const currentlyDeployed = this.playerUnits.filter((unit) => unit.hp > 0).length;
-      if (currentlyDeployed >= maxDeployed) {
+      if (currentlyDeployed >= maxDeployed && !opts.ignoreLimit) {
         this.showRestrictionMessage(`Max ${maxDeployed} units at once!`);
         return;
       }
@@ -2355,6 +2357,7 @@ export default class GameScene extends Phaser.Scene {
 
     this.createEnemy(entry.enemyId, config, entry.isBoss);
 
+    if (!entry.isBoss) this.maybeMakeElite(this.enemies[this.enemies.length - 1]);
     if (entry.isBoss) {
       this.trackedBoss = this.enemies[this.enemies.length - 1];
       this.triggerBossShockwave(config.characterName || 'Boss');
@@ -2803,6 +2806,7 @@ export default class GameScene extends Phaser.Scene {
     this.updateBossHpBar();
     this.updateBossMusic();
 
+    this.updateBattleTwists(deltaMs);
     this.updatePlayerUnits(deltaMs);
     this.updateEnemies(deltaMs);
     this.updateEntityPoses(deltaMs);
@@ -3016,7 +3020,7 @@ export default class GameScene extends Phaser.Scene {
         });
       } else if (!unit.target) {
         unit.isMoving = true;
-        const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * deltaMs) / 1000;
+        const moveStep = (unit.config.moveSpeed * unit.slowMultiplier * (this.weatherSpeedMult ?? 1) * deltaMs) / 1000;
         // Same blind-spot situation as above, but with room left to back
         // off — mirrors the enemy-side fix in updateEnemies: a Long
         // Distance unit that's too close to a live enemy kites backward
@@ -3134,7 +3138,7 @@ export default class GameScene extends Phaser.Scene {
         this.tickCombatPhase(enemy, deltaMs, () => this.dealDamage(enemy, enemy.target, this.playerUnits));
       } else if (!enemy.target) {
         enemy.isMoving = true;
-        const moveStep = (enemy.config.moveSpeed * enemy.slowMultiplier * deltaMs) / 1000;
+        const moveStep = (enemy.config.moveSpeed * enemy.slowMultiplier * (this.weatherSpeedMult ?? 1) * deltaMs) / 1000;
         // Same blind-spot situation as above, but with room left to back
         // off — walking blindly forward here would carry it straight
         // through the too-close unit's position without ever fighting it,
@@ -3864,6 +3868,7 @@ export default class GameScene extends Phaser.Scene {
       else if (entity.curseMs > 0) entity.spriteImage.setTint(STATUS_CURSE_COLOR);
       else if (entity.slowMs > 0) entity.spriteImage.setTint(STATUS_SLOW_COLOR);
       else if (entity.weakenMs > 0) entity.spriteImage.setTint(STATUS_WEAKEN_COLOR);
+      else if (entity.enraged) entity.spriteImage.setTint(0xff8a80); // boss enrage
       else entity.spriteImage.clearTint();
     } else {
       if (entity.hitFlashMs > 0) entity.shape.fillColor = HIT_FLASH_COLOR;
@@ -3954,8 +3959,10 @@ export default class GameScene extends Phaser.Scene {
     const critMultiplier = isCrit ? CRITICAL_DEALT_MULTIPLIER : 1;
     const superClassMultiplier = this.getSuperClassMultiplier(attacker, defender);
 
-    const damage =
+    let damage =
       attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier;
+    // Sunbeam weather (BattleTwists.js): the player's side hits 25% harder.
+    if (attacker.isPlayerSide && this.sunbeamMs > 0) damage = Math.round(damage * 1.25);
     return { damage, isCrit };
   }
 
@@ -4139,6 +4146,7 @@ export default class GameScene extends Phaser.Scene {
     if (Math.abs(this.enemyBaseX - blastCenterX) <= blastHalfWidth) {
       this.damageEnemyBase(burstDamage);
     }
+    this.checkCannonChest(blastCenterX, blastHalfWidth);
   }
 
   removeDead(list, onKill) {
@@ -4705,3 +4713,6 @@ export default class GameScene extends Phaser.Scene {
     this.time.delayedCall(buttonDelayMs, revealButtons);
   }
 }
+
+// Round 2 battle twists (enrage, elites, cannon chest, rally, weather).
+installBattleTwists(GameScene.prototype);
