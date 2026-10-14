@@ -1,3 +1,4 @@
+import { earnGems, spendGems } from './Economy.js';
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG, ENEMY_RARITY } from './ENEMY_CONFIG.js';
@@ -6,6 +7,7 @@ import { addAmbientFx } from './AmbientFx.js';
 import { getStageModifier } from './STAGE_MODIFIERS.js';
 import { installBattleTwists } from './BattleTwists.js';
 import { installBattleFx, SAGA_BATTLE_MUSIC } from './BattleFx.js';
+import { showTipOnce, resetTipState } from './Tips.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
 import { saveStageResult, getClearCount, loadStageProgress } from './StageProgress.js';
@@ -1013,6 +1015,7 @@ export default class GameScene extends Phaser.Scene {
     this.setupZoomControls();
     this.showStageModifierBanner();
     this.initBattleTwists();
+    resetTipState(this);
     this.specialMeterMax = SPECIAL_METER_MAX;
     this.initCannonGlow();
     this.startFrameStreaming();
@@ -2398,6 +2401,7 @@ export default class GameScene extends Phaser.Scene {
   updateBossMusic() {
     const shouldPlay = this.aliveBossCount > 0 && !this.isGameOver;
     if (shouldPlay && !this.isBossMusicPlaying) {
+      showTipOnce(this, 'boss');
       playMusic(BOSS_MUSIC_URL);
       this.isBossMusicPlaying = true;
     } else if (!shouldPlay && this.isBossMusicPlaying) {
@@ -4365,7 +4369,7 @@ export default class GameScene extends Phaser.Scene {
     );
 
     continueButton.on('pointerdown', () => {
-      if (!trySpendGems(cost)) return; // shouldn't happen (gated above), but never spend a hit you can't afford
+      if (!spendGems(cost, 'continue')) return; // shouldn't happen (gated above), but never spend a hit you can't afford
       this.continuesUsed += 1;
       this.baseHp = this.baseMaxHp;
       this.hideContinueOffer();
@@ -4438,6 +4442,7 @@ export default class GameScene extends Phaser.Scene {
   // The only win trigger: destroying the enemy base (see damageEnemyBase).
   winStage() {
     this.isGameOver = true;
+    addLifetimeStat('battlesWon');
     playMusic(VICTORY_MUSIC_URL);
     if (this.cannonGlow) this.cannonGlow.setAlpha(0);
     this.playVictoryFx();
@@ -4466,7 +4471,7 @@ export default class GameScene extends Phaser.Scene {
 
     const isFirstClear = !wasAlreadyCleared;
     if (isFirstClear) {
-      addGems(this.stage.gemsFirstClear);
+      earnGems(this.stage.gemsFirstClear, 'firstClear');
       addUserRank(RANK_PER_FIRST_CLEAR); // User Rank (bible §A.7.4) — see UserRank.js
     }
 

@@ -12,6 +12,10 @@ import {
 import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { addHomeWanderers } from './HomeWanderers.js';
+import { countDailyClaimables } from './Economy.js';
+import { loadStageProgress } from './StageProgress.js';
+import { STAGE_CONFIG } from './STAGE_CONFIG.js';
+import { hasFirstFreePull } from './Gacha.js';
 import { getMissionsWithStatus } from './Missions.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { loadLoadout } from './Loadout.js';
@@ -98,6 +102,8 @@ export default class HomeScene extends Phaser.Scene {
     this.createPrimaryButtons();
     this.createDojoButton();
     this.createSecondaryIcons();
+
+    this.createNextGoal();
 
     this.messageText = this.add
       .text(width / 2, height - 26, '', { fontFamily: FONT, fontSize: '13px', color: '#ffdd33', stroke: '#000000', strokeThickness: 3 })
@@ -192,6 +198,37 @@ export default class HomeScene extends Phaser.Scene {
   // left, under the primary buttons; Gacha/storage sit right, in their own
   // group) — rather than Gacha/Treasure floating as isolated buttons with
   // no visual relationship to anything else on the screen.
+  // "What should I do next?" — one short pointer, picked by priority, in
+  // the gap between the left and right icon groups.
+  getNextGoal() {
+    const progress = loadStageProgress();
+    const cleared = Object.values(progress).filter((p) => p.cleared).length;
+    if (cleared === 0) return { text: 'Tap Start Battle!! to defend Lunacia', action: null };
+    if (hasFirstFreePull()) return { text: 'Your first Gacha pull is FREE!', action: () => this.scene.start('GachaScene') };
+    if (countDailyClaimables() > 0) return { text: 'Daily rewards waiting in the Market', action: () => this.scene.start('MarketScene') };
+    if (getMissionsWithStatus().some((m) => m.isComplete && !m.isClaimed)) return { text: 'Mission complete — claim your Gems', action: () => this.scene.start('MissionsScene') };
+    if (getExpeditionStatus().state === 'ready') return { text: 'Your Expedition is back with loot!', action: () => this.showExpeditionPopup() };
+    const next = STAGE_CONFIG.find((st) => !progress[st.id]?.cleared);
+    if (next && cleared < 6) return { text: `Next: ${next.displayName}`, action: null };
+    if (loadPlayerProgress().xp >= 2000 && cleared < 20) return { text: 'Spend XP in Power Up to grow your Axies', action: () => this.scene.start('UpgradeScene') };
+    return next ? { text: `Next: ${next.displayName}`, action: null } : { text: 'All stages cleared — chase 3-star Treasures!', action: () => this.scene.start('TreasureScene') };
+  }
+
+  createNextGoal() {
+    const { height } = LOGICAL_SIZE;
+    const goal = this.getNextGoal();
+    const x = 350;
+    const y = height - 62;
+    const text = this.add.text(x, y, goal.text, {
+      fontFamily: FONT, fontSize: '11px', color: '#3a2600', align: 'center', wordWrap: { width: 150 },
+    }).setOrigin(0.5).setDepth(6);
+    const pill = this.add.rectangle(x, y, 164, text.height + 16, BC.gold, 0.95).setStrokeStyle(2, BC.ink).setDepth(5);
+    const arrow = this.add.text(x, y - pill.height / 2 - 8, '▼ NEXT', { fontFamily: FONT, fontSize: '9px', color: '#ffffff', stroke: '#000000', strokeThickness: 3 }).setOrigin(0.5).setDepth(6);
+    this.tweens.add({ targets: [pill, text], scale: 1.04, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    if (goal.action) pill.setInteractive({ useHandCursor: true }).on('pointerup', goal.action);
+    this.nextGoalParts = [pill, text, arrow];
+  }
+
   createSecondaryIcons() {
     const { height } = LOGICAL_SIZE;
     const y = height - 62;
@@ -202,6 +239,7 @@ export default class HomeScene extends Phaser.Scene {
       { label: 'Menu', x: 70, glyph: '☰', action: () => this.showMenuPopup() },
       { label: 'Expedition', x: 150, glyph: '⛏', action: () => this.showExpeditionPopup() },
       { label: 'Missions', x: 230, glyph: '📋', action: () => this.scene.start('MissionsScene') },
+      { label: 'Market', x: 470, glyph: '🛒', action: () => this.scene.start('MarketScene') },
       { label: 'Gacha', x: 560, glyph: '🎰', action: () => this.scene.start('GachaScene') },
       { label: 'Treasure', x: 650, glyph: '🏆', action: () => this.scene.start('TreasureScene') },
     ];
@@ -223,8 +261,8 @@ export default class HomeScene extends Phaser.Scene {
       // A small red badge on Missions when at least one is complete and
       // still unclaimed — the same "something's waiting for you" nudge
       // Battle Cats uses on its own Missions icon.
-      if (icon.label === 'Missions') {
-        const claimable = getMissionsWithStatus().filter((m) => m.isComplete && !m.isClaimed).length;
+      if (icon.label === 'Missions' || icon.label === 'Market') {
+        const claimable = icon.label === 'Market' ? countDailyClaimables() : getMissionsWithStatus().filter((m) => m.isComplete && !m.isClaimed).length;
         if (claimable > 0) {
           this.add.circle(icon.x + 20, y - 20, 11, BC.red).setStrokeStyle(3, 0xffffff);
           this.add

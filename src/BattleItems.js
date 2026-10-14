@@ -31,7 +31,7 @@ export function getBattleItemCount(itemId) {
   return load()[itemId] || 0;
 }
 
-function addBattleItem(itemId, amount = 1) {
+export function addBattleItem(itemId, amount = 1) {
   const inventory = load();
   inventory[itemId] = (inventory[itemId] || 0) + amount;
   save(inventory);

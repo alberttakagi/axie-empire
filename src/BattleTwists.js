@@ -1,6 +1,8 @@
+import { earnGems, spendGems } from './Economy.js';
 import Phaser from 'phaser';
 import { LOGICAL_SIZE } from './RenderConfig.js';
 import { playSfxFile, playCoinSfx } from './Audio.js';
+import { showTipOnce } from './Tips.js';
 import { addGems } from './PlayerProgress.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 
@@ -51,6 +53,7 @@ const methods = {
 
   // ---- per-frame ----
   updateBattleTwists(deltaMs) {
+    if (!this.tutorialObjects && this.money >= this.getWalletCap()) showTipOnce(this, 'worker');
     this.twistTimeMs += deltaMs;
     this.updateEnrage();
     this.updateEliteAuras(deltaMs);
@@ -99,6 +102,7 @@ const methods = {
     this.uiCamera.ignore([ring, tag]);
     this.tweens.add({ targets: ring, scaleX: 1.25, alpha: 0.2, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.twistAuras.push({ enemy, ring, tag });
+    showTipOnce(this, 'elite');
     playSfxFile('/audio/sfx/hex.wav', { gain: 0.45, group: 'elite', maxVoices: 1, minIntervalMs: 600 });
   },
 
@@ -150,6 +154,7 @@ const methods = {
     this.tweens.add({ targets: chestImg, angle: { from: -6, to: 6 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.08, duration: 700, yoyo: true, repeat: -1 });
     this.chest = { x, parts, ageMs: 0 };
+    showTipOnce(this, 'chest');
     playSfxFile('/audio/sfx/summon_on.wav', { gain: 0.5 });
   },
 
@@ -158,7 +163,7 @@ const methods = {
     const money = 400 + 200 * this.twistLevel;
     this.money = Math.min(this.getWalletCap(), this.money + money);
     const gems = Math.random() < 0.35 ? 5 + 5 * Math.min(3, this.twistLevel) : 0;
-    if (gems) addGems(gems);
+    if (gems) earnGems(gems, 'chest');
     playCoinSfx();
     playSfxFile('/audio/sfx/buff.wav', { gain: 0.5 });
     const x = this.chest.x;
@@ -206,6 +211,7 @@ const methods = {
   updateRallyButton() {
     if (!this.rallyParts) return;
     const ready = !this.rallyUsed && this.twistTimeMs >= RALLY_UNLOCK_MS;
+    if (ready) showTipOnce(this, 'rally');
     const { ring, icon, label } = this.rallyParts;
     const alpha = this.rallyUsed ? 0.25 : ready ? 1 : 0.45;
     ring.setAlpha(alpha);
@@ -269,6 +275,7 @@ const methods = {
       }).setDepth(951);
       objs.push(rain);
       playSfxFile('/audio/sfx/bubble.wav', { gain: 0.5 });
+      showTipOnce(this, 'rain');
       this.twistBanner('RAIN FRONT — everyone moves slower', '#bfe3ff');
     } else {
       this.sunbeamMs = WEATHER_DURATION_MS;
@@ -280,6 +287,7 @@ const methods = {
         this.tweens.add({ targets: beam, alpha: 0.03, duration: 1200 + k * 200, yoyo: true, repeat: -1 });
         objs.push(beam);
       }
+      showTipOnce(this, 'sunbeam');
       this.twistBanner('SUNBEAM — your Axies hit 25% harder!', '#ffe58a');
     }
     // World layer (not the UI camera): the tint/rain sit over the

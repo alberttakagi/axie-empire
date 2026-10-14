@@ -13,6 +13,7 @@ import BaseUpgradeScene from './BaseUpgradeScene.js';
 import GachaScene from './GachaScene.js';
 import CatalogScene from './CatalogScene.js';
 import MissionsScene from './MissionsScene.js';
+import MarketScene from './MarketScene.js';
 import { applyDevUnlock } from './DevMode.js';
 
 // Visit this game's URL with `?devunlock` once (either locally or on the
@@ -168,6 +169,7 @@ const game = new Phaser.Game({
     GachaScene,
     CatalogScene,
     MissionsScene,
+    MarketScene,
   ],
 });
 

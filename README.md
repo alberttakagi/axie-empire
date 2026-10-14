@@ -1,72 +1,160 @@
 # Axie Empire
 
-A single-lane tower-defense game, a mechanical clone of *The Battle Cats*, reskinned with Axie Infinity characters. Built with [Phaser 3](https://phaser.io) and [Vite](https://vitejs.dev). Formerly named "Axie Skirmish" (see git history/older docs for that name).
+**Play:** https://axie-empire.vercel.app · **Source:** https://github.com/alberttakagi/axie-empire · **Version:** 0.2.0 (Round 2)
 
-For full project documentation (architecture, systems, data, known issues, current status), see **[PROJECT_HANDOVER.md](./PROJECT_HANDOVER.md)**.
+## Pitch
 
-For current guide reconciliation, stability work, and the next milestones, see
-**[Development baseline](./docs/DEVELOPMENT_BASELINE.md)**. This updates the
-historical handover where they differ.
+Lunacia is under siege. Chimeras pour out of the corrupted lands, and the Axies must hold the line.
 
-## Round 2 (Vibeathon) status
+Axie Empire is a single-lane, Battle Cats-style tower defense game:
+- Deploy a Formation of Axies and manage a wallet that refills during battle.
+- Fire the Rune Cannon, and push the Chimeras back to their tower.
+- Between battles, collect new Axies from the Lunacian Summons gacha, power them up, send them on Expeditions and spend Gems in the Lunacia Market.
 
-See **[docs/ROADMAP_ROUND2.md](./docs/ROADMAP_ROUND2.md)** for what changed in the round-2 push and what's next, and **[docs/BALANCE_REPORT.md](./docs/BALANCE_REPORT.md)** for unit numbers and balance suggestions. Highlights: 19 units (9 gacha-only), unit-collection gacha, Expedition, stage twists, enemy intel and counters, boss intros, per-character Origins SFX, and sprite-sheet atlases for fast loading.
+The vision is a small, complete, replayable Axie game: quick 2–5 minute battles that add up to a long campaign. The campaign has 7 sagas and 336 stages, and every saga ends with a Werewolf finale.
 
-## Asset pipeline (dev-only tools)
+- **Players:** 1 (single player).
+- **Session length:** about 5–15 minutes.
+- **First saga:** about 2–3 hours.
+- **Full campaign:** 20+ hours.
 
-| Tool | Purpose |
-|---|---|
-| `tools/sprite-gen` | Renders Axie Spine skeletons to PNG frames (`npm --prefix tools/sprite-gen run dev`). Starter sequences/stills use a tall headroom canvas, so tall poses are never clipped. |
-| `tools/pack_sequence_atlases.py` | Packs run/idleanim frames into `public/sprites/atlas/` multiatlases. Re-run with `--delete-frames` after adding frame art. |
-| `tools/prepare_sfx.py` | Trims Origins-kit battle SFX into short one-shots in `public/audio/sfx/`. |
-| `tools/import_fixed_frames.py` | Imports re-rendered frames at the shipped scale and foot position. |
+## Controls and setup
 
-The Origins asset kit (`tools/axie-origins-asset-kit`) is Vibeathon-licensed and must not be redistributed outside approved programs.
+| Action | Desktop | Phone / tablet |
+|---|---|---|
+| Deploy an Axie | Click its card in the bottom row | Tap |
+| Unit info | Hover a card (about 0.6 s) | Long-press |
+| Rune Cannon | Click the round button, bottom-right | Tap |
+| Upgrade the Worker (wallet) | Click the bottom-left button | Tap |
+| Rally, battle items | Buttons along the top | Tap |
+| Pan / zoom the battlefield | Drag / mouse wheel | Drag / pinch |
 
-## Requirements
+- **Setup:** none. The game runs in the browser.
+- **Supported devices:**
+  - Desktop Chrome, Edge, Safari and Firefox.
+  - iOS Safari and Android Chrome, in landscape.
+- **Data:** progress is currently saved in the browser. Account sign-in with cloud save is in progress (see Known issues).
 
-- Node.js and npm
+## Game loop
 
-## Setup
+1. **Battle:** clear stages to earn XP, Gems on first clears, items and Treasures. Battle twists keep stages fresh:
+   - Fog, frenzy and tight budgets.
+   - Weather fronts.
+   - Elite Chimeras and boss enrage.
+   - Cannon-only treasure chests and a once-per-battle Rally.
+2. **Grow:**
+   - **Power Up:** spend XP on levels; True Form evolution uses Evo Shards and duplicates.
+   - **Base Upgrades.**
+   - **Formation** building.
+3. **Collect:** the gacha has 9 summonable Axies (Rare, Super Rare, Uber). Duplicates raise level caps; maxed units convert duplicates to XP.
+4. **Return:** daily login calendar, daily missions, Expeditions on a real-time clock, and milestone missions.
 
-```bash
-npm install
-```
+## Axie Core fit
+
+- **The cast:**
+  - Every unit is an Axie, rendered from Axie Spine skeletons (Origins asset kit) and the 9 gacha Axies.
+  - Enemies are Chimeras and corrupted beasts from Axie lore, ending with the Werewolf.
+- **Identity matters in combat:**
+  - Each Axie has a role (tank, swarm, ranged, wave, surge, support).
+  - Classes give attribute advantages (`strongVs` / `massiveVs`).
+  - Status effects, and per-character attack sounds and effects.
+- **The world:**
+  - Sagas, chapters and stage names come from public Lunacia lore, including Blood Moon Coliseum.
+  - The story is Axies defending their empire from the Chimera invasion.
+- **Planned:** live Axie rendering through the approved `@axieinfinity/mixer`, so body parts and classes visibly drive stats.
+
+## Mock economy
+
+- **Currencies:**
+  - **Gems:** premium-like, earned only through play.
+  - **XP:** soft currency.
+  - **Energy:** spent to enter stages; 1 point per minute.
+  - **Materials:** Evo Shards and Growth Charms.
+  - **Battle items.**
+- **Sources:**
+  - First clears.
+  - Milestone missions.
+  - Daily login, a 7-day streak that restarts if you miss a day.
+  - Daily missions, plus a bonus for clearing all of them.
+  - Cannon chests.
+  - Expeditions.
+- **Sinks:**
+  - Gacha: 50 Gems per pull, 500 Gems for 11. The first pull is free and guarantees a new Axie.
+  - Continues.
+  - Lunacia Market exchanges:
+    - Energy: Snack 20 Gems, Full Refill 60.
+    - Training Scroll (5,000 XP): 40.
+    - Growth Charm: 80.
+    - Evo Shard: 120.
+    - Battle items: 35 each.
+    - One half-price Daily Deal.
+- **Why it helps players:**
+  - Gems can always turn into progress the player chooses (Energy to keep playing, materials to finish an evolution), so players are never stuck.
+  - Daily rewards give a reason to come back without punishing time away; Energy keeps regenerating.
+- **Tracking:**
+  - Every Gem earned or spent is logged by source (`src/Economy.js`).
+  - The Market footer shows today's Gems earned and spent.
+  - These logs feed the playtest notes below.
+
+## Playtest notes
+
+Format: *what we noticed → what we decided → what happened*.
+
+1. **Saga 4 too easy:** the balance simulator (`src/dev/BalanceSim.js`) showed Sagas 5–7 were easier than Saga 4 for a player progressing at a normal pace → we retuned saga strength to 5 / 7.5 / 10.5 / 14 → each saga now ramps up, and Stage 191 is kept as a deliberate wall before the finale. Details in `docs/BALANCE_REPORT.md`.
+2. **Generic gacha screen:** the gacha page read as a plain cream box → we built an animated showcase and a full-screen reveal for new Axies → *to be checked with testers.*
+3. **Missing hit flash:** hits didn't visibly flash, because a white tint does nothing to a sprite → we switched to a red flash with a squash → *to be checked with testers.*
+
+*More notes will be added after the Oct 24 playtest round.*
+
+## Known issues
+
+- **Account sign-in and cloud save** (Sky Mavis Account, with email as a fallback) are not in yet. Progress lives in browser storage, so clearing site data resets it.
+- **Live Mixer rendering** is not integrated yet; units use pre-rendered Spine frames.
+- **Long fights on low-end phones:** heavy Saga 6–7 battles can drop frames.
+
+## Asset provenance and disclosures
+
+- **Axie and Chimera art, animations and battle sounds:** rendered or trimmed from the *Axie Origins asset kit*, which is Vibeathon-licensed. The kit itself is **not included** in this repository and is not redistributed.
+- **Music:**
+  - Battle, saga and Origins tracks come from the kit.
+  - The home theme (`bgm_forest_theme.mp3`) and the treasure chest art were supplied by the author.
+- **Backgrounds:** full-HD battle and menu art (source to be confirmed by the author before submission).
+- **Lore:** stage and saga names use public Axie lore terms only.
+- **Tools:**
+  - Built with Phaser 3 and Vite.
+  - AI-assisted development with Claude Code.
+- **No wallet, NFT or real payments.** All economy is simulated.
+
+## Round 2 changes
+
+- **Starting build for Round 2:** `cd296fa` (2026-10-11).
+- **Main changes since then:**
+  - Sagas 4–7 (192 new stages, 9 new enemy designs, 84 Treasure sets).
+  - Battle twists, plus a balance simulator and retune.
+  - Gacha duplicate cap-ups, the free first pull and the Lunacian Summons banner with new-Axie reveals.
+  - Game-feel pass: special-move effects, the cannon sweep, tower crumble and slow motion, per-saga music, hit and attack motion, scene transitions, and wandering Axies on the home screen.
+  - Lunacia Market (daily login, daily missions, Gem exchanges, Daily Deal, Gem ledger).
+  - First-time battle tips and the home screen's "Next" goal pointer.
+
+---
 
 ## Development
 
 ```bash
-npm run dev
+npm install
+npm run dev      # Vite dev server
+npm run build    # production build to dist/
+npm test         # Node test runner, isolated in-memory storage
 ```
 
-Starts a Vite dev server (default `http://localhost:5173`) with hot module reload.
+- **Dev unlock:** add `?devunlock` locally, or `?devunlock=lunacia` on the deployed site.
+- **Balance simulator:** in a dev build, run `await window.runBalanceSim({ stages: ['stage145'], profile: 'onpace' })` in the browser console.
 
-## Build
+| Tool | Purpose |
+|---|---|
+| `tools/sprite-gen` | Renders Axie Spine skeletons to PNG frames (`npm --prefix tools/sprite-gen run dev`). |
+| `tools/pack_sequence_atlases.py` | Packs run/idle frames into `public/sprites/atlas/` multiatlases. |
+| `tools/prepare_sfx.py` | Trims Origins-kit battle SFX into one-shots in `public/audio/sfx/`. |
+| `tools/import_fixed_frames.py` | Imports re-rendered frames at the shipped scale and foot position. |
 
-```bash
-npm run build
-```
-
-Outputs a production build to `dist/`.
-
-```bash
-npm run preview
-```
-
-Serves the built `dist/` output locally.
-
-## Tests / Lint / Typecheck
-
-```bash
-npm test
-```
-
-Runs formation/save, progression, unit-collection and expedition regression checks with Node's built-in test
-runner and isolated in-memory storage. No browser saves are read or changed.
-Manual browser checks are still required for scenes and combat.
-
-Lint and typecheck are not configured.
-
-## Project Structure
-
-See [PROJECT_HANDOVER.md](./PROJECT_HANDOVER.md#project-structure) for a full breakdown of `src/`, `public/`, `docs/`, and `tools/`.
+Deeper docs: [PROJECT_HANDOVER.md](./PROJECT_HANDOVER.md) · [docs/ROADMAP_ROUND2.md](./docs/ROADMAP_ROUND2.md) · [docs/BALANCE_REPORT.md](./docs/BALANCE_REPORT.md)

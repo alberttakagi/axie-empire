@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { LOGICAL_SIZE } from './RenderConfig.js';
 import { playSfxFile } from './Audio.js';
+import { showTipOnce } from './Tips.js';
 
 // Round 2 game-feel layer: purely visual/audio flourishes installed onto
 // GameScene.prototype (installBattleFx). Nothing here changes combat math.
@@ -76,6 +77,7 @@ const methods = {
       return;
     }
     const ready = frac >= 1;
+    if (ready && !this.tutorialObjects) showTipOnce(this, 'cannon');
     const pulse = 0.5 + 0.5 * Math.sin(time / (ready ? 140 : 320));
     this.cannonGlow.setAlpha((ready ? 0.28 : 0.12) + pulse * (ready ? 0.22 : 0.08));
   },

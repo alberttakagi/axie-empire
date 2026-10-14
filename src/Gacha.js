@@ -13,6 +13,7 @@
 // units to the roster, this is the natural place to reintroduce real
 // unit rolls without touching the rest of the system.
 
+import { earnGems, spendGems } from './Economy.js';
 import { addXp, addEvoShards, addGrowthCharms, trySpendGems } from './PlayerProgress.js';
 import { addEnergy } from './Energy.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
@@ -156,7 +157,7 @@ function applyReward(reward) {
 // sequence; `ok: false` (no Gems spent, no rewards rolled) if the player
 // can't afford it.
 function performRolls(count, cost) {
-  if (!trySpendGems(cost)) return { ok: false, rewards: [] };
+  if (!spendGems(cost, 'gacha')) return { ok: false, rewards: [] };
 
   const rewards = [];
   for (let i = 0; i < count; i += 1) {

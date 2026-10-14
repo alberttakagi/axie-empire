@@ -6,6 +6,7 @@
 // is its own persisted state (see loadClaimedMissions/claimMission below),
 // since "was this already paid out" can't be derived from anything else.
 
+import { earnGems, spendGems } from './Economy.js';
 import { MISSIONS_CONFIG } from './MISSIONS_CONFIG.js';
 import { loadLifetimeStats } from './LifetimeStats.js';
 import { loadStageProgress } from './StageProgress.js';
@@ -93,7 +94,7 @@ export function claimMission(id) {
   const claimed = loadClaimedMissions();
   claimed[id] = true;
   saveClaimedMissions(claimed);
-  addGems(mission.rewardGems);
+  earnGems(mission.rewardGems, 'mission');
 
   return mission;
 }
