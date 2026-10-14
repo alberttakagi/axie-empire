@@ -28,6 +28,7 @@ import {
   getBaseUpgradeLevel,
   addGems,
   trySpendGems,
+  isUnitUnlocked,
 } from './PlayerProgress.js';
 import { BASE_UPGRADE_CONFIG } from './BASE_UPGRADE_CONFIG.js';
 import { getBonusPercent, rollTreasureForStage, guaranteeTopTier } from './Treasure.js';
@@ -4393,7 +4394,9 @@ export default class GameScene extends Phaser.Scene {
       evoShardChance: EVO_SHARD_DROP_CHANCE,
       growthCharmChance: GROWTH_CHARM_DROP_CHANCE,
     });
+    const unlockedBefore = Object.keys(UNIT_CONFIG).filter((k) => isUnitUnlocked(k));
     saveStageResult(this.stage.id, finalScore, true);
+    const newUnits = Object.keys(UNIT_CONFIG).filter((k) => isUnitUnlocked(k) && !unlockedBefore.includes(k));
     // Treasure Radar (bible §A.8) forces the top tier outright instead of
     // the normal drop-chance/tier-roll.
     const treasureResult = this.treasureRadarActive
@@ -4422,6 +4425,7 @@ export default class GameScene extends Phaser.Scene {
       evoShardsGranted: rewards.evoShardsGranted,
       growthCharmsGranted: rewards.growthCharmsGranted,
       gemsAwarded: this.stage.gemsFirstClear,
+      newUnits,
     }, nextStage);
   }
 
@@ -4553,6 +4557,11 @@ export default class GameScene extends Phaser.Scene {
     if (result.growthCharmsGranted) bonusLines.push('+1 Growth Charm!');
     if (result.droppedItem) bonusLines.push(`+1 ${result.droppedItem.displayName}!`);
     if (result.isFirstClear) bonusLines.push(`+${result.gemsAwarded} Gems! (First Clear)`);
+    // New Axie unlocked by this clear — called out first and loudest.
+    for (const key of result.newUnits || []) {
+      bonusLines.unshift(`★ NEW AXIE: ${UNIT_CONFIG[key].characterName} (${UNIT_CONFIG[key].abilityLabel}) joins your Formation!`);
+      playSfxFile('/audio/sfx/power_awaken.wav', { gain: 0.7 });
+    }
 
     const panelHeight = 150 + bonusLines.length * 22;
     const restY = height / 2 - 40;

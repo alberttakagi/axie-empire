@@ -117,13 +117,22 @@ export default class OpeningScene extends Phaser.Scene {
       .setAlpha(0)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.finishOpening());
-    this.tweens.add({ targets: this.skipText, alpha: 1, duration: 300, delay: SKIP_BUTTON_FADE_IN_MS });
+    // Repeat visits: Skip is there immediately and the crawl runs faster
+    // (first-time players still get the full read).
+    let seenBefore = false;
+    try {
+      seenBefore = !!localStorage.getItem('axieEmpireOpeningSeen');
+      localStorage.setItem('axieEmpireOpeningSeen', '1');
+    } catch { /* storage unavailable */ }
+    this.speedMultiplier = seenBefore ? 1.8 : 1;
+    this.tweens.add({ targets: this.skipText, alpha: 1, duration: 300, delay: seenBefore ? 0 : SKIP_BUTTON_FADE_IN_MS });
   }
 
   update(time, deltaMs) {
     if (this.hasEnded) return;
 
-    const speed = this.input.activePointer.isDown ? SCROLL_SPEED_PX_PER_SEC * HOLD_SPEED_MULTIPLIER : SCROLL_SPEED_PX_PER_SEC;
+    const base = SCROLL_SPEED_PX_PER_SEC * (this.speedMultiplier || 1);
+    const speed = this.input.activePointer.isDown ? base * HOLD_SPEED_MULTIPLIER : base;
     const step = (speed * deltaMs) / 1000;
     this.storyText.y -= step;
     this.scrolledSoFar += step;

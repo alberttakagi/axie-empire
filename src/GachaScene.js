@@ -8,7 +8,7 @@ import {
   XP_REWARD_MIN,
   XP_REWARD_MAX,
   rollSingle,
-  rollMulti,
+  rollMulti, hasFirstFreePull, rollFirstFree
 } from './Gacha.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
@@ -198,9 +198,16 @@ export default class GachaScene extends Phaser.Scene {
       .text(width / 2, BANNER_Y, 'Axie Gacha', { fontFamily: FONT, fontSize: '17px', color: '#ffd27f' })
       .setOrigin(0.5);
 
-    this.singleButton = this.createRollButton(width / 2 - 130, `Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`, () =>
-      this.showRollConfirmPopup(rollSingle, 1, GACHA_SINGLE_ROLL_COST, 'Single Roll'),
-    );
+    // First visit: the single-roll button is a free, guaranteed-new-Axie pull.
+    const freeFirst = hasFirstFreePull();
+    this.singleButton = this.createRollButton(width / 2 - 130, freeFirst ? 'FREE first pull!\nNew Axie guaranteed' : `Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`, () => {
+      if (hasFirstFreePull()) {
+        this.performRoll(rollFirstFree, 1);
+        this.singleButton.bcText?.setText(`Single Roll\n${GACHA_SINGLE_ROLL_COST} Gems`);
+        return;
+      }
+      this.showRollConfirmPopup(rollSingle, 1, GACHA_SINGLE_ROLL_COST, 'Single Roll');
+    }, freeFirst ? { fill: 0xffc93c, highlight: 0xffe58a } : {});
     this.multiButton = this.createRollButton(
       width / 2 + 130,
       `${GACHA_MULTI_ROLL_COUNT}x Roll\n${GACHA_MULTI_ROLL_COST} Gems`,

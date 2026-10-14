@@ -168,6 +168,30 @@ function performRolls(count, cost) {
   return { ok: true, rewards };
 }
 
+// First-ever pull is free and guarantees a NEW Rare Axie — the first five
+// minutes should end with a new friend, not a pile of XP.
+const FIRST_FREE_KEY = 'axieEmpireFirstFreePullUsed';
+export function hasFirstFreePull() {
+  try {
+    return !localStorage.getItem(FIRST_FREE_KEY);
+  } catch {
+    return false;
+  }
+}
+
+export function rollFirstFree() {
+  if (!hasFirstFreePull()) return { ok: false, rewards: [] };
+  try { localStorage.setItem(FIRST_FREE_KEY, '1'); } catch { /* storage unavailable */ }
+  const fresh = gachaUnitsOfRarity('Rare').filter((k) => !isUnitUnlocked(k));
+  const pool = fresh.length ? fresh : gachaUnitsOfRarity('Rare');
+  const unitId = pool[Math.floor(Math.random() * pool.length)];
+  const isNew = addOwnedUnit(unitId);
+  return {
+    ok: true,
+    rewards: [{ type: 'unit', unitId, unitRarity: 'Rare', isNew, plusLevels: null, dupeXp: 0, rarity: 'epic', label: UNIT_CONFIG[unitId].characterName }],
+  };
+}
+
 export function rollSingle() {
   return performRolls(1, GACHA_SINGLE_ROLL_COST);
 }

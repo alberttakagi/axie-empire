@@ -20,7 +20,10 @@ import { applyDevUnlock } from './DevMode.js';
 // maxed, plenty of gems/XP/materials/Energy — see DevMode.js. Runs once,
 // then strips the param via replaceState so an ordinary reload/bookmark of
 // the resulting plain URL doesn't keep re-stomping later real progress.
-if (new URLSearchParams(window.location.search).has('devunlock')) {
+// Production requires a passphrase (?devunlock=lunacia) so a stray link
+// can't wipe a real player's save; the dev server accepts a bare ?devunlock.
+const devUnlockParam = new URLSearchParams(window.location.search).get('devunlock');
+if (devUnlockParam !== null && (import.meta.env.DEV || devUnlockParam === 'lunacia')) {
   try {
     applyDevUnlock();
   } catch (e) {
