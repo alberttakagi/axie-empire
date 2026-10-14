@@ -54,7 +54,7 @@ export default class HomeScene extends Phaser.Scene {
     const party = {};
     for (const key of this.getExpeditionParty()) party[key] = UNIT_CONFIG[key];
     preloadSpriteRoster(this, party, true);
-    if (!this.textures.exists('fx_secret_bag')) this.load.image('fx_secret_bag', '/vfx/secret_bag.png');
+    if (!this.textures.exists('fx_treasure_chest')) this.load.image('fx_treasure_chest', '/vfx/treasure_chest.png');
   }
 
   create() {
@@ -242,7 +242,7 @@ export default class HomeScene extends Phaser.Scene {
   // Expedition (Expedition.js). Three states, each its own little scene
   // inside the popup: idle (pick a trip), away (your party runs along a
   // scrolling trail with a progress bar), ready (party waits beside a
-  // bouncing loot bag that bursts open on Collect). The per-second
+  // bouncing treasure chest that bursts open on Collect). The per-second
   // tick only updates the countdown/progress; the animated stage is
   // rebuilt only when the state changes.
   getExpeditionParty() {
@@ -374,11 +374,11 @@ export default class HomeScene extends Phaser.Scene {
           this.tweens.add({ targets: star, alpha: 0.2, duration: 600 + Math.random() * 900, yoyo: true, repeat: -1 });
         }
         party.forEach((key, i) => addPartyMember(key, cx - 120 + i * 50, 'idleanim', 52));
-        // Loot bag that bursts with sparkles on Collect.
+        // Treasure chest that bursts with sparkles on Collect.
         const chestX = cx + 110;
         const groundY = stripY + stripH / 2 - 28;
-        // Origins 'Secret Bag' loot art.
-        const bag = addStage(this.add.image(chestX, groundY - 26, 'fx_secret_bag').setDisplaySize(84, 54));
+        // Treasure chest art (user-supplied).
+        const bag = addStage(this.add.image(chestX, groundY - 26, 'fx_treasure_chest').setDisplaySize(72, 60));
         const glow = addStage(this.add.circle(chestX, groundY - 20, 42, 0xfff3a0, 0.25));
         this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.08, duration: 800, yoyo: true, repeat: -1 });
         this.tweens.add({ targets: bag, y: '-=6', duration: 380, yoyo: true, repeat: -1, ease: 'Quad.out' });

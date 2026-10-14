@@ -133,19 +133,20 @@ const methods = {
     const { width } = LOGICAL_SIZE;
     const x = width * (0.55 + Math.random() * 0.3);
     const y = this.laneY - 95;
-    // Origins 'Secret Bag' loot art (public/vfx/secret_bag.png).
-    const bag = this.textures.exists('fx_secret_bag')
-      ? this.add.image(x, y - 4, 'fx_secret_bag').setDisplaySize(56, 36)
+    // Treasure chest art (public/vfx/treasure_chest.png, user-supplied).
+    const chestImg = this.textures.exists('fx_treasure_chest')
+      ? this.add.image(x, y - 4, 'fx_treasure_chest').setDisplaySize(48, 40)
       : this.add.rectangle(x, y, 30, 18, 0x8d5524).setStrokeStyle(2, 0x3e2310);
     const glow = this.add.circle(x, y - 4, 28, 0xfff3a0, 0.25);
     const hint = this.add
       .text(x, y - 34, 'Hit me with the cannon!', { fontFamily: 'Rowdies, sans-serif', fontSize: '9px', color: '#ffe58a', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);
-    const parts = [glow, bag, hint];
-    parts.forEach((p) => p.setDepth(800));
+    const parts = [glow, chestImg, hint];
+    // Above Fog of War (900) and weather (950-951): it's a target players must see.
+    parts.forEach((p) => p.setDepth(960));
     this.uiCamera.ignore(parts);
-    this.tweens.add({ targets: [bag, hint], y: '-=8', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.tweens.add({ targets: bag, angle: { from: -6, to: 6 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: [chestImg, hint], y: '-=8', duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.tweens.add({ targets: chestImg, angle: { from: -6, to: 6 }, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
     this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.08, duration: 700, yoyo: true, repeat: -1 });
     this.chest = { x, parts, ageMs: 0 };
   },
