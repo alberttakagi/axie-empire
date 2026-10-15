@@ -142,7 +142,7 @@ Format: *what we noticed → what we decided → what happened*.
 - **Music:**
   - Battle, saga and Origins tracks come from the kit.
   - The home theme (`bgm_forest_theme.mp3`) and the treasure chest art were supplied by the author.
-- **Backgrounds:** full-HD battle and menu art (source to be confirmed by the author before submission).
+- **Backgrounds:** from the Axie Origins asset kit, built by `tools/import_backgrounds.py`. The home arena (`bg_gauntlet_arena.png`) and temple (`bg_temple.png`) come from the Axie media kit.
 - **Lore:** stage and saga names use public Axie lore terms only.
 - **Tools:**
   - Built with Phaser 3 and Vite.
