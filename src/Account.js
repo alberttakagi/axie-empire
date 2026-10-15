@@ -16,7 +16,11 @@ const env = import.meta.env || {};
 
 function pickBackend() {
   if (env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY) {
-    return new SupabaseBackend({ url: env.VITE_SUPABASE_URL, anonKey: env.VITE_SUPABASE_ANON_KEY });
+    return new SupabaseBackend({
+      url: env.VITE_SUPABASE_URL,
+      anonKey: env.VITE_SUPABASE_ANON_KEY,
+      waypointClientId: env.VITE_WAYPOINT_CLIENT_ID || null,
+    });
   }
   if (env.DEV) return new MockCloudBackend();
   return null;
@@ -27,6 +31,13 @@ export const accountsAvailable = !!backend;
 // 'email' → the email-code form (AccountForms.js); 'mock' → one-tap test account.
 export const accountKind = backend instanceof SupabaseBackend ? 'email' : backend ? 'mock' : 'none';
 export const accountProviderLabel = accountKind === 'email' ? 'Email' : backend ? 'Test account (dev)' : 'Sky Mavis Account';
+
+// Sky Mavis Account (Ronin Waypoint) is offered when its client ID is set too.
+export const waypointAvailable = accountKind === 'email' && !!env.VITE_WAYPOINT_CLIENT_ID;
+
+export function preloadWaypoint() {
+  return waypointAvailable ? backend.preloadWaypoint().catch(() => {}) : Promise.resolve();
+}
 
 export function requestEmailCode(email) {
   return backend.requestEmailCode(email);

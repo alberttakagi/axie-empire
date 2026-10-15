@@ -3,7 +3,7 @@
 // Step 1: email → we send a 6-digit code (and a magic link).
 // Step 2: code → signed in; CloudSync migrates/restores the save.
 // Errors are shown inline and every step can be retried or cancelled.
-import { cloudSync, requestEmailCode } from './Account.js';
+import { cloudSync, requestEmailCode, waypointAvailable, preloadWaypoint } from './Account.js';
 
 const STYLE = `
 .ae-auth{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;
@@ -21,6 +21,8 @@ const STYLE = `
 .ae-auth button.secondary{background:#e8dcc0;color:#1d1a16}
 .ae-auth button:disabled{opacity:.55;cursor:default}
 .ae-auth .err{color:#b3261e;min-height:18px;font-size:13px;margin:0 0 10px;font-family:system-ui,sans-serif}
+.ae-auth .sm{width:100%;background:#1273ea;color:#fff;margin-bottom:12px}
+.ae-auth .or{font-size:12px;color:#7a5c1e;margin:0 0 10px;font-family:system-ui,sans-serif}
 .ae-auth .link{background:none;border:none;color:#2a6fb0;font-size:13px;margin-top:10px;padding:0;
   text-decoration:underline;font-family:system-ui,sans-serif}
 `;
@@ -69,12 +71,31 @@ export function openEmailSignIn() {
         },
       },
       el('h2', {}, 'Save your progress'),
-      el('p', {}, 'Sign in with your email to keep your Axies, stages and Gems safe and play on any device. We\'ll email you a 6-digit code — no password needed.'),
+      el('p', {}, 'Sign in to keep your Axies, stages and Gems safe and play on any device.'),
+      ...(waypointAvailable ? [smButton(err), el('div', { class: 'or' }, '— or use your email (we send a 6-digit code) —')] : []),
       input, err,
       el('div', { class: 'row' }, el('button', { type: 'button', class: 'secondary', onclick: () => done(false) }, 'Not now'), send));
       root.replaceChildren(form);
       input.focus();
     };
+
+    function smButton(err) {
+      const b = el('button', {
+        type: 'button', class: 'sm',
+        onclick: async () => {
+          b.disabled = true;
+          err.textContent = '';
+          try {
+            await cloudSync.signIn({ provider: 'waypoint' });
+            done(true);
+          } catch (ex) {
+            err.textContent = ex.message || 'Sky Mavis sign-in failed. Please try again.';
+            b.disabled = false;
+          }
+        },
+      }, 'Sign in with Sky Mavis');
+      return b;
+    }
 
     const showCodeStep = () => {
       const input = el('input', { class: 'code', inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: '6', placeholder: '••••••', pattern: '[0-9]*' });
@@ -105,6 +126,7 @@ export function openEmailSignIn() {
 
     root.addEventListener('click', (e) => { if (e.target === root) done(false); });
     document.body.append(root);
+    preloadWaypoint();
     showEmailStep();
   });
 }

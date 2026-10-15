@@ -102,3 +102,41 @@ test('full CloudSync flow over the Supabase adapter migrates guest progress', as
   assert.equal(JSON.parse(row.snapshot.data.axieSkirmishPlayerProgress).xp, 4200);
   assert.equal(sync.status.state, 'saved');
 });
+
+test('Sky Mavis (Waypoint) sign-in: verified token becomes a Supabase session', async () => {
+  const calls = [];
+  sb.auth.verifyOtp = async ({ token_hash, type }) => {
+    calls.push(['verify', token_hash, type]);
+    return { data: { user: { id: 'uid-wp', email: 'wp-x@waypoint.axie-empire.app', user_metadata: { provider: 'waypoint', display_name: 'Lunacian', ronin_address: '0xabc' } } }, error: null };
+  };
+  const wp = new SupabaseBackend({
+    url: 'https://p.supabase.co', anonKey: 'anon', client: sb, waypointClientId: 'cid',
+    waypointAuthorize: async (opts) => { calls.push(['authorize', opts.mode, opts.clientId]); return { token: 'jwt.from.skymavis' }; },
+    fetchImpl: async (url, init) => {
+      calls.push(['fetch', url, JSON.parse(init.body).id_token]);
+      return { ok: true, json: async () => ({ token_hash: 'hash123', email: 'wp-x@waypoint.axie-empire.app' }) };
+    },
+  });
+  const user = await wp.signIn({ provider: 'waypoint' });
+  assert.deepEqual(calls, [
+    ['authorize', 'popup', 'cid'],
+    ['fetch', 'https://p.supabase.co/functions/v1/waypoint-login', 'jwt.from.skymavis'],
+    ['verify', 'hash123', 'magiclink'],
+  ]);
+  assert.equal(user.provider, 'waypoint');
+  assert.equal(user.roninAddress, '0xabc');
+});
+
+test('Sky Mavis sign-in surfaces server rejection and cancelled popups', async () => {
+  const base = { url: 'https://p.supabase.co', anonKey: 'anon', client: sb, waypointClientId: 'cid' };
+  const rejected = new SupabaseBackend({
+    ...base,
+    waypointAuthorize: async () => ({ token: 'bad' }),
+    fetchImpl: async () => ({ ok: false, json: async () => ({ error: 'Sky Mavis sign-in could not be verified (expired).' }) }),
+  });
+  await assert.rejects(() => rejected.signIn({ provider: 'waypoint' }), /could not be verified/);
+  const cancelled = new SupabaseBackend({ ...base, waypointAuthorize: async () => { throw new Error('Popup closed by user'); } });
+  await assert.rejects(() => cancelled.signIn({ provider: 'waypoint' }), /cancelled/);
+  const unconfigured = new SupabaseBackend({ url: 'x', anonKey: 'y', client: sb });
+  await assert.rejects(() => unconfigured.signIn({ provider: 'waypoint' }), /not configured/);
+});

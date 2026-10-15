@@ -35,3 +35,39 @@ The game ships with email sign-in and cloud saves on Supabase, and a Sky Mavis A
 - **Sign out:** the progress is saved to the cloud first, then removed from the device.
 
 The rules are in `src/CloudSync.js`, with tests in `test/cloudsync.test.js` and `test/supabase.test.js`.
+
+## Sky Mavis Account (Ronin Waypoint)
+
+The guide prefers this provider. It works on top of the Supabase setup above. After signing in with Sky Mavis, a player has the same kind of cloud save as an email player.
+
+How it works:
+1. The game opens the Waypoint popup (`@sky-mavis/waypoint`) and receives a signed ID token.
+2. The `waypoint-login` Edge Function checks that token the way Sky Mavis's *Verify user identity* guide describes:
+   - issuer `https://id.skymavis.com`
+   - audience equal to your client ID
+   - signing keys from `https://waypoint.roninchain.com/.well-known/jwks.json`
+3. The function then returns a one-time token, which the game exchanges for a Supabase session.
+
+Setup:
+1. Register the app:
+   - In the **Ronin Developer Console**, create or open your app and enable **Waypoint Account Service**.
+   - Copy the **CLIENT ID**.
+   - Add the **Redirect URIs**: `https://axie-empire.vercel.app` and `http://localhost:5173`.
+2. Deploy the function with the Supabase CLI (`brew install supabase/tap/supabase`):
+   ```bash
+   supabase login
+   supabase link --project-ref YOUR-PROJECT-REF
+   supabase secrets set WAYPOINT_CLIENT_ID=YOUR-CLIENT-ID
+   supabase functions deploy waypoint-login --no-verify-jwt
+   ```
+3. Add `VITE_WAYPOINT_CLIENT_ID` in `.env.local` and in Vercel, then redeploy.
+
+Once all three are set, the sign-in form shows **Sign in with Sky Mavis** above the email option. Basic play never requires an account, a wallet or a signature.
+
+Tested with mocks in `test/supabase.test.js`:
+- the popup, then the server check, then the session
+- a token the server rejects
+- a cancelled popup
+- a missing client ID
+
+The Edge Function itself still needs a live test once the client ID and project exist.
