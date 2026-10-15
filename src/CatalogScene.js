@@ -1,3 +1,4 @@
+import { classOfUnit, classOfEnemy, beatsClasses, weakToClasses, CLASS_STYLE } from './AXIE_CLASSES.js';
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { ENEMY_CONFIG } from './ENEMY_CONFIG.js';
@@ -248,8 +249,12 @@ export default class CatalogScene extends Phaser.Scene {
     // GameScene's in-battle one) — describeUnit() alone can return an empty
     // array for a unit with no special trait, which otherwise left this
     // panel with a name/role but a blank body.
+    const axieClass = this.isPlayerSide ? classOfUnit(config) : classOfEnemy(config);
+    const classLine = axieClass
+      ? `Class: ${CLASS_STYLE[axieClass].label} — strong vs ${beatsClasses(axieClass).map((c) => CLASS_STYLE[c].label).join('/')}, weak to ${weakToClasses(axieClass).map((c) => CLASS_STYLE[c].label).join('/')}`
+      : null;
     const descLines = unlocked
-      ? [`HP: ${config.hp}   DMG: ${config.damage}`, ...describeUnit(config).map((line) => `• ${line}`)]
+      ? [`HP: ${config.hp}   DMG: ${config.damage}`, ...(classLine ? [classLine] : []), ...describeUnit(config).map((line) => `• ${line}`)]
       : [this.describeLockedUnit(key)];
     const descText = this.add
       .text(width / 2, 302, descLines.join('\n'), {

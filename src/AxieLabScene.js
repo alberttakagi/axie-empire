@@ -1,3 +1,4 @@
+import { beatsClasses, CLASS_STYLE } from './AXIE_CLASSES.js';
 import Phaser from 'phaser';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { BC, FONT, createBackButton, createBcButton, createTitlePill, createResourceBadge, drawBcPanel } from './UITheme.js';
@@ -241,7 +242,9 @@ export default class AxieLabScene extends Phaser.Scene {
     const sigColor = `#${CLASS_INFO[d.signature.cls].color.toString(16).padStart(6, '0')}`;
     c.add(this.add.text(x + 4, 210, `★ ${d.signature.label}`, { fontFamily: FONT, fontSize: '12px', color: sigColor, stroke: '#000000', strokeThickness: 2 }));
     c.add(this.add.text(x + 4, 228, d.signature.desc, { fontFamily: FONT, fontSize: '9px', color: '#ffffff', wordWrap: { width: 176 } }));
-    c.add(this.add.text(x + 4, 262, `Strong vs ${ATTR_LABEL[d.strongVs] || d.strongVs}`, { fontFamily: FONT, fontSize: '9px', color: '#7dff9a', wordWrap: { width: 176 } }));
+    const cls = this.genome.bodyClass;
+    c.add(this.add.text(x + 4, 258, `${CLASS_STYLE[cls].label} class: +15% vs ${beatsClasses(cls).map((k) => CLASS_STYLE[k].label).join('/')}`, { fontFamily: FONT, fontSize: '9px', color: '#7dff9a', wordWrap: { width: 176 } }));
+    c.add(this.add.text(x + 4, 270, `Also strong vs ${ATTR_LABEL[d.strongVs] || d.strongVs}`, { fontFamily: FONT, fontSize: '8px', color: '#bfeac9', wordWrap: { width: 176 } }));
     c.add(this.add.text(x + 4, 284, `Purity ${d.purity}/6: +${d.purity * 3}% HP & damage`, { fontFamily: FONT, fontSize: '9px', color: '#ffd27f' }));
     c.add(this.add.text(x + 4, 302, `Base: HP ${d.stats.hp} · SPD ${d.stats.speed} · SKL ${d.stats.skill} · MRL ${d.stats.morale}`, { fontFamily: FONT, fontSize: '8px', color: '#a996d6', wordWrap: { width: 180 } }));
   }
