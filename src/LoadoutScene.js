@@ -113,6 +113,12 @@ export default class LoadoutScene extends Phaser.Scene {
     // selected unit's plain UNIT_CONFIG cost (never the leveled/evolved
     // effective cost, since cost itself never scales with level anyway —
     // see UNIT_CONFIG.js).
+    this.add
+      .text(width / 2, 389, 'Class synergies: 3 Beast · 3 Plant · 3 Aquatic · 2 Bug · 2 Reptile · one Axie from each side of the triangle', {
+        fontFamily: FONT, fontSize: '9px', color: '#e8dcc0', stroke: '#000000', strokeThickness: 2,
+      })
+      .setOrigin(0.5);
+
     this.totalCostText = this.add
       .text(width / 2, 418, '', { fontFamily: FONT, fontSize: '12px', color: '#7fe0ff', stroke: '#000000', strokeThickness: 3 })
       .setOrigin(0.5);

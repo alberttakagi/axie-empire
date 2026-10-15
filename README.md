@@ -69,6 +69,14 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
     - Bug: Sap (weaken).
     - Reptile: Venom Surge (delayed burst).
   - **Purity:** +3% HP and damage for each part that matches the body class.
+- **The Axie class triangle drives every fight** (`src/AXIE_CLASSES.js`, tested):
+  - Reptile / Plant / Dusk beat Aquatic / Bird / Dawn; Aquatic / Bird / Dawn beat Beast / Bug / Mech; Beast / Bug / Mech beat Reptile / Plant / Dusk.
+  - The advantaged side deals +15% damage and the disadvantaged side −15%. This applies to Axies and Chimeras alike.
+  - Every roster Axie's class is its **real body class, decoded from its genes** with the Mixer. The Lab Axie uses its designed class.
+  - Class badges appear on deploy cards, Formation and Power Up.
+  - Hits show "SUPER EFFECTIVE!" or "Resisted", and a first-time tip explains the triangle.
+  - Each stage's intel lists the Chimera classes and which of your classes have the edge.
+  - **Class synergies:** 3 Beast, 3 Plant, 3 Aquatic, 2 Bug or 2 Reptile in a Formation unlock bonuses, and so does a "Balanced Lunacia" squad that covers all three sides.
 - **The rest of the cast:**
   - The roster Axies are rendered from Axie Spine skeletons (the Origins asset kit and the Mixer).
   - Enemies are Chimeras and corrupted beasts from Axie lore, ending with the Werewolf.
@@ -161,6 +169,8 @@ Format: *what we noticed → what we decided → what happened*.
   - First-time battle tips and the home screen's "Next" goal pointer.
   - Axie Lab: design your own Axie, rendered live by the Axie Mixer; its parts set its stats and signature move.
   - Real attack animations: every Axie (and its evolved form, and the Lab Axie) plays its full Spine attack clip, timed so the blow lands on the hit. QA contact sheet: `docs/qa/attack_alignment.jpg`.
+  - Axie class triangle in combat, class synergies and class intel.
+  - Accounts: email sign-in and Sky Mavis Account (Ronin Waypoint) on Supabase, with cloud saves. Ready to switch on with keys (`docs/ACCOUNTS_SETUP.md`).
   - Account-ready save system (export/import, save-status chip, cloud-sync rules), a playtest log and report, pooled damage numbers, and MP3 music (6 MB smaller).
 
 ---

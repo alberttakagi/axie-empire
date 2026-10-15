@@ -54,3 +54,17 @@ export const COMBO_CONFIG = [
     bonus: { type: 'critChanceBonus', value: 0.08 },
   },
 ];
+
+// Axie class synergies (AXIE_CLASSES.js): fielding several Axies of one
+// class — or a balanced squad covering all three sides of the class
+// triangle — activates a bonus, so Formation building is about Axie
+// identity, not only individual units. `requiredClass` = { cls, count };
+// `requiredSides` = true needs at least one Axie from each side.
+COMBO_CONFIG.push(
+  { id: 'beastPack', name: 'Beast Pack', requiredClass: { cls: 'beast', count: 3 }, bonus: { type: 'critChanceBonus', value: 0.06 } },
+  { id: 'plantGrove', name: 'Plant Grove', requiredClass: { cls: 'plant', count: 3 }, bonus: { type: 'startingMoneyPercent', value: 10 } },
+  { id: 'aquaticCurrent', name: 'Aquatic Current', requiredClass: { cls: 'aquatic', count: 3 }, bonus: { type: 'unitAttackPercent', value: 6 } },
+  { id: 'bugSwarm', name: 'Bug Swarm', requiredClass: { cls: 'bug', count: 2 }, bonus: { type: 'critChanceBonus', value: 0.05 } },
+  { id: 'reptileScales', name: 'Reptile Scales', requiredClass: { cls: 'reptile', count: 2 }, bonus: { type: 'unitAttackPercent', value: 6 } },
+  { id: 'balancedLunacia', name: 'Balanced Lunacia', requiredSides: true, bonus: { type: 'unitAttackPercent', value: 5 } },
+);

@@ -37,3 +37,12 @@ test('the roster spans all three sides of the triangle', () => {
   }));
   assert.equal(sides.size, 3);
 });
+
+test('class synergies activate from Formation classes', async () => {
+  const { getActiveCombos } = await import('../src/Combo.js');
+  const ids = (l) => getActiveCombos(l).map((c) => c.id);
+  assert.ok(ids(['basic', 'fast', 'bing']).includes('beastPack')); // 3 Beasts
+  assert.ok(!ids(['basic', 'fast']).includes('beastPack'));
+  assert.ok(ids(['tank', 'ranged', 'basic']).includes('balancedLunacia')); // Plant + Aquatic + Beast
+  assert.ok(!ids(['tank', 'support', 'basic']).includes('balancedLunacia'));
+});
