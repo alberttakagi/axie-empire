@@ -127,6 +127,18 @@ export class CloudSync {
   }
 
   async adoptUser(user, { quiet }) {
+    // A session can surface twice at load (resume + auth event): adopt once.
+    if (this.adopting?.id === user.id) return this.adopting.promise;
+    const promise = this.adoptUserInner(user, { quiet });
+    this.adopting = { id: user.id, promise };
+    try {
+      return await promise;
+    } finally {
+      this.adopting = null;
+    }
+  }
+
+  async adoptUserInner(user, { quiet }) {
     let cloud;
     try {
       cloud = await this.backend.load(user.id);

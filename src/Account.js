@@ -1,21 +1,36 @@
 // Game-wide account/save singleton. Picks the cloud backend adapter and
-// boots CloudSync. Until the real Sky Mavis Account / Supabase adapter is
-// configured, production runs guest-only (saves on this device, with
-// Export/Import for backup) and dev builds use MockCloudBackend so every
-// account flow can be exercised end to end.
+// boots CloudSync:
+//   - VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY set (.env.local locally,
+//     Vercel env vars in production) → real accounts (email sign-in) with
+//     cloud saves (SupabaseBackend.js, supabase/schema.sql).
+//   - otherwise dev builds use MockCloudBackend so every account flow can
+//     still be exercised, and production runs guest-only (saves on this
+//     device, with Export/Import for backup).
 import { CloudSync, MockCloudBackend } from './CloudSync.js';
+import { SupabaseBackend } from './SupabaseBackend.js';
 import { installWriteMonitor, snapshotSave, restoreSave, validateSnapshot } from './SaveStore.js';
 
 installWriteMonitor();
 
+const env = import.meta.env || {};
+
 function pickBackend() {
-  if (import.meta.env?.DEV) return new MockCloudBackend();
-  return null; // real adapter goes here once credentials exist
+  if (env.VITE_SUPABASE_URL && env.VITE_SUPABASE_ANON_KEY) {
+    return new SupabaseBackend({ url: env.VITE_SUPABASE_URL, anonKey: env.VITE_SUPABASE_ANON_KEY });
+  }
+  if (env.DEV) return new MockCloudBackend();
+  return null;
 }
 
 const backend = pickBackend();
 export const accountsAvailable = !!backend;
-export const accountProviderLabel = backend ? 'Test account (dev)' : 'Sky Mavis Account';
+// 'email' → the email-code form (AccountForms.js); 'mock' → one-tap test account.
+export const accountKind = backend instanceof SupabaseBackend ? 'email' : backend ? 'mock' : 'none';
+export const accountProviderLabel = accountKind === 'email' ? 'Email' : backend ? 'Test account (dev)' : 'Sky Mavis Account';
+
+export function requestEmailCode(email) {
+  return backend.requestEmailCode(email);
+}
 
 export const cloudSync = backend
   ? new CloudSync({ backend })
@@ -29,6 +44,13 @@ export const cloudSync = backend
 
 // Resume a remembered session at startup (never prompts).
 cloudSync.resume().catch(() => {});
+// Magic-link sign-in: the link reopens the game and the session arrives as
+// an auth event — adopt it like a code sign-in.
+if (backend?.onSignedIn) {
+  backend.onSignedIn((user) => {
+    if (!cloudSync.user || cloudSync.user.id !== user.id) cloudSync.adoptUser(user, { quiet: false }).catch(() => {});
+  });
+}
 
 export function exportSaveFile() {
   const snap = snapshotSave();

@@ -15,7 +15,8 @@ import { addHomeWanderers } from './HomeWanderers.js';
 import { countDailyClaimables } from './Economy.js';
 import { ensureLabTextures } from './LabUnit.js';
 import { reportText, clearPlaytestLog } from './Playtest.js';
-import { cloudSync, accountsAvailable, accountProviderLabel, exportSaveFile, importSaveFile } from './Account.js';
+import { cloudSync, accountsAvailable, accountKind, accountProviderLabel, exportSaveFile, importSaveFile } from './Account.js';
+import { openEmailSignIn } from './AccountForms.js';
 import { loadStageProgress } from './StageProgress.js';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { hasFirstFreePull } from './Gacha.js';
@@ -573,7 +574,10 @@ export default class HomeScene extends Phaser.Scene {
       objects.push(createBcButton(this, width / 2, height / 2 - 6, 300, 40, user ? 'Sign out' : `Sign in with ${accountProviderLabel}`, async () => {
         try {
           if (user) await cloudSync.signOut();
-          else await cloudSync.signIn({ id: 'tester', name: 'Tester' });
+          else if (accountKind === 'email') {
+            close();
+            if (!(await openEmailSignIn())) return;
+          } else await cloudSync.signIn({ id: 'tester', name: 'Tester' });
           close();
           this.scene.restart();
         } catch {
