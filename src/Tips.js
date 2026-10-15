@@ -16,6 +16,7 @@ export const TIPS = {
   elite: 'ELITE Chimera! The glowing ring shows its power: shielded, hasty or vampiric.',
   chest: 'A treasure chest floats on the lane — hit it with the Rune Cannon for Money (and maybe Gems).',
   boss: 'BOSS incoming! It knocks your Axies back on arrival. Save the cannon for it.',
+  classes: 'AXIE CLASSES! Reptile/Plant/Dusk beat Aquatic/Bird/Dawn, which beat Beast/Bug/Mech, which beat Reptile/Plant/Dusk. +15% damage on the advantage.',
   worker: 'Wallet full! Spend it on Axies, or upgrade the Worker (bottom-left) to raise the cap and earn faster.',
 };
 

@@ -19,6 +19,7 @@ export function applyLabGenome(genome) {
   if (!genome) return;
   Object.assign(UNIT_CONFIG.lab, deriveUnitStats(genome), {
     characterName: genome.name || defaultName(genome),
+    axieClass: genome.bodyClass,
     displayName: 'Lab Axie',
   });
   // Clear abilities a previous design may have had.

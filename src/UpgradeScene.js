@@ -1,3 +1,4 @@
+import { addClassBadge, classOfUnit } from './AXIE_CLASSES.js';
 import Phaser from 'phaser';
 import { playSfxFile } from './Audio.js';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
@@ -174,6 +175,8 @@ export default class UpgradeScene extends Phaser.Scene {
     const icon = addUnitIcon(this, 54, y, base, ROW_HEIGHT - 10, true, isEvolved, true);
     if (icon) rowObjects.push(icon);
     else rowObjects.push(this.add.rectangle(30, y, 20, 20, base.color));
+    const classBadge = addClassBadge(this, 30, y - ROW_HEIGHT / 2 + 12, classOfUnit(base), 7);
+    if (classBadge) rowObjects.push(classBadge);
     rowObjects.push(
       this.add
         .text(92, y - 12, `${base.characterName} (${base.abilityLabel})  ·  ${meta.rarity}  —  ${evoName}`, {

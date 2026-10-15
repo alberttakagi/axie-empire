@@ -1,3 +1,4 @@
+import { addClassBadge, classOfUnit } from './AXIE_CLASSES.js';
 import Phaser from 'phaser';
 import { UNIT_CONFIG } from './UNIT_CONFIG.js';
 import { preloadSpriteRosterStills, loadSpriteRosterFramesInBackground, addUnitIcon } from './SpriteIcon.js';
@@ -400,6 +401,8 @@ export default class LoadoutScene extends Phaser.Scene {
       children.push(slotBadge);
     }
 
+    const classBadge = addClassBadge(this, -CARD_WIDTH / 2 + 13, -CARD_HEIGHT / 2 + 13, classOfUnit(config), 8);
+    if (classBadge) children.push(classBadge);
     const card = this.add.container(x, y, children);
     // Explicit centered hit area — Container.setInteractive's own
     // setSize-based shorthand defaults to a hit rect anchored at the

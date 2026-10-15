@@ -1,3 +1,4 @@
+import { classOfEnemy, classOfUnit, classEdge, CLASS_STYLE } from './AXIE_CLASSES.js';
 import Phaser from 'phaser';
 import { STAGE_CONFIG } from './STAGE_CONFIG.js';
 import { SAGA_CONFIG, getStageChapterName } from './SAGA_CONFIG.js';
@@ -858,6 +859,24 @@ export default class StageSelectScene extends Phaser.Scene {
         return counters.length ? `${label} counters: ${counters.join(', ')}` : `${label}: no counter yet`;
       });
       lines.push(...counterLines);
+    }
+    // Axie class triangle (AXIE_CLASSES.js): which classes this stage's
+    // Chimeras are, and which of YOUR classes have the edge against them.
+    const enemyClasses = ids.map((id) => classOfEnemy(ENEMY_CONFIG[id])).filter(Boolean);
+    if (enemyClasses.length) {
+      const counts = {};
+      enemyClasses.forEach((c) => { counts[c] = (counts[c] || 0) + 1; });
+      lines.push(`Chimera classes: ${Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([c, n]) => `${CLASS_STYLE[c].label}${n > 1 ? ` ×${n}` : ''}`).join(', ')}`);
+      const formation = loadLoadout().filter((k) => k && UNIT_CONFIG[k]);
+      const scored = Object.keys(CLASS_STYLE)
+        .map((c) => ({ c, score: enemyClasses.reduce((sum, e) => sum + classEdge(c, e), 0) }))
+        .filter((x) => x.score > 0)
+        .sort((a, b) => b.score - a.score);
+      if (scored.length) {
+        const best = scored.filter((x) => x.score === scored[0].score).map((x) => x.c);
+        const yours = formation.filter((k) => best.includes(classOfUnit(UNIT_CONFIG[k]))).map((k) => UNIT_CONFIG[k].characterName);
+        lines.push(`Class edge: ${best.map((c) => CLASS_STYLE[c].label).join('/')} Axies hit +15%${yours.length ? ` — you have ${yours.join(', ')}` : ' — none in your Formation'}`);
+      }
     }
     // Measure the real wrapped height (same style the popup renders with).
     const probe = this.add.text(-1000, -1000, lines.join('\n'), {

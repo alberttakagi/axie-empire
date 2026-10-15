@@ -9,6 +9,7 @@ import { installBattleTwists } from './BattleTwists.js';
 import { installBattleFx, SAGA_BATTLE_MUSIC } from './BattleFx.js';
 import { showTipOnce, resetTipState } from './Tips.js';
 import { logEvent } from './Playtest.js';
+import { classMultiplier, classEdge, classOfUnit, classOfEnemy, CLASS_STYLE, addClassBadge } from './AXIE_CLASSES.js';
 import { ATTACK_ANIM_META } from './ATTACK_ANIM_META.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
 import { STAGE_CONFIG, getStageCostMultiplier } from './STAGE_CONFIG.js';
@@ -1546,6 +1547,9 @@ export default class GameScene extends Phaser.Scene {
       rect.on('pointerup', (p) => { if (p.wasTouch) this.cancelBattleTooltip(); });
 
       this.spawnButtons.push({ key, config, rect, icon, costText, cooldownOverlay });
+      // Axie class (AXIE_CLASSES.js) — top-left corner of the deploy card.
+      const classBadge = addClassBadge(this, x - buttonWidth / 2 + 9, y - BUTTON_HEIGHT / 2 + 9, classOfUnit(config), isCompact ? 6 : 7);
+      if (classBadge) this.cameras.main.ignore(classBadge);
     }
 
     // Whole-row bounding box (not any one button's) — see
@@ -4115,12 +4119,38 @@ export default class GameScene extends Phaser.Scene {
     const weakenMultiplier = attacker.weakenMs > 0 ? attacker.weakenMultiplier : 1;
     const critMultiplier = isCrit ? CRITICAL_DEALT_MULTIPLIER : 1;
     const superClassMultiplier = this.getSuperClassMultiplier(attacker, defender);
+    // Axie class triangle (AXIE_CLASSES.js), both directions.
+    const axieClassMultiplier = classMultiplier(this.axieClassOf(attacker), this.axieClassOf(defender));
 
     let damage =
-      attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier;
+      attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier * axieClassMultiplier;
+    if (axieClassMultiplier !== 1) this.maybeClassCallout(attacker, defender, axieClassMultiplier > 1);
     // Sunbeam weather (BattleTwists.js): the player's side hits 25% harder.
     if (attacker.isPlayerSide && this.sunbeamMs > 0) damage = Math.round(damage * 1.25);
     return { damage, isCrit };
+  }
+
+  axieClassOf(entity) {
+    if (!entity?.config) return null;
+    return entity.isPlayerSide ? classOfUnit(entity.config) : classOfEnemy(entity.config);
+  }
+
+  // Occasional floating "SUPER EFFECTIVE!" / "Resisted" so players learn the
+  // triangle by seeing it — at most once per attacker every few seconds.
+  maybeClassCallout(attacker, defender, advantage) {
+    const now = this.time.now;
+    if (attacker.lastClassCalloutAt && now - attacker.lastClassCalloutAt < 4000) return;
+    if (!defender.shape || (!advantage && !attacker.isPlayerSide)) return; // only show resists for YOUR hits
+    attacker.lastClassCalloutAt = now;
+    if (attacker.isPlayerSide && advantage) showTipOnce(this, 'classes');
+    const cls = CLASS_STYLE[this.axieClassOf(advantage ? attacker : defender)];
+    const label = this.add.text(defender.shape.x, defender.shape.y - 46, advantage ? 'SUPER EFFECTIVE!' : 'Resisted', {
+      fontFamily: 'Rowdies, sans-serif', fontSize: advantage ? '12px' : '10px',
+      color: advantage ? (cls?.hex || '#ffe58a') : '#c8c8c8', stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setDepth(1002).setScale(0.5);
+    this.uiCamera.ignore(label);
+    this.tweens.add({ targets: label, scale: 1, duration: 140, ease: 'Back.out' });
+    this.tweens.add({ targets: label, y: label.y - 20, alpha: 0, delay: 500, duration: 500, onComplete: () => label.destroy() });
   }
 
   // Colossus/Behemoth Slayer (bible §A.3.8) — independent of, and stacking
