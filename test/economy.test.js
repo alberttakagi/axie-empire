@@ -56,6 +56,9 @@ test('market spends Gems, refuses when broke, deal sells out', () => {
   const gems = loadPlayerProgress().gems;
   assert.ok(buyOffer('evo').ok);
   assert.equal(loadPlayerProgress().gems, gems - 120);
+  // The Daily Deal is picked by date; if it's the Full Refill it (correctly)
+  // refuses while Energy is full — so empty Energy first.
+  values.set('axieSkirmishEnergy', JSON.stringify({ current: 0, lastUpdateMs: Date.now() }));
   assert.ok(buyOffer(null, { deal: true }).ok);
   assert.equal(getDailyDeal().bought, true);
   assert.equal(buyOffer(null, { deal: true }).reason, 'sold-out');
