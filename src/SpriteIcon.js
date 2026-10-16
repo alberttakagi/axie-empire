@@ -113,9 +113,13 @@ export function preloadSpriteRosterStills(scene, roster, isPlayerSide = true) {
 // back to the still idle pose (see addUnitIcon).
 export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide = true, onComplete = () => {}, { battle = false } = {}) {
   let queued = 0;
+  // Includes the stills too: queueEntry skips anything already cached, so
+  // this only re-fetches a still whose earlier request failed — letting a
+  // screen heal itself instead of keeping a broken icon until a reload.
   for (const entry of spriteRosterEntries(roster, isPlayerSide, battle ? FRAME_FIELDS : MENU_FRAME_FIELDS)) {
     if (queueEntry(scene, entry)) queued += 1;
   }
+  retryFailedOnce(scene);
   if (!queued) {
     onComplete();
     return;
@@ -124,6 +128,25 @@ export function loadSpriteRosterFramesInBackground(scene, roster, isPlayerSide =
     if (scene.sys.isActive()) onComplete();
   });
   scene.load.start();
+}
+
+// One automatic retry for sprite/atlas files that fail to load (flaky
+// mobile network, dev-server hiccup). Registered once per scene.
+function retryFailedOnce(scene) {
+  if (scene.__spriteRetryHooked) return;
+  scene.__spriteRetryHooked = true;
+  const retried = new Set();
+  scene.load.on('loaderror', (file) => {
+    const key = file?.key;
+    if (!key || retried.has(key) || !/^(unit|enemy)_/.test(key)) return;
+    retried.add(key);
+    scene.time.delayedCall(800, () => {
+      if (!scene.sys.isActive() || scene.textures.exists(key)) return;
+      if (file.type === 'multiatlas') scene.load.multiatlas(key, file.url, '/sprites/atlas/');
+      else scene.load.image(key, file.url);
+      scene.load.start();
+    });
+  });
 }
 
 export function preloadSpriteRoster(scene, roster, isPlayerSide = true) {
@@ -219,6 +242,12 @@ export function addUnitIcon(scene, x, y, config, targetDiameter, isPlayerSide = 
     ? scene.textures.get(atlasKey).getFrameNames().sort((a, b) => a - b)
     : null;
   const idleKey = `${prefix}_${config.id}${evolvedTag}_idle`;
+
+  // Neither the animated atlas nor the still is loaded (a failed or
+  // still-pending request): draw nothing rather than Phaser's green
+  // "missing texture" box. Callers rebuild once loading completes (see
+  // loadSpriteRosterFramesInBackground, which also re-fetches missing stills).
+  if (!frames && !scene.textures.exists(idleKey)) return null;
 
   let icon;
   if (frames) {
