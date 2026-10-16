@@ -97,3 +97,20 @@ export function importSaveFile() {
     input.click();
   });
 }
+
+// Sparring Grounds global leaderboard — real accounts only (Supabase).
+export const leaderboardAvailable = accountKind === 'email';
+
+export async function submitDojoScore(entry) {
+  if (!leaderboardAvailable || !cloudSync.user) return false;
+  try {
+    return await backend.submitDojoScore(cloudSync.user, entry);
+  } catch {
+    return false; // the board is a bonus; never break the run's end screen
+  }
+}
+
+export async function fetchDojoLeaderboard(week) {
+  if (!leaderboardAvailable) return null;
+  return backend.topDojoScores(week);
+}

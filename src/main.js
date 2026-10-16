@@ -15,6 +15,7 @@ import CatalogScene from './CatalogScene.js';
 import MissionsScene from './MissionsScene.js';
 import MarketScene from './MarketScene.js';
 import AxieLabScene from './AxieLabScene.js';
+import DojoScene from './DojoScene.js';
 import './Account.js'; // save monitor + account session resume
 import './LabUnit.js';
 import { logEvent, logSessionStart } from './Playtest.js'; // applies the saved Axie Lab design to UNIT_CONFIG.lab
@@ -175,6 +176,7 @@ const game = new Phaser.Game({
     MissionsScene,
     MarketScene,
     AxieLabScene,
+    DojoScene,
   ],
 });
 

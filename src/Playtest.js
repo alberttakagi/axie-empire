@@ -46,7 +46,7 @@ export function logSessionStart() {
 // ---- Summary ----
 export function summarize(log = load()) {
   const s = {
-    sessions: 0, mobileSessions: 0, battles: 0, wins: 0, losses: 0, quits: 0,
+    sessions: 0, mobileSessions: 0, dojoRuns: 0, battles: 0, wins: 0, losses: 0, quits: 0,
     battleSeconds: 0, byStage: {}, gachaPulls: 0, newAxies: 0, marketBuys: {}, labSaves: 0,
     screens: {}, firstAt: log[0]?.t || null, lastAt: log[log.length - 1]?.t || null, tipsSeen: 0,
   };
@@ -54,6 +54,7 @@ export function summarize(log = load()) {
     switch (e.type) {
       case 'session': s.sessions += 1; if (e.mobile) s.mobileSessions += 1; break;
       case 'battle_end': {
+        if (e.result === 'dojo') { s.dojoRuns += 1; break; }
         s.battles += 1;
         if (e.result === 'win') s.wins += 1;
         else if (e.result === 'loss') s.losses += 1;
@@ -87,6 +88,7 @@ export function reportText() {
     `Axie Empire playtest report (${new Date().toLocaleString()})`,
     `Sessions: ${s.sessions} (${s.mobileSessions} on mobile)`,
     `Battles: ${s.battles} — wins ${s.wins} (${pct(s.wins, s.battles)}), losses ${s.losses}, quits ${s.quits}`,
+    `Sparring Grounds runs: ${s.dojoRuns}`,
     `Avg battle: ${s.battles ? Math.round(s.battleSeconds / s.battles) : 0}s`,
     `Hardest stages: ${s.hardest.map((h) => `${h.name || h.id} (${h.fails} fails, ${h.win} wins)`).join('; ') || 'none yet'}`,
     `Gacha: ${s.gachaPulls} pulls, ${s.newAxies} new Axies`,

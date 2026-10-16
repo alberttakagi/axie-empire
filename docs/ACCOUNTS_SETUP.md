@@ -71,3 +71,11 @@ Tested with mocks in `test/supabase.test.js`:
 - a missing client ID
 
 The Edge Function itself still needs a live test once the client ID and project exist.
+
+## Sparring Grounds leaderboard
+
+`supabase/schema.sql` also creates `dojo_scores`, which holds one best score per player per week.
+- Anyone can read the board. Players can write only their own row.
+- If you ran the schema before this table existed, run it again; it's safe to re-run.
+
+Scores are submitted by the game itself, so a determined player could fake one. That's acceptable for an internal jam. Server-side replay verification would be the fix if the board ever matters more.

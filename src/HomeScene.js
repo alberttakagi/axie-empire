@@ -13,6 +13,7 @@ import { getUserRank } from './UserRank.js';
 import { preloadBackgrounds, addBackground } from './Backdrop.js';
 import { addHomeWanderers } from './HomeWanderers.js';
 import { countDailyClaimables } from './Economy.js';
+import { countWeeklyClaimables } from './WeeklyChallenge.js';
 import { ensureLabTextures } from './LabUnit.js';
 import { reportText, clearPlaytestLog } from './Playtest.js';
 import { cloudSync, accountsAvailable, accountKind, accountProviderLabel, exportSaveFile, importSaveFile } from './Account.js';
@@ -196,8 +197,14 @@ export default class HomeScene extends Phaser.Scene {
     const y = (stackBottom + iconRowTop) / 2;
 
     createBcButton(this, x, y, 200, 34, 'Sparring Grounds', () => {
-      this.scene.start('GameScene', { mode: 'dojo' });
+      this.scene.start('DojoScene');
     }, { fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a', fontSize: 13 });
+    // Unclaimed weekly-challenge reward → red badge.
+    const claimable = countWeeklyClaimables();
+    if (claimable) {
+      this.add.circle(x + 96, y - 14, 9, BC.red).setStrokeStyle(2, 0xffffff);
+      this.add.text(x + 96, y - 14, String(claimable), { fontFamily: FONT, fontSize: '10px', color: '#ffffff' }).setOrigin(0.5);
+    }
   }
 
   // Two clusters on the same row (reference: the hub-feature icons sit

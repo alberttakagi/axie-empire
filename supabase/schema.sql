@@ -29,3 +29,30 @@ create policy "update own save" on public.saves
 -- Guard against absurd payloads (a full save is ~50–200 KB).
 alter table public.saves drop constraint if exists snapshot_size;
 alter table public.saves add constraint snapshot_size check (pg_column_size(snapshot) < 2000000);
+
+-- Sparring Grounds weekly leaderboard (one best score per player per week).
+-- Anyone may READ the board; players may only write THEIR OWN row.
+create table if not exists public.dojo_scores (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  week text not null,
+  score integer not null check (score >= 0 and score < 100000),
+  name text not null check (char_length(name) <= 24),
+  featured_class text,
+  updated_at timestamptz not null default now(),
+  primary key (user_id, week)
+);
+
+alter table public.dojo_scores enable row level security;
+
+drop policy if exists "board is public" on public.dojo_scores;
+create policy "board is public" on public.dojo_scores for select using (true);
+
+drop policy if exists "insert own score" on public.dojo_scores;
+create policy "insert own score" on public.dojo_scores
+  for insert with check (auth.uid() = user_id);
+
+drop policy if exists "update own score" on public.dojo_scores;
+create policy "update own score" on public.dojo_scores
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create index if not exists dojo_scores_week_score on public.dojo_scores (week, score desc);

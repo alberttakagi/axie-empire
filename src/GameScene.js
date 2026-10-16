@@ -9,6 +9,8 @@ import { installBattleTwists } from './BattleTwists.js';
 import { installBattleFx, SAGA_BATTLE_MUSIC } from './BattleFx.js';
 import { showTipOnce, resetTipState } from './Tips.js';
 import { logEvent } from './Playtest.js';
+import { featuredClass, featuredEnemyRoles, recordWeeklyScore, weekKey, FEATURED_SPAWN_SHARE, CHALLENGE_BONUS, WEEKLY_TIERS } from './WeeklyChallenge.js';
+import { submitDojoScore } from './Account.js';
 import { classMultiplier, classEdge, classOfUnit, classOfEnemy, CLASS_STYLE, addClassBadge } from './AXIE_CLASSES.js';
 import { ATTACK_ANIM_META } from './ATTACK_ANIM_META.js';
 import { preloadBackgrounds, preloadBattleBackground, addBackground, getStageBattleBackgroundId } from './Backdrop.js';
@@ -1023,6 +1025,8 @@ export default class GameScene extends Phaser.Scene {
     // Playtest log: one battle_start, and exactly one battle_end (win, loss,
     // or quit if the scene shuts down first).
     this.battleStartedAt = Date.now();
+    this.dojoFeaturedClass = this.mode === 'dojo' ? featuredClass() : null;
+    this.dojoFeaturedRoles = this.dojoFeaturedClass ? featuredEnemyRoles(this.dojoFeaturedClass) : null;
     this.battleEndLogged = false;
     logEvent('battle_start', { stage: this.mode === 'dojo' ? 'dojo' : this.stage?.id, units: Object.keys(this.unitCooldowns || {}) });
     this.events.once('shutdown', () => this.logBattleEnd('quit'));
@@ -1305,8 +1309,11 @@ export default class GameScene extends Phaser.Scene {
       (role) => tier >= (DOJO_CONFIG.roleUnlockTier[role] ?? 0),
     );
 
+    // Weekly challenge (WeeklyChallenge.js): most spawns are the featured class.
+    const featuredRoles = availableRoles.filter((role) => this.dojoFeaturedRoles?.includes(role));
     for (let i = 0; i < burstSize; i += 1) {
-      const role = availableRoles[Math.floor(Math.random() * availableRoles.length)];
+      const pool = featuredRoles.length && Math.random() < FEATURED_SPAWN_SHARE ? featuredRoles : availableRoles;
+      const role = pool[Math.floor(Math.random() * pool.length)];
       this.time.delayedCall(i * 250, () => {
         if (this.isGameOver) return;
         this.spawnDojoEnemy(role);
@@ -1907,7 +1914,7 @@ export default class GameScene extends Phaser.Scene {
     // drops you back where you'd actually pick another stage.
     objects.push(
       createBcButton(this, width / 2 - 80, buttonY, 130, 48, 'Quit', () => {
-        this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga });
+        this.scene.start(this.mode === 'dojo' ? 'DojoScene' : 'StageSelectScene', { sagaId: this.stage.saga });
       }, {
         fill: BC.red, highlight: BC.redHighlight, textColor: '#ffffff', fontSize: 16,
       }),
@@ -4120,7 +4127,10 @@ export default class GameScene extends Phaser.Scene {
     const critMultiplier = isCrit ? CRITICAL_DEALT_MULTIPLIER : 1;
     const superClassMultiplier = this.getSuperClassMultiplier(attacker, defender);
     // Axie class triangle (AXIE_CLASSES.js), both directions.
-    const axieClassMultiplier = classMultiplier(this.axieClassOf(attacker), this.axieClassOf(defender));
+    let axieClassMultiplier = classMultiplier(this.axieClassOf(attacker), this.axieClassOf(defender));
+    // Weekly challenge bonus: counter-class Axies vs this week's featured class.
+    if (this.mode === 'dojo' && attacker.isPlayerSide && this.dojoFeaturedClass
+      && classEdge(this.axieClassOf(attacker), this.dojoFeaturedClass) > 0) axieClassMultiplier *= 1 + CHALLENGE_BONUS;
 
     let damage =
       attacker.config.damage * strongBonus * resistMultiplier * weakenMultiplier * critMultiplier * superClassMultiplier * axieClassMultiplier;
@@ -4559,8 +4569,16 @@ export default class GameScene extends Phaser.Scene {
 
     const finalScore = this.getScore();
     const { bestScore, isNewBest } = saveDojoScore(finalScore);
+    const weekly = recordWeeklyScore(finalScore, Object.keys(this.unitCooldowns || {}));
     const lines = ['TIME UP!', `Score: ${finalScore}`];
     lines.push(isNewBest ? 'New best score!' : `Best: ${bestScore}`);
+    lines.push(weekly.isNewBest ? `New weekly best: ${weekly.best}` : `This week's best: ${weekly.best}`);
+    for (const id of weekly.newlyReached) {
+      const t = WEEKLY_TIERS.find((x) => x.id === id);
+      lines.push(`★ ${t.label} reward unlocked — claim it in Sparring Grounds!`);
+    }
+    this.logBattleEnd('dojo');
+    submitDojoScore({ week: weekKey(), score: finalScore, featuredClass: this.dojoFeaturedClass });
     this.showEndScreen(lines);
   }
 
@@ -4717,7 +4735,7 @@ export default class GameScene extends Phaser.Scene {
         // battle returns to its OWN saga's stage list (bible §A.6.1), not
         // always saga1's — this.stage.saga is read straight off the stage
         // record STAGE_CONFIG already resolved in create().
-        onClick = () => this.scene.start(this.mode === 'dojo' ? 'HomeScene' : 'StageSelectScene', { sagaId: this.stage.saga });
+        onClick = () => this.scene.start(this.mode === 'dojo' ? 'DojoScene' : 'StageSelectScene', { sagaId: this.stage.saga });
       }
 
       const button = createBcButton(this, x, buttonY, buttonWidth, 60, label, onClick, {

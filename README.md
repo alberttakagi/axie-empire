@@ -50,7 +50,10 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
    - **Base Upgrades.**
    - **Formation** building.
 3. **Collect:** the gacha has 9 summonable Axies (Rare, Super Rare, Uber). Duplicates raise level caps; maxed units convert duplicates to XP.
-4. **Return:** daily login calendar, daily missions, Expeditions on a real-time clock, and milestone missions.
+4. **Weekly challenge:** each week the Sparring Grounds features one Chimera class.
+   - Counter-class Axies get a bonus, and weekly score tiers pay Gems and an Evo Shard.
+   - With accounts on, there's a global weekly leaderboard.
+5. **Return:** daily login calendar, daily missions, Expeditions on a real-time clock, and milestone missions.
 
 ## Axie Core fit
 
@@ -177,6 +180,8 @@ Format: *what we noticed → what we decided → what happened*.
   - Axie Lab: design your own Axie, rendered live by the Axie Mixer; its parts set its stats and signature move.
   - Real attack animations: every Axie (and its evolved form, and the Lab Axie) plays its full Spine attack clip, timed so the blow lands on the hit. QA contact sheet: `docs/qa/attack_alignment.jpg`.
   - Axie class triangle in combat, class synergies and class intel.
+  - Sparring Grounds weekly class challenge: featured class, reward tiers, and a global leaderboard once accounts are on.
+  - Economy rebalance from a 30-day simulation (docs/ECONOMY.md).
   - Accounts: email sign-in and Sky Mavis Account (Ronin Waypoint) on Supabase, with cloud saves. Ready to switch on with keys (`docs/ACCOUNTS_SETUP.md`).
   - Account-ready save system (export/import, save-status chip, cloud-sync rules), a playtest log and report, pooled damage numbers, and MP3 music (6 MB smaller).
 

@@ -146,6 +146,27 @@ export class SupabaseBackend {
     if (error) throw new Error(friendly(error, "Couldn't save to your account."));
   }
 
+  // ---- Sparring Grounds weekly leaderboard (public.dojo_scores) ----
+  // Keeps only the player's best score of the week.
+  async submitDojoScore(user, { week, score, featuredClass }) {
+    const sb = await this.sb();
+    const { data: existing } = await sb.from('dojo_scores').select('score').eq('user_id', user.id).eq('week', week).maybeSingle();
+    if (existing && existing.score >= score) return false;
+    const { error } = await sb.from('dojo_scores').upsert(
+      { user_id: user.id, week, score: Math.round(score), name: String(user.name || 'Lunacian').slice(0, 24), featured_class: featuredClass, updated_at: new Date().toISOString() },
+      { onConflict: 'user_id,week' },
+    );
+    if (error) throw new Error(friendly(error, "Couldn't post your score."));
+    return true;
+  }
+
+  async topDojoScores(week, limit = 10) {
+    const sb = await this.sb();
+    const { data, error } = await sb.from('dojo_scores').select('user_id,name,score').eq('week', week).order('score', { ascending: false }).limit(limit);
+    if (error) throw new Error(friendly(error, "Couldn't load the leaderboard."));
+    return data || [];
+  }
+
   // Magic-link sign-ins land as an auth event after the page loads.
   async onSignedIn(fn) {
     const sb = await this.sb();
