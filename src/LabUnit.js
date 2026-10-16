@@ -71,6 +71,28 @@ export function ensureLabTextures(game) {
           anchor: { x: 0, y: 0 }, size, idleAnchor: { x: 0, y: 0 }, idleSize: size,
         };
       }
+      // True Form: the same design with every part on its evolved (Lv2)
+      // mixer skin. Optional — if it fails, the base art is used for both.
+      try {
+        const evo = await renderGenomeFrames(genome, { evolved: true });
+        registerFramesAsTextures(game.textures, 'lab_evolved', evo);
+        UNIT_CONFIG.lab.sprite.evolved = {
+          idle: 'mixer:evolved:idle', attack: 'mixer:evolved:attack', hit: 'mixer:evolved:hit',
+          run: evo.run.map((_, i) => `mixer:evolved:run:${i}`),
+          idleAnim: evo.idle.map((_, i) => `mixer:evolved:idle:${i}`),
+          ...(evo.attackSeq?.length ? { attackAnim: evo.attackSeq.map((_, i) => `mixer:evolved:attack:${i}`) } : {}),
+        };
+        if (evo.attackSeq?.length) {
+          const size = { w: evo.idle[0].width, h: evo.idle[0].height };
+          ATTACK_ANIM_META.lab_evolved = {
+            frames: evo.attackSeq.length, durationMs: evo.attackDurationMs, impact: 0.45,
+            anchor: { x: 0, y: 0 }, size, idleAnchor: { x: 0, y: 0 }, idleSize: size,
+          };
+        }
+      } catch (e) {
+        delete UNIT_CONFIG.lab.sprite.evolved;
+        console.warn('Axie Lab: True Form render failed, using base art', e);
+      }
       labTexturesFor = sig;
       return true;
     } catch (e) {

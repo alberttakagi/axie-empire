@@ -61,6 +61,7 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
   - Players design their own Axie by choosing a body class, a color and all six parts (each part with its own class and style).
   - The official `@axieinfinity/mixer` (v1.4.9) renders it **live in the browser**, with PixiJS and pixi-spine and part art streamed from Axie's CDN.
   - The same live frames are used in battle.
+  - **True Form:** at True Form the Lab Axie switches to the Mixer's evolved (Lv2) part art, and the Lab has a "Preview True Form" toggle.
 - **The parts decide how it fights.** These rules live in `src/AxieGenome.js` and are covered by unit tests:
   - **Body class:** sets the base stats (HP / Speed / Skill / Morale, Origins-style) and which enemy attribute it's strong against.
   - **Each part:** adds its own class's stat bonus.

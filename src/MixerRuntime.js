@@ -46,7 +46,9 @@ function cap(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-function genomeToCombo(mixer, genome) {
+// `evolved`: every part at stage 1 — the mixer's own Lv2 ("evolved part")
+// skins, used for the Lab Axie's True Form.
+function genomeToCombo(mixer, genome, evolved = false) {
   const bodyStructure = {
     class: cap(genome.bodyClass), // the mixer's gene tables use capitalized class names
     body: [0, 0, 0],
@@ -57,16 +59,16 @@ function genomeToCombo(mixer, genome) {
   };
   for (const [type, part] of Object.entries(genome.parts)) {
     bodyStructure.parts[cap(type)] = {
-      stageCap: 2, stage: 0, reservation: 0, skinInheritability: true, skin: 0,
+      stageCap: 2, stage: evolved ? 1 : 0, reservation: 0, skinInheritability: true, skin: 0,
       groups: [0, 1, 2].map(() => ({ class: cap(part.class), value: part.value })),
     };
   }
   return mixer.genesStuff.getAdultCombo(bodyStructure);
 }
 
-async function buildSkeletonData(libs, genome) {
+async function buildSkeletonData(libs, genome, evolved = false) {
   const { mixer, pixi, spineMod, runtime } = libs;
-  const combo = genomeToCombo(mixer, genome);
+  const combo = genomeToCombo(mixer, genome, evolved);
   const { error, skeletonDataAsset, variant } = mixer.getAxieSpineFromCombo(combo, genome.color || 0, false);
   if (error) throw new Error(`Mixer: ${error}`);
   const attachments = skeletonDataAsset.skins[0].attachments;
@@ -150,9 +152,9 @@ function crop(canvas, b, pad = 4) {
 }
 
 // → { idle: [canvas], run: [canvas], attack: canvas, hit: canvas, attackSeq: [canvas], attackDurationMs }
-export async function renderGenomeFrames(genome) {
+export async function renderGenomeFrames(genome, { evolved = false } = {}) {
   const libs = await loadLibs();
-  const skeletonData = await buildSkeletonData(libs, genome);
+  const skeletonData = await buildSkeletonData(libs, genome, evolved);
   const idleAnim = findAnim(skeletonData, 'action/idle/normal', /idle/);
   const runAnim = findAnim(skeletonData, 'draft/run-origin', /run/);
   const attackAnim = findAnim(skeletonData, 'attack/melee/horn-gore', /attack\/melee/);

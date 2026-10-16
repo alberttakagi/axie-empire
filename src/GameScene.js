@@ -4570,12 +4570,12 @@ export default class GameScene extends Phaser.Scene {
     const finalScore = this.getScore();
     const { bestScore, isNewBest } = saveDojoScore(finalScore);
     const weekly = recordWeeklyScore(finalScore, Object.keys(this.unitCooldowns || {}));
-    const lines = ['TIME UP!', `Score: ${finalScore}`];
-    lines.push(isNewBest ? 'New best score!' : `Best: ${bestScore}`);
-    lines.push(weekly.isNewBest ? `New weekly best: ${weekly.best}` : `This week's best: ${weekly.best}`);
-    for (const id of weekly.newlyReached) {
-      const t = WEEKLY_TIERS.find((x) => x.id === id);
-      lines.push(`★ ${t.label} reward unlocked — claim it in Sparring Grounds!`);
+    // Kept to 4 short lines — the end panel's large type overflows past that.
+    const lines = ['TIME UP!', `Score: ${finalScore}${isNewBest ? '  (new best!)' : `  ·  Best ${bestScore}`}`];
+    lines.push(`Week best: ${weekly.best}${weekly.isNewBest ? ' ★' : ''}`);
+    if (weekly.newlyReached.length) {
+      const t = WEEKLY_TIERS.find((x) => x.id === weekly.newlyReached[weekly.newlyReached.length - 1]);
+      lines.push(`${t.label} reward unlocked!`);
     }
     this.logBattleEnd('dojo');
     submitDojoScore({ week: weekKey(), score: finalScore, featuredClass: this.dojoFeaturedClass });

@@ -56,6 +56,18 @@ export default class AxieLabScene extends Phaser.Scene {
     this.nameText = this.add.text(150, 92, '', { fontFamily: FONT, fontSize: '17px', color: '#ffffff', stroke: '#000000', strokeThickness: 4 }).setOrigin(0.5);
     this.classTag = this.add.text(150, 114, '', { fontFamily: FONT, fontSize: '11px', color: '#ffd27f' }).setOrigin(0.5);
     this.add.text(150, 352, 'Drawn live by the Axie Mixer', { fontFamily: FONT, fontSize: '9px', color: '#8f7cc7' }).setOrigin(0.5);
+    // True Form preview: every part on its evolved mixer skin (what your
+    // Axie becomes at True Form in Power Up).
+    this.previewEvolved = false;
+    this.evoToggle = this.add.text(150, 136, '✦ Preview True Form', {
+      fontFamily: FONT, fontSize: '10px', color: '#ffffff', backgroundColor: '#6a55a0', padding: { x: 8, y: 3 },
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    this.evoToggle.on('pointerup', () => {
+      this.previewEvolved = !this.previewEvolved;
+      this.evoToggle.setText(this.previewEvolved ? '✦ Showing True Form' : '✦ Preview True Form');
+      this.evoToggle.setBackgroundColor(this.previewEvolved ? '#c9a227' : '#6a55a0');
+      this.renderPreview();
+    });
 
     createBcButton(this, 95, 330, 90, 26, 'Rename', () => this.rename(), { fontSize: 11, fill: BC.blue, highlight: BC.blueHighlight, textColor: '#0a2e3a' });
     createBcButton(this, 205, 330, 90, 26, 'Randomize', () => {
@@ -111,7 +123,7 @@ export default class AxieLabScene extends Phaser.Scene {
     this.tweens.add({ targets: this.previewImage, alpha: 0.35, duration: 150 });
     try {
       const { renderGenomeFrames } = await import('./MixerRuntime.js');
-      const frames = await renderGenomeFrames(this.genome);
+      const frames = await renderGenomeFrames(this.genome, { evolved: this.previewEvolved });
       if (token !== this.renderToken || !this.sys.isActive()) return;
       this.showPreview(frames);
       this.statusText.setText('');
