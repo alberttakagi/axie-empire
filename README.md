@@ -94,7 +94,7 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
   - First clears.
   - Milestone missions.
   - Daily login, a 7-day streak that restarts if you miss a day.
-  - Daily missions, plus a bonus for clearing all of them.
+  - Daily missions (30 / 25 Gems and more), plus a 50-Gem bonus for clearing all of them.
   - Cannon chests.
   - Expeditions.
 - **Sinks:**
@@ -116,13 +116,20 @@ The vision is a small, complete, replayable Axie game: quick 2–5 minute battle
   - The Market footer shows today's Gems earned and spent.
   - These logs feed the playtest notes below.
 
+**What testing revealed:**
+- A 30-day simulation of three player types, using the game's real reward tables, showed first-clear Gems paid out about 3,350 gacha pulls over the campaign.
+- A 15-minute-a-day player owned 8 of the 9 gacha Axies within a week, and daily rewards were only 1–4% of income.
+- We scaled first clears to ×0.12 and raised the daily missions. Now pulls are earned, Ubers stay rare, and daily play is about a quarter of a light player's income.
+- Full numbers and before/after tables: **[docs/ECONOMY.md](./docs/ECONOMY.md)**.
+
 ## Playtest notes
 
 Format: *what we noticed → what we decided → what happened*.
 
-1. **Saga 4 too easy:** the balance simulator (`src/dev/BalanceSim.js`) showed Sagas 5–7 were easier than Saga 4 for a player progressing at a normal pace → we retuned saga strength to 5 / 7.5 / 10.5 / 14 → each saga now ramps up, and Stage 191 is kept as a deliberate wall before the finale. Details in `docs/BALANCE_REPORT.md`.
-2. **Generic gacha screen:** the gacha page read as a plain cream box → we built an animated showcase and a full-screen reveal for new Axies → *to be checked with testers.*
-3. **Missing hit flash:** hits didn't visibly flash, because a white tint does nothing to a sprite → we switched to a red flash with a squash → *to be checked with testers.*
+1. **Gem flood:** the economy simulation showed about 3,350 pulls over the campaign and almost the whole collection within a week → we scaled first-clear Gems ×0.12 and raised the daily missions → about 20 pulls a day for a regular player, Ubers rare, dailies meaningful (docs/ECONOMY.md).
+2. **Saga 4 too easy:** the balance simulator (`src/dev/BalanceSim.js`) showed Sagas 5–7 were easier than Saga 4 for a player progressing at a normal pace → we retuned saga strength to 5 / 7.5 / 10.5 / 14 → each saga now ramps up, and Stage 191 is kept as a deliberate wall before the finale. Details in `docs/BALANCE_REPORT.md`.
+3. **Generic gacha screen:** the gacha page read as a plain cream box → we built an animated showcase and a full-screen reveal for new Axies → *to be checked with testers.*
+4. **Missing hit flash:** hits didn't visibly flash, because a white tint does nothing to a sprite → we switched to a red flash with a squash → *to be checked with testers.*
 
 *More notes will be added after the Oct 24 playtest round.*
 

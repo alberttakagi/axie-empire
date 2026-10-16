@@ -129,13 +129,13 @@ export const LOGIN_CALENDAR = [
 // ---- Daily missions ----
 
 export const DAILY_MISSIONS = [
-  { id: 'win3', stat: 'battlesWon', target: 3, text: 'Win 3 battles', reward: { type: 'gems', amount: 20 } },
+  { id: 'win3', stat: 'battlesWon', target: 3, text: 'Win 3 battles', reward: { type: 'gems', amount: 30 } },
   { id: 'deploy40', stat: 'unitsDeployed', target: 40, text: 'Deploy 40 Axies', reward: { type: 'xp', amount: 3000 } },
-  { id: 'defeat60', stat: 'enemiesDefeated', target: 60, text: 'Defeat 60 Chimeras', reward: { type: 'gems', amount: 15 } },
+  { id: 'defeat60', stat: 'enemiesDefeated', target: 60, text: 'Defeat 60 Chimeras', reward: { type: 'gems', amount: 25 } },
   { id: 'cannon2', stat: 'cannonUses', target: 2, text: 'Fire the Rune Cannon twice', reward: { type: 'energy', amount: 20 } },
 ];
 // Finishing every daily mission pays a bonus on top.
-export const DAILY_ALL_BONUS = { type: 'gems', amount: 30 };
+export const DAILY_ALL_BONUS = { type: 'gems', amount: 50 };
 
 function loadDaily() {
   const day = todayKey();

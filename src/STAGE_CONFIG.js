@@ -3640,3 +3640,14 @@ export function getStageCostMultiplier(stage) {
 
 // Sagas 4-7 (Round 2): generated from Saga 1's layouts — see SAGA_EXPANSION.js.
 STAGE_CONFIG.push(...buildExpansionStages(STAGE_CONFIG.filter((stage) => stage.saga === 'saga1')));
+
+// Round 2 economy tuning (tools/economy_sim.mjs, docs/ECONOMY.md): the
+// authored first-clear Gems (35 → 740 per saga-1 stage, 167k over the
+// campaign ≈ 3,350 gacha pulls) let a 15-min/day player own 8 of 9 gacha
+// Axies by day 7 and made daily rewards ~1–4% of income. Scaled to ×0.12
+// (rounded to 5, min 5): the campaign still pays most Gems, but pulls are
+// earned, Ubers stay rare, and dailies matter.
+export const FIRST_CLEAR_GEM_SCALE = 0.12;
+for (const stage of STAGE_CONFIG) {
+  if (stage.gemsFirstClear) stage.gemsFirstClear = Math.max(5, Math.round((stage.gemsFirstClear * FIRST_CLEAR_GEM_SCALE) / 5) * 5);
+}
