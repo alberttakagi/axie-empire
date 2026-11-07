@@ -504,7 +504,7 @@ export default class HomeScene extends Phaser.Scene {
     objects.push(overlay);
 
     const panelWidth = 300;
-    const panelHeight = 300;
+    const panelHeight = 322; // room for the Replay story row under Account & Save
     const panel = drawBcPanel(this, width / 2, height / 2, panelWidth, panelHeight);
     objects.push(panel);
 
@@ -548,6 +548,14 @@ export default class HomeScene extends Phaser.Scene {
         closePopup();
         this.showAccountPopup();
       }, { fontSize: 14 }),
+    );
+
+    // The lore crawl only auto-plays on a first-ever launch (see
+    // OpeningScene.create) — this is how a returning player rewatches it.
+    objects.push(
+      createBcButton(this, width / 2, height / 2 + 131, 268, 26, 'Replay story', () => {
+        this.scene.start('OpeningScene', { replay: true });
+      }, { fontSize: 12 }),
     );
 
     const closePopup = () => objects.forEach((obj) => obj.destroy());

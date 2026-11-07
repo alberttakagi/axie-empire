@@ -60,7 +60,23 @@ export default class OpeningScene extends Phaser.Scene {
     preloadBackgrounds(this);
   }
 
-  create() {
+  create(data) {
+    // Returning players skip the crawl entirely. A phone that gets its tab
+    // killed and restored (mobile browsers do this under memory pressure)
+    // boots straight back into this scene, and replaying the whole lore
+    // each time reads as "the game sent me back to the beginning" —
+    // Title is one tap from Home with progress intact. The story stays
+    // available on demand (Home → Menu → Replay story passes `replay`).
+    let seenBefore = false;
+    try {
+      seenBefore = !!localStorage.getItem('axieEmpireOpeningSeen');
+      localStorage.setItem('axieEmpireOpeningSeen', '1');
+    } catch { /* storage unavailable */ }
+    if (seenBefore && !data?.replay) {
+      this.scene.start('TitleScene');
+      return;
+    }
+
     // Every scene's camera is zoomed by RENDER_SCALE so the game's
     // original 800x450-authored layout (LOGICAL_SIZE, see RenderConfig.js)
     // renders onto the real, bigger HD canvas at full pixel density.
@@ -117,13 +133,8 @@ export default class OpeningScene extends Phaser.Scene {
       .setAlpha(0)
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => this.finishOpening());
-    // Repeat visits: Skip is there immediately and the crawl runs faster
+    // Replays: Skip is there immediately and the crawl runs faster
     // (first-time players still get the full read).
-    let seenBefore = false;
-    try {
-      seenBefore = !!localStorage.getItem('axieEmpireOpeningSeen');
-      localStorage.setItem('axieEmpireOpeningSeen', '1');
-    } catch { /* storage unavailable */ }
     this.speedMultiplier = seenBefore ? 1.8 : 1;
     this.tweens.add({ targets: this.skipText, alpha: 1, duration: 300, delay: seenBefore ? 0 : SKIP_BUTTON_FADE_IN_MS });
   }
